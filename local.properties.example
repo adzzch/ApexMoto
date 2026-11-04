@@ -1,0 +1,2 @@
+# Android Studio crea local.properties con sdk.dir. Agrega tu clave gratuita de openrouteservice.org al final:
+ORS_API_KEY=PEGA_AQUI_TU_CLAVE_DE_OPENROUTESERVICE

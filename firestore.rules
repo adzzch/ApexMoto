@@ -1,0 +1,68 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{db}/documents {
+    function signedIn() { return request.auth != null; }
+    function uid() { return request.auth.uid; }
+    function onlyChanges(keys) { return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys); }
+
+    match /users/{id} {
+      allow read: if signedIn();
+      allow create, update: if uid() == id;
+    }
+    // NOTA: ownerId == '' permite cargar y reiniciar (borrar) los datos demo. En producción quita esa excepción.
+    match /venues/{id} {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.ownerId in [uid(), ''];
+      allow update: if signedIn() && (resource.data.ownerId == uid() || onlyChanges(['visits']));
+      allow delete: if signedIn() && resource.data.ownerId in [uid(), ''];
+    }
+    match /bikes/{id} {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.ownerId in [uid(), ''];
+      allow update: if signedIn() && (resource.data.ownerId == uid() || onlyChanges(['booked']));
+      allow delete: if signedIn() && resource.data.ownerId in [uid(), ''];
+    }
+    match /drivers/{id} {
+      allow read: if signedIn();
+      allow create: if signedIn() && (id == uid() || request.resource.data.ownerId == '');
+      allow update: if signedIn() && (resource.data.ownerId == uid() || onlyChanges(['rating', 'reviews']));
+      allow delete: if signedIn() && resource.data.ownerId in [uid(), ''];
+    }
+    match /rodadas/{id} {
+      allow read, create: if signedIn();
+      allow update: if signedIn() && (resource.data.creatorId == uid() || onlyChanges(['joined']));
+      allow delete: if signedIn() && resource.data.creatorId in [uid(), ''];
+    }
+    match /orders/{id} {
+      allow read: if signedIn() && (resource.data.fromId == uid() || resource.data.ownerId == uid());
+      allow create: if signedIn() && request.resource.data.fromId == uid();
+      allow update: if signedIn() && resource.data.ownerId == uid();
+    }
+    match /requests/{id} {
+      allow read: if signedIn() && (resource.data.fromId == uid() || resource.data.toId == uid());
+      allow create: if signedIn() && request.resource.data.fromId == uid();
+      allow update: if signedIn() && (resource.data.fromId == uid() || resource.data.toId == uid());
+    }
+    match /coupons/{id} {
+      allow read: if signedIn() && (resource.data.userId == uid() || resource.data.ownerId == uid());
+      allow create: if signedIn() && request.resource.data.userId == uid();
+      allow update: if signedIn() && resource.data.ownerId == uid();
+    }
+    // Los S.O.S. los ven todos los usuarios autenticados para que los talleres puedan aceptarlos.
+    match /sos/{id} {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.fromId == uid();
+      allow update: if signedIn();
+    }
+    match /chats/{id} {
+      allow read, create: if signedIn();
+    }
+    match /routes/{id} {
+      allow read, update, delete: if signedIn() && resource.data.userId == uid();
+      allow create: if signedIn() && request.resource.data.userId == uid();
+    }
+    match /meta/{id} {
+      allow read, write: if signedIn();
+    }
+  }
+}
