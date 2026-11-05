@@ -2,6 +2,8 @@
 
 package co.apexmoto.app.ui
 
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -196,7 +198,7 @@ enum class BK { Primary, Ghost, Danger, Sos }
 @Composable
 fun Btn(
     text: String, modifier: Modifier = Modifier, icon: ImageVector? = null, kind: BK = BK.Primary, enabled: Boolean = true,
-    small: Boolean = false, onClick: () -> Unit,
+    small: Boolean = false, loading: Boolean = false, onClick: () -> Unit,
 ) {
     val shape = RoundedCornerShape(12.dp)
     val src = remember { MutableInteractionSource() }
@@ -208,13 +210,14 @@ fun Btn(
     }
     val solid = kind == BK.Primary || kind == BK.Sos
     Button(
-        onClick, modifier.heightIn(min = if (small) 40.dp else 48.dp).glow(bg, shape, on = solid && enabled, elevation = 8.dp).pressScale(src),
+        { if (!loading) onClick() }, modifier.heightIn(min = if (small) 40.dp else 48.dp).glow(bg, shape, on = solid && enabled, elevation = 8.dp).pressScale(src),
         enabled = enabled, shape = shape, interactionSource = src,
         colors = ButtonDefaults.buttonColors(containerColor = bg, contentColor = fg, disabledContainerColor = bg.copy(alpha = 0.4f), disabledContentColor = fg.copy(alpha = 0.7f)),
         contentPadding = PaddingValues(horizontal = if (small) 14.dp else 18.dp, vertical = 0.dp),
         elevation = ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp),
     ) {
-        if (icon != null) { Icon(icon, null, Modifier.size(if (small) 17.dp else 19.dp)); Spacer(Modifier.width(8.dp)) }
+        if (loading) { CircularProgressIndicator(Modifier.size(18.dp), color = fg, strokeWidth = 2.dp); Spacer(Modifier.width(10.dp)) }
+        else if (icon != null) { Icon(icon, null, Modifier.size(if (small) 17.dp else 19.dp)); Spacer(Modifier.width(8.dp)) }
         Text(text, fontFamily = Chivo, fontWeight = FontWeight.ExtraBold, fontSize = if (small) 13.sp else 15.sp, letterSpacing = 0.02.em, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
@@ -316,17 +319,23 @@ private val FieldShape = RoundedCornerShape(10.dp)
 
 @Composable
 fun Field(label: String, value: String, onChange: (String) -> Unit, modifier: Modifier = Modifier, kb: KeyboardType = KeyboardType.Text,
-          lines: Int = 1, hint: String = "", password: Boolean = false) {
+          lines: Int = 1, hint: String = "", password: Boolean = false, leading: ImageVector? = null, trailing: (@Composable () -> Unit)? = null,
+          prefix: String? = null, ime: ImeAction = ImeAction.Default, onIme: (() -> Unit)? = null) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(5.dp)) {
         if (label.isNotBlank()) Lbl(label)
         OutlinedTextField(
             value = value, onValueChange = onChange, modifier = Modifier.fillMaxWidth(),
             placeholder = { if (hint.isNotBlank()) Text(hint, color = Muted) }, singleLine = lines == 1, minLines = lines,
-            keyboardOptions = KeyboardOptions(keyboardType = kb), shape = FieldShape, textStyle = MaterialTheme.typography.bodyLarge,
+            leadingIcon = leading?.let { { Icon(it, null, tint = Muted) } }, trailingIcon = trailing,
+            prefix = prefix?.let { { Text(it, color = Ink, fontFamily = JetBrainsMono, fontWeight = FontWeight.Bold) } },
+            keyboardOptions = KeyboardOptions(keyboardType = kb, imeAction = ime),
+            keyboardActions = KeyboardActions(onAny = { onIme?.invoke() ?: defaultKeyboardAction(ime) }),
+            shape = FieldShape, textStyle = MaterialTheme.typography.bodyLarge,
             visualTransformation = if (password) PasswordVisualTransformation() else VisualTransformation.None,
             colors = OutlinedTextFieldDefaults.colors(
                 focusedContainerColor = Surf0, unfocusedContainerColor = Surf0, disabledContainerColor = Surf0,
                 focusedBorderColor = CyanDeep, unfocusedBorderColor = Color.Transparent, cursorColor = Orange,
+                focusedLeadingIconColor = CyanDeep,
             ),
         )
     }

@@ -29,6 +29,7 @@ class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth) {
     }
 
     suspend fun signInEmail(email: String, pw: String) { auth.signInWithEmailAndPassword(email.trim(), pw).await() }
+    suspend fun resetPassword(email: String) { auth.setLanguageCode("es"); auth.sendPasswordResetEmail(email.trim()).await() }
     suspend fun signInWithCredential(c: AuthCredential) { auth.signInWithCredential(c).await() }
 
     /** Datos de la cuenta recién autenticada que aún no tiene perfil (Google o teléfono). */

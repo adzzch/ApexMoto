@@ -2,6 +2,27 @@
 
 package co.apexmoto.app.ui
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.input.ImeAction
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
@@ -32,6 +53,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -209,98 +231,212 @@ private tailrec fun Context.findActivity(): Activity? = when (this) {
     else -> null
 }
 
+/** Pasos del ingreso. La tarjeta cambia de contenido deslizándose y crece o se encoge suave, sin saltos. */
+private enum class AuthStep { Login, Register, Phone, Code }
+
 @Composable
 fun AuthScreen(vm: AppViewModel) {
     val ctx = LocalContext.current
-    var mode by rememberSaveable { mutableStateOf("login") } // login | register | phone
+    val focus = LocalFocusManager.current
+    var step by rememberSaveable { mutableStateOf(AuthStep.Login) }
     var name by rememberSaveable { mutableStateOf("") }
     var email by rememberSaveable { mutableStateOf("") }
     var pw by rememberSaveable { mutableStateOf("") }
+    var showPw by rememberSaveable { mutableStateOf(false) }
     var role by rememberSaveable { mutableStateOf(Role.RIDER) }
     var biz by rememberSaveable { mutableStateOf("") }
     var cor by rememberSaveable { mutableStateOf("calima") }
     var phone by rememberSaveable { mutableStateOf("") }
     var code by rememberSaveable { mutableStateOf("") }
     var verificationId by rememberSaveable { mutableStateOf<String?>(null) }
-    var sending by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
+    val emailOk = email.trim().matches(Regex("^\\S+@\\S+\\.\\S+$"))
+    val digits = phone.filter { it.isDigit() }
+
     // Entrada de la marca: el logo cae en su lugar con un pequeño rebote.
     val reduce = reducedMotion()
     val enter = remember { Animatable(if (reduce) 1f else 0f) }
     LaunchedEffect(Unit) { enter.animateTo(1f, spring(dampingRatio = 0.55f, stiffness = Spring.StiffnessLow)) }
+
+    fun sendSms() {
+        val activity = ctx.findActivity()
+        if (activity == null) { vm.toast("No se pudo iniciar la verificación. Cierra y abre la app."); return }
+        busy = true
+        val full = if (phone.trim().startsWith("+")) "+" + digits else "+57$digits"
+        vm.container.phone.send(activity, full,
+            onCode = { verificationId = it; busy = false; code = ""; step = AuthStep.Code },
+            onAuto = { busy = false; vm.signInCredential(it) },
+            onError = { busy = false; vm.toast(it) })
+    }
+    fun login() { focus.clearFocus(); busy = true; vm.login(email, pw).invokeOnCompletion { busy = false } }
+    fun register() { focus.clearFocus(); busy = true; vm.register(name, email, pw, role, biz, cor).invokeOnCompletion { busy = false } }
+    fun verify(c: String) { val vid = verificationId ?: return; focus.clearFocus(); busy = true; vm.verifyCode(vid, c).invokeOnCompletion { busy = false } }
+
+    BackHandler(step != AuthStep.Login) { step = if (step == AuthStep.Code) AuthStep.Phone else AuthStep.Login }
+
     Box(Modifier.fillMaxSize().background(Brush.radialGradient(listOf(Color(0xFFFFE6D6), Bg), center = Offset(540f, 0f), radius = 1400f))) {
         Column(
-            Modifier.fillMaxSize().systemBarsPadding().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            Modifier.fillMaxSize().systemBarsPadding().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp),
         ) {
+            // Marca
             Column(
-                Modifier.fillMaxWidth().padding(top = 16.dp).graphicsLayer {
+                Modifier.fillMaxWidth().padding(top = 20.dp).graphicsLayer {
                     val e = enter.value
                     alpha = 0.3f + 0.7f * e.coerceIn(0f, 1f); translationY = (1f - e) * -40f; scaleX = 0.85f + 0.15f * e; scaleY = scaleX
                 },
-                horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                BrandMark(68.dp)
-                Spacer(Modifier.height(4.dp))
-                Text("ApexMoto", fontFamily = Chivo, fontWeight = FontWeight.Black, fontSize = 32.sp)
-                Text("La red de rutas, comercios y pilotos para moteros.", color = Muted, style = MaterialTheme.typography.bodyLarge, textAlign = TextAlign.Center)
+                BrandMark(60.dp)
+                Spacer(Modifier.height(6.dp))
+                Text("ApexMoto", fontFamily = Chivo, fontWeight = FontWeight.Black, fontSize = 30.sp)
+                Text("La red de rutas, comercios y pilotos para moteros.", color = Muted, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
             }
-            Segmented(listOf(Triple("login", "Ingresar", null), Triple("register", "Crear cuenta", null), Triple("phone", "Celular", null)), mode) { mode = it }
-            AnimatedContent(mode, label = "auth", transitionSpec = { fadeIn(tween(240)) togetherWith fadeOut(tween(120)) }) { m ->
-                Card2 {
-                    if (m == "phone") {
-                        val vid = verificationId
-                        Field("Celular", phone, { phone = it.filter { c -> c.isDigit() || c == '+' } }, kb = KeyboardType.Phone, hint = "300 123 4567")
-                        Lbl("Si no escribes el indicativo, usamos +57 (Colombia).")
-                        if (vid == null) {
-                            Btn("Enviar código por SMS", Modifier.fillMaxWidth(), Icons.Filled.Sms, enabled = phone.filter { it.isDigit() }.length >= 10 && !sending) {
-                                val activity = ctx.findActivity()
-                                if (activity == null) vm.toast("No se pudo iniciar la verificación. Cierra y abre la app.") else {
-                                    sending = true
-                                    val full = if (phone.startsWith("+")) phone else "+57$phone"
-                                    vm.container.phone.send(activity, full,
-                                        onCode = { verificationId = it; sending = false; vm.toast("Te enviamos un código por SMS") },
-                                        onAuto = { sending = false; vm.signInCredential(it) },
-                                        onError = { sending = false; vm.toast(it) })
+
+            // Tarjeta que cambia de paso
+            Card2(Modifier.animateContentSize(spring(dampingRatio = 0.85f, stiffness = Spring.StiffnessMediumLow)), padding = 20.dp) {
+                AnimatedContent(step, label = "auth", transitionSpec = {
+                    val forward = targetState.ordinal > initialState.ordinal
+                    val dir = if (forward) 1 else -1
+                    (slideInHorizontally(tween(320, easing = EaseOutExpo)) { it / 4 * dir } + fadeIn(tween(220))) togetherWith
+                        (slideOutHorizontally(tween(220)) { -it / 4 * dir } + fadeOut(tween(140))) using SizeTransform(clip = false)
+                }) { s ->
+                    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                        when (s) {
+                            AuthStep.Login -> {
+                                StepTitle("Ingresar", "Qué bueno verte de nuevo en la ruta.")
+                                Field("Correo", email, { email = it.trim() }, kb = KeyboardType.Email, hint = "tucorreo@email.com",
+                                    leading = Icons.Filled.MailOutline, ime = ImeAction.Next, onIme = { focus.moveFocus(FocusDirection.Down) })
+                                Field("Contraseña", pw, { pw = it }, hint = "Tu contraseña", password = !showPw, kb = KeyboardType.Password,
+                                    leading = Icons.Outlined.Lock, ime = ImeAction.Done, onIme = { if (emailOk && pw.length >= 6) login() },
+                                    trailing = { PwToggle(showPw) { showPw = !showPw } })
+                                Text("¿Olvidaste tu contraseña?", Modifier.align(Alignment.End).clip(RoundedCornerShape(8.dp))
+                                    .clickable { if (emailOk) vm.resetPassword(email) else vm.toast("Escribe tu correo arriba y te enviamos un enlace para cambiarla.") }
+                                    .padding(horizontal = 6.dp, vertical = 4.dp), color = CyanDeep, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                                Btn("Entrar", Modifier.fillMaxWidth(), enabled = emailOk && pw.length >= 6, loading = busy) { login() }
+                            }
+                            AuthStep.Register -> {
+                                StepTitle("Crear cuenta", "Únete a la red motera en un minuto.", onBack = { step = AuthStep.Login })
+                                Field("Nombre", name, { name = it }, hint = "Cómo te llaman en la ruta", leading = Icons.Filled.PersonOutline,
+                                    ime = ImeAction.Next, onIme = { focus.moveFocus(FocusDirection.Down) })
+                                Field("Correo", email, { email = it.trim() }, kb = KeyboardType.Email, hint = "tucorreo@email.com",
+                                    leading = Icons.Filled.MailOutline, ime = ImeAction.Next, onIme = { focus.moveFocus(FocusDirection.Down) })
+                                Field("Contraseña", pw, { pw = it }, hint = "Mínimo 6 caracteres", password = !showPw, kb = KeyboardType.Password,
+                                    leading = Icons.Outlined.Lock, ime = ImeAction.Done, onIme = { focus.clearFocus() },
+                                    trailing = { PwToggle(showPw) { showPw = !showPw } })
+                                Lbl("¿Cómo vas a usar ApexMoto?")
+                                RoleGrid(role) { role = it }
+                                AnimatedVisibility(role == Role.SHOP) {
+                                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                        Field("Nombre del negocio", biz, { biz = it }, leading = Icons.Filled.Storefront)
+                                        Drop("Corredor", C.CORRIDORS.map { it.key to it.name }, cor, { cor = it })
+                                    }
                                 }
+                                Btn("Crear cuenta", Modifier.fillMaxWidth(), loading = busy,
+                                    enabled = name.isNotBlank() && emailOk && pw.length >= 6 && (role != Role.SHOP || biz.isNotBlank())) { register() }
                             }
-                        } else {
-                            Field("Código de verificación", code, { code = it.filter(Char::isDigit) }, kb = KeyboardType.Number, hint = "6 dígitos")
-                            Btn("Verificar y entrar", Modifier.fillMaxWidth(), Icons.Filled.Check, enabled = code.length >= 6 && !busy) {
-                                busy = true
-                                vm.verifyCode(vid, code).invokeOnCompletion { busy = false }
+                            AuthStep.Phone -> {
+                                StepTitle("Entrar con tu celular", "Te enviamos un código por SMS. Sin contraseñas.", onBack = { step = AuthStep.Login })
+                                Field("Número de celular", phone, { phone = it.filter { c -> c.isDigit() || c == '+' || c == ' ' }.take(16) }, kb = KeyboardType.Phone,
+                                    hint = "300 123 4567", leading = Icons.Filled.PhoneIphone, prefix = if (phone.trim().startsWith("+")) null else "+57 ",
+                                    ime = ImeAction.Done, onIme = { if (digits.length >= 10) sendSms() })
+                                Btn("Enviar código", Modifier.fillMaxWidth(), Icons.Filled.Sms, enabled = digits.length >= 10, loading = busy) { sendSms() }
+                                Lbl("Si tu número no es de Colombia, escríbelo con su indicativo, por ejemplo +1.")
                             }
-                            TextButton({ verificationId = null; code = "" }) { Text("Cambiar de número", color = CyanDeep) }
-                        }
-                    } else {
-                        if (m == "register") {
-                            Field("Nombre", name, { name = it }, hint = "Cómo te llaman en la ruta")
-                            Lbl("¿Cómo vas a usar ApexMoto?")
-                            RoleGrid(role) { role = it }
-                            AnimatedVisibility(role == Role.SHOP) {
-                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Field("Nombre del negocio", biz, { biz = it })
-                                    Drop("Corredor", C.CORRIDORS.map { it.key to it.name }, cor, { cor = it })
-                                }
+                            AuthStep.Code -> {
+                                val shown = (if (phone.trim().startsWith("+")) "+" else "+57 ") + digits
+                                StepTitle("Revisa tus mensajes", "Escribe el código de 6 dígitos que enviamos al $shown.", onBack = { step = AuthStep.Phone })
+                                OtpField(code) { c -> code = c; if (c.length == 6 && !busy) verify(c) }
+                                Btn("Verificar y entrar", Modifier.fillMaxWidth(), Icons.Filled.Check, enabled = code.length == 6, loading = busy) { verify(code) }
+                                Text("¿No te llegó? Reenviar código", Modifier.align(Alignment.CenterHorizontally).clip(RoundedCornerShape(8.dp))
+                                    .clickable(enabled = !busy) { sendSms() }.padding(horizontal = 8.dp, vertical = 4.dp),
+                                    color = CyanDeep, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                             }
-                        }
-                        Field("Correo", email, { email = it }, kb = KeyboardType.Email, hint = "tucorreo@email.com")
-                        Field("Contraseña", pw, { pw = it }, password = true, hint = "Mínimo 6 caracteres")
-                        Spacer(Modifier.height(2.dp))
-                        Btn(if (m == "register") "Crear cuenta" else "Entrar", Modifier.fillMaxWidth(), enabled = !busy) {
-                            busy = true
-                            val j = if (m == "register") vm.register(name, email, pw, role, biz, cor) else vm.login(email, pw)
-                            j.invokeOnCompletion { busy = false }
                         }
                     }
                 }
             }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                HorizontalDivider(Modifier.weight(1f), color = Surf4); Lbl("  o continúa con  "); HorizontalDivider(Modifier.weight(1f), color = Surf4)
+
+            // Otras formas de entrar (solo en Ingresar, para no distraer en los demás pasos)
+            AnimatedVisibility(step == AuthStep.Login, enter = fadeIn(tween(260)) + expandVertically(tween(300, easing = EaseOutExpo)), exit = fadeOut(tween(120)) + shrinkVertically(tween(220))) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        HorizontalDivider(Modifier.weight(1f), color = Surf4); Lbl("  o entra con  "); HorizontalDivider(Modifier.weight(1f), color = Surf4)
+                    }
+                    GoogleButton { vm.googleSignIn(ctx) }
+                    AltButton("Continuar con celular", Icons.Filled.PhoneIphone) { step = AuthStep.Phone }
+                }
             }
-            GoogleButton { vm.googleSignIn(ctx) }
+
+            Spacer(Modifier.height(4.dp))
+            // Enlace al pie: crear cuenta o volver a ingresar
+            val (q, a) = if (step == AuthStep.Register) "¿Ya tienes cuenta?" to "Ingresar" else "¿No tienes cuenta?" to "Crear una"
+            Row(Modifier.fillMaxWidth().padding(bottom = 4.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                Text(q, color = Muted, fontSize = 14.sp)
+                Text(a, Modifier.clip(RoundedCornerShape(8.dp)).clickable { step = if (step == AuthStep.Register) AuthStep.Login else AuthStep.Register }
+                    .padding(horizontal = 6.dp, vertical = 8.dp), color = OrangeDark, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+            }
         }
     }
+}
+
+@Composable
+private fun StepTitle(title: String, sub: String, onBack: (() -> Unit)? = null) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        if (onBack != null) {
+            Box(Modifier.size(40.dp).clip(CircleShape).background(Surf3).clickable(onClickLabel = "Volver", onClick = onBack), contentAlignment = Alignment.Center) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, "Volver", Modifier.size(20.dp), tint = Ink)
+            }
+            Spacer(Modifier.width(12.dp))
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(title, fontFamily = Chivo, fontWeight = FontWeight.ExtraBold, fontSize = 22.sp)
+            Text(sub, color = Muted, style = MaterialTheme.typography.bodySmall)
+        }
+    }
+}
+
+@Composable
+private fun PwToggle(shown: Boolean, onClick: () -> Unit) {
+    IconButton(onClick) { Icon(if (shown) Icons.Filled.VisibilityOff else Icons.Filled.Visibility, if (shown) "Ocultar contraseña" else "Mostrar contraseña", tint = Muted) }
+}
+
+/** Botón alterno con el mismo formato del de Google, para que ambas opciones pesen igual. */
+@Composable
+private fun AltButton(text: String, icon: ImageVector, onClick: () -> Unit) {
+    val src = remember { MutableInteractionSource() }
+    OutlinedButton(
+        onClick, Modifier.fillMaxWidth().height(48.dp).pressScale(src), interactionSource = src,
+        shape = CircleShape, border = BorderStroke(1.dp, Color(0xFF747775)),
+        colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.White, contentColor = Color(0xFF1F1F1F)),
+    ) {
+        Icon(icon, null, Modifier.size(20.dp), tint = CyanDeep); Spacer(Modifier.width(12.dp))
+        Text(text, fontFamily = FontFamily.Default, fontWeight = FontWeight.Medium, fontSize = 14.sp)
+    }
+}
+
+/** Seis casillas para el código SMS. El teclado se abre solo y el código del SMS se puede pegar o autocompletar. */
+@Composable
+private fun OtpField(code: String, onChange: (String) -> Unit) {
+    val fr = remember { FocusRequester() }
+    LaunchedEffect(Unit) { runCatching { fr.requestFocus() } }
+    BasicTextField(
+        code, { onChange(it.filter(Char::isDigit).take(6)) }, Modifier.fillMaxWidth().focusRequester(fr).semantics { contentDescription = "Código de verificación" },
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword, imeAction = ImeAction.Done),
+        decorationBox = {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                repeat(6) { i ->
+                    val ch = code.getOrNull(i)
+                    val active = i == code.length
+                    val border by animateColorAsState(if (active) CyanDeep else if (ch != null) Surf4 else Color.Transparent, tween(160), label = "otp")
+                    val s by animateFloatAsState(if (ch != null) 1f else 0.6f, spring(dampingRatio = 0.5f), label = "otpS")
+                    Box(Modifier.weight(1f).height(56.dp).clip(RoundedCornerShape(12.dp)).background(Surf0).border(2.dp, border, RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
+                        if (ch != null) Text("$ch", Modifier.graphicsLayer { scaleX = s; scaleY = s }, fontFamily = JetBrainsMono, fontWeight = FontWeight.ExtraBold, fontSize = 22.sp, color = Ink)
+                    }
+                }
+            }
+        },
+    )
 }
 
 /** Las cuatro formas de usar ApexMoto, en tarjetas de 2 columnas. */

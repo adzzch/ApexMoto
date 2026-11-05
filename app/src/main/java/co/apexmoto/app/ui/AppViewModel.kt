@@ -61,6 +61,8 @@ class AppViewModel(val container: AppContainer) : ViewModel() {
     fun act(ok: String? = null, block: suspend () -> Unit): Job = viewModelScope.launch {
         try { block(); ok?.let { toast(it) } } catch (e: SignInCancelled) {
             // La persona cerró el selector de cuentas: no se muestra nada.
+        } catch (e: com.google.firebase.auth.FirebaseAuthException) { toast(authError(e.errorCode))
+        } catch (e: com.google.firebase.FirebaseNetworkException) { toast("Sin conexión. Revisa tu internet e inténtalo de nuevo.")
         } catch (e: Exception) { toast(e.message ?: "Algo salió mal. Inténtalo de nuevo.") }
     }
 
@@ -87,6 +89,20 @@ class AppViewModel(val container: AppContainer) : ViewModel() {
     }
 
     fun login(email: String, pw: String) = act { repo.signInEmail(email, pw); afterAuth() }
+    fun resetPassword(email: String) = act("Te enviamos un enlace a $email para cambiar tu contraseña") { repo.resetPassword(email) }
+
+    private fun authError(code: String) = when (code) {
+        "ERROR_INVALID_EMAIL" -> "Ese correo no es válido."
+        "ERROR_WRONG_PASSWORD", "ERROR_INVALID_CREDENTIAL" -> "Correo o contraseña incorrectos."
+        "ERROR_USER_NOT_FOUND" -> "No hay una cuenta con ese correo. Crea una abajo."
+        "ERROR_EMAIL_ALREADY_IN_USE" -> "Ese correo ya tiene cuenta. Ingresa con él."
+        "ERROR_WEAK_PASSWORD" -> "La contraseña debe tener al menos 6 caracteres."
+        "ERROR_TOO_MANY_REQUESTS" -> "Demasiados intentos. Espera un momento y vuelve a intentarlo."
+        "ERROR_INVALID_VERIFICATION_CODE" -> "El código no es correcto. Revísalo e inténtalo de nuevo."
+        "ERROR_SESSION_EXPIRED" -> "El código venció. Pide uno nuevo."
+        "ERROR_USER_DISABLED" -> "Esta cuenta está desactivada."
+        else -> "No pudimos completar el ingreso. Inténtalo de nuevo."
+    }
     fun register(name: String, email: String, pw: String, role: String, biz: String, corridor: String) =
         act { user.value = repo.register(name, email, pw, role, biz, corridor); pending = null }
     fun signInCredential(c: AuthCredential) = act { repo.signInWithCredential(c); afterAuth() }
