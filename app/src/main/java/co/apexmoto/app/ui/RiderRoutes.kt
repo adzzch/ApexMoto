@@ -2,6 +2,8 @@
 
 package co.apexmoto.app.ui
 
+import androidx.compose.animation.SizeTransform
+import co.apexmoto.app.core.norm
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.*
@@ -68,6 +70,10 @@ private fun ColumnScope.RouteAI(vm: AppViewModel, nav: NavController, u: AppUser
     var pace by rememberSaveable { mutableStateOf("m") }
     var big by rememberSaveable { mutableStateOf(true) }
     var open by rememberSaveable { mutableStateOf(false) }
+    var mode by rememberSaveable { mutableStateOf("ia") }           // ia = Sorpréndeme · dest = yo elijo destino
+    var dests by rememberSaveable { mutableStateOf(listOf<String>()) }
+    var extras by rememberSaveable { mutableIntStateOf(1) }
+    var picking by remember { mutableStateOf(false) }
     var budget by remember { mutableFloatStateOf(60000f) }
     var cuisines by remember { mutableStateOf(setOf<String>()) }
     var cats by remember { mutableStateOf(setOf<String>()) }
@@ -77,47 +83,87 @@ private fun ColumnScope.RouteAI(vm: AppViewModel, nav: NavController, u: AppUser
 
     Card2 {
         H("¿Qué ruta quieres hacer?", Icons.Filled.AutoAwesome)
-        Field("", text, { text = it }, lines = 3, hint = "Ej: trucha con vista al lago, parqueo vigilado y económico")
-        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { open = !open }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Filled.Tune, null, Modifier.size(18.dp), tint = Muted); Spacer(Modifier.width(8.dp))
-            Lbl("Personalizar", modifier = Modifier.weight(1f))
-            Icon(Icons.Filled.ExpandMore, if (open) "Ocultar opciones" else "Mostrar opciones", Modifier.rotate(chev), tint = Ink)
-        }
-        AnimatedVisibility(open, enter = expandVertically(tween(320, easing = EaseOutExpo)) + fadeIn(tween(240)), exit = shrinkVertically(tween(220)) + fadeOut(tween(120))) {
+        Segmented(listOf(Triple("ia", "Sorpréndeme", Icons.Filled.AutoAwesome), Triple("dest", "Yo elijo destino", Icons.Filled.Place)), mode) { mode = it; result = null; tried = false }
+        AnimatedContent(mode, label = "modo", transitionSpec = { fadeIn(tween(220)) togetherWith fadeOut(tween(120)) using SizeTransform(clip = false) }) { md ->
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Drop("Zona", listOf("any" to "Sorpréndeme") + C.CORRIDORS.map { it.key to it.name }, cor, { cor = it }, Modifier.weight(1f))
-                    Field("Hora de salida", start, { start = it }, Modifier.weight(1f), hint = "07:00")
+                if (md == "ia") {
+                    Field("", text, { text = it }, lines = 3, hint = "Ej: trucha con vista al lago, parqueo vigilado y económico")
+                    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { open = !open }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Filled.Tune, null, Modifier.size(18.dp), tint = Muted); Spacer(Modifier.width(8.dp))
+                        Lbl("Personalizar", modifier = Modifier.weight(1f))
+                        Icon(Icons.Filled.ExpandMore, if (open) "Ocultar opciones" else "Mostrar opciones", Modifier.rotate(chev), tint = Ink)
+                    }
+                    AnimatedVisibility(open, enter = expandVertically(tween(320, easing = EaseOutExpo)) + fadeIn(tween(240)), exit = shrinkVertically(tween(220)) + fadeOut(tween(120))) {
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Drop("Zona", listOf("any" to "Donde sea") + C.CORRIDORS.map { it.key to it.name }, cor, { cor = it }, Modifier.weight(1f))
+                                Field("Hora de salida", start, { start = it }, Modifier.weight(1f), hint = "07:00")
+                            }
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Drop("Duración", listOf("half" to "Medio día · 3", "full" to "Día completo · 5"), if (full) "full" else "half", { full = it == "full" }, Modifier.weight(1f))
+                                Drop("Ritmo", listOf("t" to "Tranquilo", "m" to "Medio", "r" to "Rápido"), pace, { pace = it }, Modifier.weight(1f))
+                            }
+                            SwitchRow("Moto de alto cilindraje", "Afecta el cálculo de gasolina", big) { big = it }
+                            Lbl("Tipo de parada")
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                C.CATS.forEach { (k, v) -> Chip(v.first, k in cats, accent = Cyan) { cats = if (k in cats) cats - k else cats + k } }
+                            }
+                            Lbl("Tipo de comida")
+                            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                C.CUISINES.forEach { c -> Chip(c, c in cuisines, accent = Cyan) { cuisines = if (c in cuisines) cuisines - c else cuisines + c } }
+                            }
+                            Row(verticalAlignment = Alignment.CenterVertically) { Lbl("Comida por persona", modifier = Modifier.weight(1f)); Num(cop(budget.roundToInt()), OrangeDark, 15) }
+                            ApexSlider(budget, { budget = it }, 20000f..120000f, steps = 9)
+                        }
+                    }
+                    Btn("Generar ruta", Modifier.fillMaxWidth(), Icons.Filled.AutoAwesome) {
+                        tried = true
+                        result = RoutePlanner.generate(venues, RouteFilters(text, cor, start, full, pace, big, cuisines, cats, budget.roundToLong()))
+                    }
+                } else {
+                    Lbl("¿A dónde quieres ir?")
+                    val picked = dests.mapNotNull { id -> venues.firstOrNull { it.id == id } }
+                    if (picked.isEmpty()) Text("Elige uno o varios lugares: un mirador, un sitio turístico, un restaurante… La IA arma el recorrido.",
+                        color = Muted, style = MaterialTheme.typography.bodySmall)
+                    picked.forEachIndexed { i, v ->
+                        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Surf0).padding(start = 12.dp, top = 6.dp, bottom = 6.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Box(Modifier.size(32.dp).clip(CircleShape).background(venueBadge(v)), contentAlignment = Alignment.Center) { Num("${i + 1}", Color.White, 13) }
+                            Spacer(Modifier.width(10.dp))
+                            Column(Modifier.weight(1f)) { Text(v.name, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis); Lbl("${C.corridor(v.corridor).name} · ${v.kind}") }
+                            IconButton({ dests = dests - v.id }) { Icon(Icons.Filled.Close, "Quitar ${v.name}", tint = Muted) }
+                        }
+                    }
+                    Btn(if (picked.isEmpty()) "Elegir destino" else "Agregar otro destino", Modifier.fillMaxWidth(), Icons.Filled.AddLocationAlt, kind = BK.Ghost) { picking = true }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Field("Hora de salida", start, { start = it }, Modifier.weight(1f), hint = "07:00")
+                        Drop("Ritmo", listOf("t" to "Tranquilo", "m" to "Medio", "r" to "Rápido"), pace, { pace = it }, Modifier.weight(1f))
+                    }
+                    Lbl("Paradas para comer en el camino")
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf(0 to "Ninguna", 1 to "Una", 2 to "Dos").forEach { (n, t) -> Chip(t, extras == n, accent = Cyan) { extras = n } }
+                    }
+                    AnimatedVisibility(extras > 0) {
+                        Field("¿Qué se te antoja? (opcional)", text, { text = it }, hint = "Ej: algo típico y barato")
+                    }
+                    SwitchRow("Moto de alto cilindraje", "Afecta el cálculo de gasolina", big) { big = it }
+                    Btn("Armar mi ruta", Modifier.fillMaxWidth(), Icons.Filled.Route, enabled = picked.isNotEmpty()) {
+                        tried = true
+                        result = RoutePlanner.generateTo(venues, picked, RouteFilters(text, "any", start, false, pace, big, cuisines, emptySet(), budget.roundToLong()), extras)
+                    }
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Drop("Duración", listOf("half" to "Medio día · 3", "full" to "Día completo · 5"), if (full) "full" else "half", { full = it == "full" }, Modifier.weight(1f))
-                    Drop("Ritmo", listOf("t" to "Tranquilo", "m" to "Medio", "r" to "Rápido"), pace, { pace = it }, Modifier.weight(1f))
-                }
-                SwitchRow("Moto de alto cilindraje", "Afecta el cálculo de gasolina", big) { big = it }
-                Lbl("Tipo de parada")
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    C.CATS.forEach { (k, v) -> Chip(v.first, k in cats, accent = Cyan) { cats = if (k in cats) cats - k else cats + k } }
-                }
-                Lbl("Tipo de comida")
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    C.CUISINES.forEach { c -> Chip(c, c in cuisines, accent = Cyan) { cuisines = if (c in cuisines) cuisines - c else cuisines + c } }
-                }
-                Row(verticalAlignment = Alignment.CenterVertically) { Lbl("Comida por persona", modifier = Modifier.weight(1f)); Num(cop(budget.roundToInt()), OrangeDark, 15) }
-                ApexSlider(budget, { budget = it }, 20000f..120000f, steps = 9)
             }
         }
-        Btn("Generar ruta", Modifier.fillMaxWidth(), Icons.Filled.AutoAwesome) {
-            tried = true
-            result = RoutePlanner.generate(venues, RouteFilters(text, cor, start, full, pace, big, cuisines, cats, budget.roundToLong()))
-        }
     }
+
+    if (picking) DestinationPicker(venues, dests, onDone = { dests = it; picking = false })
 
     val r = result
     if (r != null) {
         val c = C.corridor(r.corridor)
+        val title = r.title.ifBlank { "Ruta ${c.name}" }
         Card2(Modifier.reveal(0), border = OrangeSoft) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) { H("Ruta ${c.name}", Icons.Filled.Route); Lbl("Salida $start · regreso aprox. ${r.end}") }
+                Column(Modifier.weight(1f)) { H(title, Icons.Filled.Route); Lbl("Salida $start · regreso aprox. ${r.end}") }
             }
             if (r.inferred.isNotEmpty()) FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Lbl("Entendí:"); r.inferred.forEach { Pill(it, CyanSoft, CyanDeep) }
@@ -146,21 +192,21 @@ private fun ColumnScope.RouteAI(vm: AppViewModel, nav: NavController, u: AppUser
                 }
             }
             Btn("Iniciar guiado", Modifier.fillMaxWidth(), Icons.Filled.Navigation, enabled = r.stops.all { it.venue.lat != 0.0 }) {
-                startGuide(vm, nav, "Ruta ${c.name}", r.stops.map { it.venue })
+                startGuide(vm, nav, title, r.stops.map { it.venue })
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Btn("Guardar", Modifier.weight(1f), Icons.Filled.Bookmark, kind = BK.Ghost) {
                     vm.act("Ruta guardada") {
-                        vm.repo.saveRoute(SavedRoute(userId = u.id, name = "Ruta ${c.name} · ${r.stops.size} paradas", corridor = r.corridor, km = r.km, mins = r.mins,
+                        vm.repo.saveRoute(SavedRoute(userId = u.id, name = "$title · ${r.stops.size} paradas", corridor = r.corridor, km = r.km, mins = r.mins,
                             stops = r.stops.map { SavedStop(it.venue.id, it.venue.name, it.eta, it.venue.lat, it.venue.lng) }))
                     }
                 }
                 Btn("Con guía", Modifier.weight(1f), Icons.Filled.SportsMotorsports, kind = BK.Ghost) {
-                    vm.preRoute = "Ruta ${c.name}"; vm.rentMode = "cond"; nav.navigate("rent")
+                    vm.preRoute = title; vm.rentMode = "cond"; nav.navigate("rent")
                 }
             }
         }
-    } else if (tried) Empty("No encontré paradas con esos filtros. Prueba otra zona o quita algún filtro.", Icons.Filled.SearchOff)
+    } else if (tried) Empty(if (mode == "dest") "Elige al menos un destino para armar la ruta." else "No encontré paradas con esos filtros. Prueba otra zona o quita algún filtro.", Icons.Filled.SearchOff)
     else Text("Te armamos la ruta con comercios aliados según lo que escribas y tus filtros.", color = Muted, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
 
     if (saved.isNotEmpty()) {
@@ -178,6 +224,52 @@ private fun ColumnScope.RouteAI(vm: AppViewModel, nav: NavController, u: AppUser
                 }
             }
         }
+    }
+}
+
+
+/** Buscador de destinos agrupado por zona. Se pueden marcar varios; el orden de selección se conserva. */
+@Composable
+private fun DestinationPicker(venues: List<Venue>, initial: List<String>, onDone: (List<String>) -> Unit) {
+    var sel by remember { mutableStateOf(initial) }
+    var q by remember { mutableStateOf("") }
+    var cat by remember { mutableStateOf("all") }
+    val nq = norm(q.trim())
+    val shown = venues.filter { v ->
+        (cat == "all" || cat in v.types) && (nq.isEmpty() || norm(v.name + " " + v.kind + " " + v.tags.joinToString(" ")).contains(nq))
+    }
+    Sheet({ onDone(sel) }) {
+        H("¿A dónde quieres ir?", Icons.Filled.Place)
+        Field("", q, { q = it }, hint = "Busca: Cristo Rey, trucha, mirador…", leading = Icons.Filled.Search)
+        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Chip("Todos", cat == "all", accent = Cyan) { cat = "all" }
+            C.CATS.forEach { (k, v) -> Chip(v.first, cat == k, accent = Cyan) { cat = k } }
+        }
+        if (shown.isEmpty()) Empty("No encontramos lugares con esa búsqueda.", Icons.Filled.SearchOff)
+        C.CORRIDORS.forEach { c ->
+            val xs = shown.filter { it.corridor == c.key }.sortedBy { it.km }
+            if (xs.isNotEmpty()) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(corridorIcon(c.key), null, Modifier.size(16.dp), tint = OrangeDark); Spacer(Modifier.width(6.dp)); Lbl(c.name, OrangeDark)
+                }
+                xs.forEach { v ->
+                    val on = v.id in sel
+                    val n = sel.indexOf(v.id) + 1
+                    Row(
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(if (on) CyanSoft.copy(alpha = 0.15f) else Surf0)
+                            .clickable { sel = if (on) sel - v.id else sel + v.id }.padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Box(Modifier.size(36.dp).clip(CircleShape).background(venueTint(v)), contentAlignment = Alignment.Center) { Icon(venueIcon(v), null, Modifier.size(18.dp), tint = venueBadge(v)) }
+                        Spacer(Modifier.width(10.dp))
+                        Column(Modifier.weight(1f)) { Text(v.name, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis); Lbl("${v.kind} · Km ${v.km}") }
+                        if (on) Box(Modifier.size(28.dp).clip(CircleShape).background(CyanDeep), contentAlignment = Alignment.Center) { Num("$n", Color.White, 13) }
+                        else Icon(Icons.Filled.AddCircleOutline, "Agregar ${v.name}", tint = Outline)
+                    }
+                }
+            }
+        }
+        Btn(if (sel.isEmpty()) "Cerrar" else "Listo · ${sel.size} destino${if (sel.size == 1) "" else "s"}", Modifier.fillMaxWidth(), Icons.Filled.Check) { onDone(sel) }
     }
 }
 

@@ -61,6 +61,7 @@ class AppViewModel(val container: AppContainer) : ViewModel() {
     fun act(ok: String? = null, block: suspend () -> Unit): Job = viewModelScope.launch {
         try { block(); ok?.let { toast(it) } } catch (e: SignInCancelled) {
             // La persona cerró el selector de cuentas: no se muestra nada.
+        } catch (e: kotlinx.coroutines.CancellationException) { throw e   // tarea cancelada (se cerró la pantalla): no es un error
         } catch (e: com.google.firebase.auth.FirebaseAuthException) { toast(authError(e.errorCode))
         } catch (e: com.google.firebase.FirebaseNetworkException) { toast("Sin conexión. Revisa tu internet e inténtalo de nuevo.")
         } catch (e: Exception) { toast(e.message ?: "Algo salió mal. Inténtalo de nuevo.") }
@@ -96,7 +97,7 @@ class AppViewModel(val container: AppContainer) : ViewModel() {
         "ERROR_WRONG_PASSWORD", "ERROR_INVALID_CREDENTIAL" -> "Correo o contraseña incorrectos."
         "ERROR_USER_NOT_FOUND" -> "No hay una cuenta con ese correo. Crea una abajo."
         "ERROR_EMAIL_ALREADY_IN_USE" -> "Ese correo ya tiene cuenta. Ingresa con él."
-        "ERROR_WEAK_PASSWORD" -> "La contraseña debe tener al menos 6 caracteres."
+        "ERROR_WEAK_PASSWORD", "ERROR_PASSWORD_DOES_NOT_MEET_REQUIREMENTS" -> "La contraseña no es segura: usa mínimo 8 caracteres con una mayúscula, un número y un carácter especial."
         "ERROR_TOO_MANY_REQUESTS" -> "Demasiados intentos. Espera un momento y vuelve a intentarlo."
         "ERROR_INVALID_VERIFICATION_CODE" -> "El código no es correcto. Revísalo e inténtalo de nuevo."
         "ERROR_SESSION_EXPIRED" -> "El código venció. Pide uno nuevo."

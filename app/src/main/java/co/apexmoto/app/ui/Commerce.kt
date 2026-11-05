@@ -87,25 +87,6 @@ fun ShopOrdersScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
     val sos by vm.sos.collectAsState()
     val next = mapOf("new" to ("prep" to "Aceptar y preparar"), "prep" to ("ready" to "Marcar listo"), "ready" to ("done" to "Entregado"))
     Screen {
-        if (v != null && "moto" in v.types) {
-            val open = sos.filter { it.status == "new" || (it.providerId == u.id && it.status in listOf("ok", "go")) }
-            H("S.O.S. cercanos")
-            if (open.isEmpty()) Sub("No hay emergencias activas.")
-            open.forEach { s ->
-                Card2(border = RedSoft) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) { Text("${s.kindName} · ${s.fromName}", fontWeight = FontWeight.Bold); Sub(s.locationText) }
-                        StatusPill(SOS_ST[s.status] ?: s.status, s.status)
-                    }
-                    Num("Tarifa ${cop(s.price)}", OrangeDark, 15)
-                    when (s.status) {
-                        "new" -> Btn("Aceptar (llego en 20 min)", Modifier.fillMaxWidth(), Icons.Filled.Check) { vm.act("S.O.S. aceptado") { vm.repo.acceptSos(s.id, u.id, v.name, 20) } }
-                        "ok" -> Btn("Voy en camino", Modifier.fillMaxWidth(), Icons.Filled.Navigation) { vm.act { vm.repo.setSosStatus(s.id, "go") } }
-                        else -> Btn("Marcar resuelto", Modifier.fillMaxWidth(), Icons.Filled.Check) { vm.act("S.O.S. resuelto") { vm.repo.setSosStatus(s.id, "fin") } }
-                    }
-                }
-            }
-        }
         H("Pedidos")
         if (orders.isEmpty()) Empty("Cuando un rider haga un pedido aparecerá aquí.")
         orders.sortedByDescending { it.createdAt }.forEachIndexed { i, o ->
@@ -170,7 +151,7 @@ fun ShopMenuScreen(vm: AppViewModel, u: AppUser) {
 }
 
 @Composable
-fun ShopBusinessScreen(vm: AppViewModel, u: AppUser) {
+fun ShopBusinessScreen(vm: AppViewModel, u: AppUser, workshop: Boolean = false) {
     val v = myVenue(vm, u)
     if (v == null) { Screen { Empty("Cargando tu negocio…") }; return }
     var name by remember(v.id) { mutableStateOf(v.name) }; var desc by remember(v.id) { mutableStateOf(v.desc) }
@@ -179,12 +160,14 @@ fun ShopBusinessScreen(vm: AppViewModel, u: AppUser) {
     var lat by remember(v.id) { mutableStateOf(v.lat) }; var lng by remember(v.id) { mutableStateOf(v.lng) }
     val getLoc = rememberLocationRequest(vm) { a, b -> lat = a; lng = b }
     Screen {
-        H("Mi negocio")
-        Field("Nombre", name, { name = it }); Field("Descripción", desc, { desc = it }, lines = 2); Field("Promoción para riders", promo, { promo = it })
+        H(if (workshop) "Mi taller" else "Mi negocio", if (workshop) Icons.Filled.Handyman else Icons.Filled.Storefront)
+        Field("Nombre", name, { name = it }); Field("Descripción", desc, { desc = it }, lines = 2); Field("Promoción para riders", promo, { promo = it }, hint = if (workshop) "Ej: Revisión básica gratis" else "Ej: 10% con tu cupón ApexMoto")
         Drop("Corredor", C.CORRIDORS.map { it.key to it.name }, cor, { cor = it })
         Field("Distancia desde Cali (km)", km, { km = it.filter(Char::isDigit) }, kb = KeyboardType.Number)
-        Lbl("Tipo de negocio")
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { C.CATS.forEach { (k, c) -> Chip(c.first, k in types) { types = if (k in types) types - k else types + k } } }
+        if (!workshop) {
+            Lbl("Tipo de negocio")
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { C.CATS.filterKeys { it != "moto" && it != "tour" }.forEach { (k, c) -> Chip(c.first, k in types, accent = Cyan) { types = if (k in types) types - k else types + k } } }
+        }
         Card2 {
             H("Ubicación en el mapa"); Sub("Toca el mapa para fijar el punto. Los riders usarán esta ubicación para la guía.")
             val center = if (lat != 0.0) LatLng(lat, lng) else C.corridor(cor).let { LatLng(it.lat, it.lng) }
@@ -199,6 +182,7 @@ fun ShopBusinessScreen(vm: AppViewModel, u: AppUser) {
             if (lat != 0.0) Lbl("%.5f, %.5f".format(lat, lng))
         }
         Btn("Guardar cambios", Modifier.fillMaxWidth(), Icons.Filled.Check, enabled = name.isNotBlank() && types.isNotEmpty()) {
+            if (workshop) types = setOf("moto")
             val first = C.CATS[types.first()]!!
             vm.act("Negocio actualizado") { vm.repo.saveVenue(v.copy(name = name, desc = desc, promo = promo, corridor = cor, km = km.toIntOrNull() ?: v.km,
                 types = types.toList(), badge = first.second, kind = first.third, lat = lat, lng = lng)) }

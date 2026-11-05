@@ -2,6 +2,8 @@
 
 package co.apexmoto.app.ui
 
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.CancellationException
 import androidx.compose.foundation.shape.RoundedCornerShape
 import android.Manifest
 import android.speech.tts.TextToSpeech
@@ -68,9 +70,15 @@ fun NavigationScreen(vm: AppViewModel) {
         try {
             val rem = stops.drop(reached)
             plan = c.routes.route(from, rem.last(), rem.dropLast(1)); idx = 0
-        } catch (e: Exception) { error = e.message ?: "No se pudo calcular la ruta" }
-        loading = false
+        } catch (e: CancellationException) {
+            throw e   // la pantalla se cerró o el cálculo se reemplazó por otro: no es un error para mostrar
+        } catch (e: Exception) {
+            error = e.message ?: "No pudimos calcular la ruta. Revisa tu conexión y toca Recalcular."
+        } finally { loading = false }
     }
+    // Recálculo al salirse del camino: corre aparte para no frenar el GPS; uno nuevo cancela al anterior.
+    var rerouteJob by remember { mutableStateOf<Job?>(null) }
+    fun reroute(from: LatLng) { rerouteJob?.cancel(); rerouteJob = scope.launch { load(from) } }
 
     val tts = remember {
         var t: TextToSpeech? = null
@@ -122,7 +130,7 @@ fun NavigationScreen(vm: AppViewModel) {
             if (nextStart != null && haversine(here.latitude, here.longitude, nextStart.latitude, nextStart.longitude) < 30) idx++
             val off = p.points.minOfOrNull { haversine(here.latitude, here.longitude, it.latitude, it.longitude) } ?: 0.0
             val now = System.currentTimeMillis()
-            if (off > 150 && now - lastReroute > 15_000) { lastReroute = now; vm.toast("Recalculando ruta…"); load(here) }
+            if (off > 150 && now - lastReroute > 15_000) { lastReroute = now; vm.toast("Recalculando ruta…"); reroute(here) }
             mapState.follow(here, l.bearing)
         }
     }
@@ -163,11 +171,11 @@ fun NavigationScreen(vm: AppViewModel) {
                     launcher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (!guiding) Btn(if (arrived) "Volver a empezar" else "Iniciar guiado", Modifier.weight(1f), Icons.Filled.Navigation, enabled = plan != null && hasPerm && originNote == null) {
+                    if (!guiding) Btn(if (arrived) "Repetir" else "Iniciar guiado", Modifier.weight(1f), Icons.Filled.Navigation, enabled = plan != null && hasPerm && originNote == null) {
                         arrived = false; reached = 0; idx = 0; guiding = true
                     } else Btn("Detener", Modifier.weight(1f), Icons.Filled.Stop, kind = BK.Danger) { guiding = false }
                     Btn("Recalcular", Modifier.weight(1f), Icons.Filled.Refresh, kind = BK.Ghost, enabled = !loading) {
-                        scope.launch { load(pos ?: LatLng(C.CALI_LAT, C.CALI_LNG)) }
+                        reroute(pos ?: LatLng(C.CALI_LAT, C.CALI_LNG))
                     }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {

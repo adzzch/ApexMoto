@@ -1,7 +1,12 @@
 <resources>
+    <!-- ApexMoto usa siempre su tema claro de marca. forceDarkAllowed=false evita que el modo oscuro del sistema
+         (o el "oscurecido forzado" de MIUI, One UI, etc.) invierta los colores y deje textos blancos sobre fondo claro. -->
     <style name="Theme.ApexMoto" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:statusBarColor">#FFF3F4F8</item>
         <item name="android:windowLightStatusBar">true</item>
         <item name="android:navigationBarColor">#FFFFFFFF</item>
+        <item name="android:windowBackground">@color/app_bg</item>
+        <item name="android:forceDarkAllowed">false</item>
+        <item name="android:isLightTheme">true</item>
     </style>
 </resources>

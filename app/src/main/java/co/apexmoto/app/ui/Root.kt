@@ -1,7 +1,15 @@
-@file:OptIn(ExperimentalMaterial3Api::class)
+@file:OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 
 package co.apexmoto.app.ui
 
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.animateContentSize
@@ -85,6 +93,8 @@ fun NavController.chat(thread: String, title: String, to: String? = null) =
 fun tabsFor(role: String): List<NavTab> = when (role) {
     Role.SHOP -> listOf(NavTab("cpan", Icons.Filled.Dashboard, "Resumen"), NavTab("cped", Icons.Filled.ReceiptLong, "Pedidos"),
         NavTab("cmenu", Icons.Filled.RestaurantMenu, "Menú"), NavTab("cneg", Icons.Filled.Storefront, "Negocio"), NavTab("ccan", Icons.Filled.QrCodeScanner, "Canjes"))
+    Role.WORKSHOP -> listOf(NavTab("tpan", Icons.Filled.Dashboard, "Resumen"), NavTab("tsos", Icons.Filled.Sos, "Atenciones"),
+        NavTab("tsrv", Icons.Filled.Handyman, "Servicios"), NavTab("tneg", Icons.Filled.Store, "Mi taller"), NavTab("ccan", Icons.Filled.QrCodeScanner, "Canjes"))
     Role.OWNER -> listOf(NavTab("ofl", Icons.Filled.Garage, "Mi flota"), NavTab("oreq", Icons.Filled.Inbox, "Solicitudes"), NavTab("oing", Icons.Filled.Payments, "Ingresos"))
     else -> buildList {
         add(NavTab("rut", Icons.Filled.Route, "Rutas")); add(NavTab("com", Icons.Filled.Storefront, "Comercios"))
@@ -131,7 +141,7 @@ fun MainScaffold(vm: AppViewModel, u: AppUser) {
             composable("com") { VenuesScreen(vm, nav, u) }
             composable("grp") { CommunityScreen(vm, u) }
             composable("rent") { RentScreen(vm, nav, u) }
-            composable("tal") { WorkshopScreen(vm, u) }
+            composable("tal") { WorkshopScreen(vm, nav, u) }
             composable("dreq") { DriverTripsScreen(vm, nav, u) }
             // Comercio
             composable("cpan") { ShopDashboard(vm, u) }
@@ -139,6 +149,11 @@ fun MainScaffold(vm: AppViewModel, u: AppUser) {
             composable("cmenu") { ShopMenuScreen(vm, u) }
             composable("cneg") { ShopBusinessScreen(vm, u) }
             composable("ccan") { ShopRedeemScreen(vm, u) }
+            // Taller mecánico
+            composable("tpan") { WorkshopDashboard(vm, nav, u) }
+            composable("tsos") { WorkshopSosScreen(vm, nav, u) }
+            composable("tsrv") { WorkshopServicesScreen(vm, u) }
+            composable("tneg") { ShopBusinessScreen(vm, u, workshop = true) }
             // Dueño de moto
             composable("ofl") { OwnerFleetScreen(vm, u) }
             composable("oreq") { OwnerRequestsScreen(vm, nav, u) }
@@ -159,7 +174,7 @@ fun MainScaffold(vm: AppViewModel, u: AppUser) {
     }
 }
 
-private fun spaceFor(role: String) = when (role) { Role.SHOP -> "Espacio Negocio"; Role.OWNER -> "Espacio Dueño"; Role.DRIVER -> "Espacio Conductor"; else -> "Espacio Rider" }
+private fun spaceFor(role: String) = when (role) { Role.SHOP -> "Espacio Negocio"; Role.OWNER -> "Espacio Dueño"; Role.DRIVER -> "Espacio Conductor"; Role.WORKSHOP -> "Espacio Taller"; else -> "Espacio Rider" }
 
 /** Encabezado de marca: logo, nombre y "Espacio · sección". En pantallas internas muestra Volver y el título. */
 @Composable
@@ -173,7 +188,7 @@ private fun ApexHeader(isTab: Boolean, section: String, space: String, onBack: (
                         Text("ApexMoto", fontFamily = Chivo, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, lineHeight = 20.sp)
                         AnimatedContent(section, label = "sec", transitionSpec = {
                             (fadeIn(tween(220)) + slideInVertically(tween(260)) { it / 2 }) togetherWith fadeOut(tween(120))
-                        }) { sec -> Text("$space · $sec", color = OrangeDark, fontFamily = JetBrainsMono, fontWeight = FontWeight.SemiBold, fontSize = 11.sp, maxLines = 1) }
+                        }) { sec -> Text(if (LocalConfiguration.current.screenWidthDp >= 400) "$space · $sec" else "${space.removePrefix("Espacio ")} · $sec", color = OrangeDark, fontFamily = JetBrainsMono, fontWeight = FontWeight.SemiBold, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
                     }
                     IconButton(onSettings) { Icon(Icons.Filled.Settings, "Configuración", tint = Muted) }
                     Box(Modifier.size(40.dp).clip(CircleShape).background(Surf4).clickable(onClickLabel = "Perfil", onClick = onProfile), contentAlignment = Alignment.Center) {
@@ -182,7 +197,7 @@ private fun ApexHeader(isTab: Boolean, section: String, space: String, onBack: (
                     Spacer(Modifier.width(4.dp))
                 } else {
                     IconButton(onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Volver", tint = Ink) }
-                    Text(section, style = MaterialTheme.typography.titleLarge, maxLines = 1)
+                    Text(section, style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
             HorizontalDivider(color = Surf3)
@@ -193,6 +208,13 @@ private fun ApexHeader(isTab: Boolean, section: String, space: String, onBack: (
 /** Barra inferior: el destino activo se pinta naranja y su ícono crece un poco. */
 @Composable
 private fun ApexNavBar(tabs: List<NavTab>, current: String, onGo: (String) -> Unit) {
+    val perTab = LocalConfiguration.current.screenWidthDp / tabs.size
+    val labelSize = when { perTab >= 84 -> 11.sp; perTab >= 66 -> 10.sp; else -> 9.5.sp }
+    fun fits(t: String) = perTab * 1.0 >= 14 + t.length * 6.4
+    // Pantallas angostas: nombres cortos equivalentes; si aun así no caben, solo la pestaña activa muestra su nombre.
+    val short = mapOf("Comunidad" to "Rodadas", "Comercios" to "Aliados", "Atenciones" to "S.O.S.", "Solicitudes" to "Pedidos", "Mi taller" to "Taller", "Mi flota" to "Flota")
+    fun nameOf(t: NavTab) = if (fits(t.label)) t.label else short[t.label] ?: t.label
+    val allLabels = tabs.all { fits(nameOf(it)) }
     Column {
         HorizontalDivider(color = Surf3)
         NavigationBar(containerColor = Color.White, tonalElevation = 0.dp) {
@@ -200,9 +222,9 @@ private fun ApexNavBar(tabs: List<NavTab>, current: String, onGo: (String) -> Un
                 val sel = current == t.route
                 val scale by animateFloatAsState(if (sel) 1.12f else 1f, spring(dampingRatio = 0.5f, stiffness = Spring.StiffnessMediumLow), label = "nav")
                 NavigationBarItem(
-                    selected = sel, onClick = { onGo(t.route) },
+                    selected = sel, onClick = { onGo(t.route) }, alwaysShowLabel = allLabels,
                     icon = { Icon(t.icon, null, Modifier.size(25.dp).graphicsLayer { scaleX = scale; scaleY = scale }) },
-                    label = { Text(t.label, maxLines = 1, fontWeight = FontWeight.SemiBold, fontSize = if (tabs.size > 5) 10.sp else 11.sp) },
+                    label = { Text(nameOf(t), maxLines = 1, overflow = TextOverflow.Ellipsis, softWrap = false, fontWeight = FontWeight.SemiBold, fontSize = labelSize, letterSpacing = (-0.2).sp) },
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = Orange, selectedTextColor = Orange, indicatorColor = OrangeSoft,
                         unselectedIconColor = Muted, unselectedTextColor = Muted,
@@ -233,7 +255,7 @@ private tailrec fun Context.findActivity(): Activity? = when (this) {
 }
 
 /** Pasos del ingreso. La tarjeta cambia de contenido deslizándose y crece o se encoge suave, sin saltos. */
-private enum class AuthStep { Login, Register, Phone, Code }
+private enum class AuthStep { Login, Register, Partner, Phone, Code }
 
 @Composable
 fun AuthScreen(vm: AppViewModel) {
@@ -243,11 +265,13 @@ fun AuthScreen(vm: AppViewModel) {
     var step by rememberSaveable { mutableStateOf(AuthStep.Login) }
     var name by rememberSaveable { mutableStateOf("") }
     var email by rememberSaveable { mutableStateOf("") }
-    var pw by rememberSaveable { mutableStateOf("") }
+    var pw by remember { mutableStateOf("") }
+    var pw2 by remember { mutableStateOf("") }          // confirmación (solo al crear cuenta)
     var showPw by rememberSaveable { mutableStateOf(false) }
+    val pwOk = passwordChecks(pw).all { it.second }
     var role by rememberSaveable { mutableStateOf(Role.RIDER) }
     var biz by rememberSaveable { mutableStateOf("") }
-    var cor by rememberSaveable { mutableStateOf("calima") }
+    var cor by rememberSaveable { mutableStateOf("cali") }
     var phone by rememberSaveable { mutableStateOf("") }
     var code by rememberSaveable { mutableStateOf("") }
     var verificationId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -274,10 +298,15 @@ fun AuthScreen(vm: AppViewModel) {
             onError = { busy = false; smsError = smsErrorText(it) })
     }
     fun login() { focus.clearFocus(); busy = true; vm.login(email, pw).invokeOnCompletion { busy = false } }
-    fun register() { focus.clearFocus(); busy = true; vm.register(name, email, pw, role, biz, cor).invokeOnCompletion { busy = false } }
+    fun register(asRole: String) { focus.clearFocus(); busy = true; vm.register(name, email, pw, asRole, biz, cor).invokeOnCompletion { busy = false } }
     fun verify(c: String) { val vid = verificationId ?: return; focus.clearFocus(); busy = true; vm.verifyCode(vid, c).invokeOnCompletion { busy = false } }
 
-    BackHandler(step != AuthStep.Login) { step = if (step == AuthStep.Code) AuthStep.Phone else AuthStep.Login }
+    LaunchedEffect(step) {
+        pw2 = ""
+        if (step == AuthStep.Phone || step == AuthStep.Code) pw = ""
+        if (step == AuthStep.Partner && role !in PartnerRoles) role = Role.SHOP
+    }
+    BackHandler(step != AuthStep.Login) { step = when (step) { AuthStep.Code -> AuthStep.Phone; AuthStep.Partner -> AuthStep.Register; else -> AuthStep.Login } }
 
     Box(Modifier.fillMaxSize().background(Brush.radialGradient(listOf(Color(0xFFFFE6D6), Bg), center = Offset(540f, 0f), radius = 1400f))) {
         Column(
@@ -286,16 +315,19 @@ fun AuthScreen(vm: AppViewModel) {
         ) {
             // Marca
             Column(
-                Modifier.fillMaxWidth().padding(top = 20.dp).graphicsLayer {
+                Modifier.fillMaxWidth().padding(top = 8.dp).graphicsLayer {
                     val e = enter.value
                     alpha = 0.3f + 0.7f * e.coerceIn(0f, 1f); translationY = (1f - e) * -40f; scaleX = 0.85f + 0.15f * e; scaleY = scaleX
                 },
                 horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                BrandMark(60.dp)
-                Spacer(Modifier.height(6.dp))
-                Text("ApexMoto", fontFamily = Chivo, fontWeight = FontWeight.Black, fontSize = 30.sp)
-                Text("La red de rutas, comercios y pilotos para moteros.", color = Muted, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
+                // En pantallas bajas (o con letra grande) la marca se compacta para que el formulario se vea sin desplazar.
+                val h = LocalConfiguration.current.screenHeightDp / LocalDensity.current.fontScale
+                val compact = h < 720
+                BrandMark(if (compact) 46.dp else 60.dp)
+                if (!compact) Spacer(Modifier.height(6.dp))
+                Text("ApexMoto", fontFamily = Chivo, fontWeight = FontWeight.Black, fontSize = if (compact) 24.sp else 30.sp)
+                if (h >= 600) Text("La red de rutas, comercios y pilotos para moteros.", color = Muted, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
             }
 
             // Tarjeta que cambia de paso
@@ -322,23 +354,32 @@ fun AuthScreen(vm: AppViewModel) {
                             }
                             AuthStep.Register -> {
                                 StepTitle("Crear cuenta", "Únete a la red motera en un minuto.", onBack = { step = AuthStep.Login })
-                                Field("Nombre", name, { name = it }, hint = "Cómo te llaman en la ruta", leading = Icons.Filled.PersonOutline,
+                                Field("Nombre", name, { name = it }, hint = "Tu nombre", leading = Icons.Filled.PersonOutline,
                                     ime = ImeAction.Next, onIme = { focus.moveFocus(FocusDirection.Down) })
                                 Field("Correo", email, { email = it.trim() }, kb = KeyboardType.Email, hint = "tucorreo@email.com",
                                     leading = Icons.Filled.MailOutline, ime = ImeAction.Next, onIme = { focus.moveFocus(FocusDirection.Down) })
-                                Field("Contraseña", pw, { pw = it }, hint = "Mínimo 6 caracteres", password = !showPw, kb = KeyboardType.Password,
-                                    leading = Icons.Outlined.Lock, ime = ImeAction.Done, onIme = { focus.clearFocus() },
-                                    trailing = { PwToggle(showPw) { showPw = !showPw } })
-                                Lbl("¿Cómo vas a usar ApexMoto?")
-                                RoleGrid(role) { role = it }
-                                AnimatedVisibility(role == Role.SHOP) {
+                                PasswordPair(pw, { pw = it.take(64) }, pw2, { pw2 = it.take(64) }, showPw, { showPw = !showPw }, focus)
+                                Btn("Crear cuenta", Modifier.fillMaxWidth(), loading = busy,
+                                    enabled = name.isNotBlank() && emailOk && pwOk && pw2 == pw) { register(Role.RIDER) }
+                            }
+                            AuthStep.Partner -> {
+                                StepTitle("Únete como aliado", "Para negocios, talleres, dueños de moto y guías.", onBack = { step = AuthStep.Register })
+                                Lbl("¿Qué tipo de aliado eres?")
+                                RoleGrid(role, PartnerRoles) { role = it }
+                                AnimatedVisibility(Role.hasVenue(role)) {
                                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                        Field("Nombre del negocio", biz, { biz = it }, leading = Icons.Filled.Storefront)
-                                        Drop("Corredor", C.CORRIDORS.map { it.key to it.name }, cor, { cor = it })
+                                        Field(if (role == Role.WORKSHOP) "Nombre del taller" else "Nombre del negocio", biz, { biz = it },
+                                            leading = if (role == Role.WORKSHOP) Icons.Filled.Handyman else Icons.Filled.Storefront)
+                                        Drop("¿En qué zona está?", C.CORRIDORS.map { it.key to it.name }, cor, { cor = it })
                                     }
                                 }
-                                Btn("Crear cuenta", Modifier.fillMaxWidth(), loading = busy,
-                                    enabled = name.isNotBlank() && emailOk && pw.length >= 6 && (role != Role.SHOP || biz.isNotBlank())) { register() }
+                                Field("Tu nombre", name, { name = it }, hint = "Tu nombre", leading = Icons.Filled.PersonOutline,
+                                    ime = ImeAction.Next, onIme = { focus.moveFocus(FocusDirection.Down) })
+                                Field("Correo", email, { email = it.trim() }, kb = KeyboardType.Email, hint = "tucorreo@email.com",
+                                    leading = Icons.Filled.MailOutline, ime = ImeAction.Next, onIme = { focus.moveFocus(FocusDirection.Down) })
+                                PasswordPair(pw, { pw = it.take(64) }, pw2, { pw2 = it.take(64) }, showPw, { showPw = !showPw }, focus)
+                                Btn("Crear cuenta de aliado", Modifier.fillMaxWidth(), loading = busy,
+                                    enabled = role in PartnerRoles && name.isNotBlank() && emailOk && pwOk && pw2 == pw && (!Role.hasVenue(role) || biz.isNotBlank())) { register(role) }
                             }
                             AuthStep.Phone -> {
                                 StepTitle("Entrar con tu celular", "Te enviamos un código por SMS. Sin contraseñas.", onBack = { step = AuthStep.Login })
@@ -374,12 +415,14 @@ fun AuthScreen(vm: AppViewModel) {
             }
 
             Spacer(Modifier.height(4.dp))
-            // Enlace al pie: crear cuenta o volver a ingresar
-            val (q, a) = if (step == AuthStep.Register) "¿Ya tienes cuenta?" to "Ingresar" else "¿No tienes cuenta?" to "Crear una"
-            Row(Modifier.fillMaxWidth().padding(bottom = 4.dp), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
-                Text(q, color = Muted, fontSize = 14.sp)
-                Text(a, Modifier.clip(RoundedCornerShape(8.dp)).clickable { step = if (step == AuthStep.Register) AuthStep.Login else AuthStep.Register }
-                    .padding(horizontal = 6.dp, vertical = 8.dp), color = OrangeDark, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+            // Enlace al pie: crear cuenta o volver a ingresar, y el acceso discreto para aliados
+            val creating = step == AuthStep.Register || step == AuthStep.Partner
+            val (q, a) = if (creating) "¿Ya tienes cuenta?" to "Ingresar" else "¿No tienes cuenta?" to "Crear una"
+            Column(Modifier.fillMaxWidth().padding(bottom = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                LinkText("$q ", a, OrangeDark, 14) { step = if (creating) AuthStep.Login else AuthStep.Register }
+                AnimatedVisibility(step == AuthStep.Register || step == AuthStep.Login) {
+                    LinkText("¿Tienes un negocio, taller o motos? ", "Únete como aliado", CyanDeep, 13) { step = AuthStep.Partner }
+                }
             }
         }
     }
@@ -439,6 +482,17 @@ private fun NoticeDialog(icon: ImageVector, tint: Color, bg: Color, title: Strin
     )
 }
 
+/** Texto con un enlace al final. Un solo párrafo: si no cabe, baja de línea y queda centrado (no se aplasta). */
+@Composable
+private fun LinkText(prefix: String, link: String, color: Color, size: Int, onClick: () -> Unit) {
+    val text = buildAnnotatedString {
+        withStyle(SpanStyle(color = Muted)) { append(prefix) }
+        withStyle(SpanStyle(color = color, fontWeight = FontWeight.Bold)) { append(link) }
+    }
+    Text(text, Modifier.clip(RoundedCornerShape(10.dp)).clickable(onClickLabel = link, onClick = onClick).padding(horizontal = 10.dp, vertical = 8.dp),
+        fontSize = size.sp, lineHeight = (size + 6).sp, textAlign = TextAlign.Center)
+}
+
 @Composable
 private fun StepTitle(title: String, sub: String, onBack: (() -> Unit)? = null) {
     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -452,6 +506,73 @@ private fun StepTitle(title: String, sub: String, onBack: (() -> Unit)? = null) 
             Text(title, fontFamily = Chivo, fontWeight = FontWeight.ExtraBold, fontSize = 22.sp)
             Text(sub, color = Muted, style = MaterialTheme.typography.bodySmall)
         }
+    }
+}
+
+/** Requisitos de la contraseña al crear cuenta, con su texto para mostrarlos como lista. */
+fun passwordChecks(pw: String) = listOf(
+    "8 o más caracteres" to (pw.length >= 8),
+    "Una mayúscula" to pw.any { it.isUpperCase() },
+    "Un número" to pw.any { it.isDigit() },
+    "Un símbolo como ! # @" to pw.any { !it.isLetterOrDigit() && !it.isWhitespace() },
+)
+
+/** Contraseña y confirmación seguidas, y debajo una guía amable de lo que le falta. */
+@Composable
+private fun PasswordPair(pw: String, onPw: (String) -> Unit, pw2: String, onPw2: (String) -> Unit, show: Boolean, onToggle: () -> Unit,
+                         focus: androidx.compose.ui.focus.FocusManager) {
+    Field("Contraseña", pw, onPw, hint = "Nueva contraseña", password = !show, kb = KeyboardType.Password,
+        leading = Icons.Outlined.Lock, ime = ImeAction.Next, onIme = { focus.moveFocus(FocusDirection.Down) }, trailing = { PwToggle(show, onToggle) })
+    Field("Confirmar contraseña", pw2, onPw2, hint = "Escríbela otra vez", password = !show, kb = KeyboardType.Password,
+        leading = Icons.Outlined.Lock, ime = ImeAction.Done, onIme = { focus.clearFocus() }, trailing = { PwToggle(show, onToggle) })
+    PasswordHints(pw, pw2)
+}
+
+@Composable
+private fun PasswordHints(pw: String, pw2: String) {
+    val checks = passwordChecks(pw)
+    val n = checks.count { it.second }
+    val done = n == checks.size
+    val (msg, tone) = when {
+        pw.isEmpty() -> "Para cuidar tu cuenta, tu contraseña debe tener:" to Muted
+        done -> "¡Listo! Tu contraseña es segura" to Green
+        n >= 2 -> "Vas bien, te falta poco:" to Muted
+        else -> "Sigue así, agrégale:" to Muted
+    }
+    val bg by animateColorAsState(if (done) GreenSoft.copy(alpha = 0.10f) else Surf1, tween(300), label = "hintBg")
+    Column(
+        Modifier.fillMaxWidth().animateContentSize().clip(RoundedCornerShape(14.dp)).background(bg).padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(if (done) Icons.Filled.VerifiedUser else Icons.Filled.Shield, null, Modifier.size(18.dp), tint = if (done) Green else CyanDeep)
+            Spacer(Modifier.width(8.dp))
+            Text(msg, color = tone, fontSize = 13.sp, lineHeight = 18.sp, fontWeight = if (done) FontWeight.SemiBold else FontWeight.Normal)
+        }
+        if (!done) FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            checks.forEach { (label, ok) -> HintPill(label, ok) }
+        }
+        if (pw2.isNotEmpty()) {
+            val match = pw2 == pw
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(if (match) Icons.Filled.CheckCircle else Icons.Filled.Info, null, Modifier.size(16.dp), tint = if (match) Green else Amber)
+                Spacer(Modifier.width(8.dp))
+                Text(if (match) "Las dos contraseñas coinciden" else "Las contraseñas aún no coinciden", color = if (match) Green else Amber, fontSize = 13.sp)
+            }
+        }
+    }
+}
+
+@Composable
+private fun HintPill(label: String, ok: Boolean) {
+    val bg by animateColorAsState(if (ok) GreenSoft else Color.White, tween(220), label = "pillBg")
+    val fg by animateColorAsState(if (ok) Green else Muted, tween(220), label = "pillFg")
+    Row(
+        Modifier.clip(CircleShape).background(bg).border(1.dp, if (ok) Color.Transparent else Surf4, CircleShape).padding(horizontal = 10.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        AnimatedVisibility(ok) { Row { Icon(Icons.Filled.Check, null, Modifier.size(14.dp), tint = fg); Spacer(Modifier.width(4.dp)) } }
+        Text(label, color = fg, fontSize = 12.sp, fontWeight = FontWeight.Medium)
     }
 }
 
@@ -498,18 +619,22 @@ private fun OtpField(code: String, onChange: (String) -> Unit) {
     )
 }
 
-/** Las cuatro formas de usar ApexMoto, en tarjetas de 2 columnas. */
+/** Tipos de aliado: negocios y personas que ofrecen servicios a los riders. */
+private val PartnerRoles = listOf(Role.SHOP, Role.WORKSHOP, Role.OWNER, Role.DRIVER)
+
+/** Formas de usar ApexMoto, en tarjetas de 2 columnas. */
 @Composable
-private fun RoleGrid(role: String, onPick: (String) -> Unit) {
+private fun RoleGrid(role: String, show: List<String>, onPick: (String) -> Unit) {
     val roles = listOf(
         listOf(Role.RIDER, "Rider", "Rutas, comercios, comunidad y renta."),
         listOf(Role.SHOP, "Comercio aliado", "Publica tu menú y recibe pedidos."),
         listOf(Role.OWNER, "Dueño de moto", "Renta tus motos a otros riders."),
         listOf(Role.DRIVER, "Conductor guía", "Ofrece salidas guiadas."),
+        listOf(Role.WORKSHOP, "Taller mecánico", "Atiende S.O.S. y publica tus servicios."),
     )
-    val icons = mapOf(Role.RIDER to Icons.Filled.TwoWheeler, Role.SHOP to Icons.Filled.Storefront, Role.OWNER to Icons.Filled.Garage, Role.DRIVER to Icons.Filled.SportsMotorsports)
+    val icons = mapOf(Role.RIDER to Icons.Filled.TwoWheeler, Role.SHOP to Icons.Filled.Storefront, Role.OWNER to Icons.Filled.Garage, Role.DRIVER to Icons.Filled.SportsMotorsports, Role.WORKSHOP to Icons.Filled.Handyman)
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        roles.chunked(2).forEach { pair ->
+        roles.filter { it[0] in show }.sortedBy { show.indexOf(it[0]) }.chunked(2).forEach { pair ->
             Row(Modifier.height(IntrinsicSize.Max), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 pair.forEach { (k, t, d) ->
                     OptionTile(role == k, { onPick(k) }, Modifier.weight(1f).fillMaxHeight()) {
@@ -523,36 +648,48 @@ private fun RoleGrid(role: String, onPick: (String) -> Unit) {
     }
 }
 
-/** Primer ingreso con Google o teléfono: la persona elige su rol y completa su perfil. */
+/** Primer ingreso con Google o teléfono: entra como rider; quien tenga un negocio puede registrarse como aliado. */
 @Composable
 fun RoleSelectScreen(vm: AppViewModel, p: PendingProfile) {
     var name by remember { mutableStateOf(p.name) }
-    var role by remember { mutableStateOf(Role.RIDER) }
+    var partner by remember { mutableStateOf(false) }
+    var role by remember { mutableStateOf(Role.SHOP) }
     var biz by remember { mutableStateOf("") }
-    var cor by remember { mutableStateOf("calima") }
+    var cor by remember { mutableStateOf("cali") }
     var busy by remember { mutableStateOf(false) }
     Column(
         Modifier.fillMaxSize().background(Bg).systemBarsPadding().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         BrandMark(52.dp)
-        Text("Un último paso", fontFamily = Chivo, fontWeight = FontWeight.Black, fontSize = 28.sp)
-        Text("Entraste como ${p.contact.ifBlank { "nuevo usuario" }}. Elige cómo vas a usar ApexMoto.", color = Muted, style = MaterialTheme.typography.bodyLarge)
-        Card2 {
-            Field("Tu nombre", name, { name = it })
-            Lbl("¿Cómo vas a usar ApexMoto?")
-            RoleGrid(role) { role = it }
-            AnimatedVisibility(role == Role.SHOP) {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Field("Nombre del negocio", biz, { biz = it })
-                    Drop("Corredor", C.CORRIDORS.map { it.key to it.name }, cor, { cor = it })
+        Text(if (partner) "Únete como aliado" else "Un último paso", fontFamily = Chivo, fontWeight = FontWeight.Black, fontSize = 28.sp)
+        Text(if (partner) "Cuéntanos qué ofreces a los riders." else "Entraste como ${p.contact.ifBlank { "nuevo usuario" }}. ¿Cómo te llamamos?",
+            color = Muted, style = MaterialTheme.typography.bodyLarge)
+        Card2(Modifier.animateContentSize()) {
+            Field("Tu nombre", name, { name = it }, leading = Icons.Filled.PersonOutline)
+            AnimatedVisibility(partner) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Lbl("¿Qué tipo de aliado eres?")
+                    RoleGrid(role, PartnerRoles) { role = it }
+                    AnimatedVisibility(Role.hasVenue(role)) {
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Field(if (role == Role.WORKSHOP) "Nombre del taller" else "Nombre del negocio", biz, { biz = it })
+                            Drop("¿En qué zona está?", C.CORRIDORS.map { it.key to it.name }, cor, { cor = it })
+                        }
+                    }
                 }
             }
-            Btn("Continuar", Modifier.fillMaxWidth(), Icons.AutoMirrored.Filled.ArrowForward, enabled = name.isNotBlank() && !busy && (role != Role.SHOP || biz.isNotBlank())) {
+            val asRole = if (partner) role else Role.RIDER
+            Btn(if (partner) "Crear cuenta de aliado" else "Empezar a rodar", Modifier.fillMaxWidth(), Icons.AutoMirrored.Filled.ArrowForward,
+                enabled = name.isNotBlank() && !busy && (!Role.hasVenue(asRole) || biz.isNotBlank())) {
                 busy = true
-                vm.completeProfile(name, role, biz, cor).invokeOnCompletion { busy = false }
+                vm.completeProfile(name, asRole, biz, cor).invokeOnCompletion { busy = false }
             }
         }
-        TextButton({ vm.logout() }) { Text("Usar otra cuenta", color = CyanDeep) }
+        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+            if (partner) LinkText("", "Mejor entro como rider", CyanDeep, 13) { partner = false }
+            else LinkText("¿Tienes un negocio, taller o motos? ", "Únete como aliado", CyanDeep, 13) { partner = true }
+        }
+        TextButton({ vm.logout() }, Modifier.align(Alignment.CenterHorizontally)) { Text("Usar otra cuenta", color = Muted) }
     }
 }

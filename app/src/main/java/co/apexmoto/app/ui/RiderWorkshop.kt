@@ -64,10 +64,10 @@ fun rememberLocationRequest(vm: AppViewModel, onResult: (Double, Double) -> Unit
 }
 
 @Composable
-fun WorkshopScreen(vm: AppViewModel, u: AppUser) {
+fun WorkshopScreen(vm: AppViewModel, nav: androidx.navigation.NavController, u: AppUser) {
     val all by vm.sos.collectAsState()
     val mine = all.filter { it.fromId == u.id }.sortedByDescending { it.createdAt }
-    val current = mine.firstOrNull { it.status in listOf("new", "ok", "go") }
+    val current = mine.firstOrNull { it.status in listOf("new", "ok", "go", "site") }
     var asking by rememberSaveable { mutableStateOf(false) }
     var kind by remember { mutableStateOf("flat") }
     var place by remember { mutableStateOf("") }
@@ -84,12 +84,14 @@ fun WorkshopScreen(vm: AppViewModel, u: AppUser) {
                     Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) { H("S.O.S · ${current.kindName}"); Lbl(current.locationText) }
                 }
-                Steps(3, when (current.status) { "new" -> 1; "ok" -> 2; else -> 3 })
+                Steps(4, when (current.status) { "new" -> 1; "ok" -> 2; "go" -> 3; else -> 4 })
                 Row { StatusPill(SOS_ST[current.status] ?: current.status, current.status) }
                 if (current.status == "new") Row(verticalAlignment = Alignment.CenterVertically) { Ping(); Spacer(Modifier.width(8.dp)); Sub("Estamos avisando a los talleres cercanos…") }
+                else if (current.status == "site") Text("${current.providerName} está atendiendo tu moto", fontWeight = FontWeight.Bold, fontSize = 15.sp)
                 else Text("${current.providerName} llega en ${current.eta} min", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                if (current.providerId.isNotBlank()) Btn("Chat con el taller", Modifier.fillMaxWidth(), Icons.Filled.Chat, kind = BK.Ghost) { nav.chat("sos_${current.id}", current.providerName, current.providerId) }
                 Row(verticalAlignment = Alignment.CenterVertically) { Lbl("Tarifa estimada", modifier = Modifier.weight(1f)); Num(cop(current.price), OrangeDark, 18) }
-                Btn("Cancelar S.O.S.", Modifier.fillMaxWidth(), Icons.Filled.Close, kind = BK.Danger) { vm.act("S.O.S. cancelado") { vm.repo.setSosStatus(current.id, "no") } }
+                if (current.status != "site") Btn("Cancelar S.O.S.", Modifier.fillMaxWidth(), Icons.Filled.Close, kind = BK.Danger) { vm.act("S.O.S. cancelado") { vm.repo.setSosStatus(current.id, "no") } }
             }
         } else {
             Card2 {

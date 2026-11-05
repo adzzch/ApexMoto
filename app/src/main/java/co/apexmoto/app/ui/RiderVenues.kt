@@ -2,6 +2,10 @@
 
 package co.apexmoto.app.ui
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import co.apexmoto.app.maps.OsmMapState
+import kotlinx.coroutines.delay
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.*
@@ -58,23 +62,24 @@ fun startGuide(vm: AppViewModel, nav: NavController, title: String, vs: List<Ven
     nav.navigate("navigate")
 }
 
-fun venueTint(v: Venue) = when (v.types.firstOrNull()) { "cafe" -> CyanTint; "moto" -> GreenTint; else -> OrangeSoft }
-fun venueBadge(v: Venue) = when (v.types.firstOrNull()) { "cafe" -> CyanDeep; "moto" -> Green; else -> Orange }
-fun venueIcon(v: Venue) = when (v.types.firstOrNull()) { "cafe" -> Icons.Filled.LocalCafe; "moto" -> Icons.Filled.Build; else -> Icons.Filled.Restaurant }
-fun corridorIcon(key: String) = when (key) { "linea" -> Icons.Filled.Landscape; "palmas" -> Icons.Filled.Speed; "chica" -> Icons.Filled.Terrain; else -> Icons.Filled.NearMe }
+fun venueTint(v: Venue) = when (v.types.firstOrNull()) { "cafe" -> CyanTint; "moto" -> GreenTint; "tour" -> Color(0xFFE6E1F5); else -> OrangeSoft }
+fun venueBadge(v: Venue) = when (v.types.firstOrNull()) { "cafe" -> CyanDeep; "moto" -> Green; "tour" -> Color(0xFF5B4B9A); else -> Orange }
+fun venueIcon(v: Venue) = when (v.types.firstOrNull()) { "cafe" -> Icons.Filled.LocalCafe; "moto" -> Icons.Filled.Build; "tour" -> Icons.Filled.AccountBalance; else -> Icons.Filled.Restaurant }
+fun corridorIcon(key: String) = when (key) { "cali" -> Icons.Filled.LocationCity; "linea" -> Icons.Filled.Landscape; "palmas" -> Icons.Filled.Speed; "chica" -> Icons.Filled.Terrain; else -> Icons.Filled.NearMe }
 
 @Composable
 fun VenuesScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
     val ctx = LocalContext.current
     val venues by vm.venues.collectAsState()
     val orders by vm.myOrders.collectAsState()
-    var cor by rememberSaveable { mutableStateOf("calima") }
+    var cor by rememberSaveable { mutableStateOf("cali") }
     var fl by rememberSaveable { mutableStateOf("all") }
     var asMap by rememberSaveable { mutableStateOf(false) }
     var detail by remember { mutableStateOf<Venue?>(null) }
     var coupon by remember { mutableStateOf<Coupon?>(null) }
     val list = venues.filter { it.corridor == cor && (fl == "all" || fl in it.types) }.sortedBy { it.km }
     val active = orders.filter { it.status != "done" && it.status != "no" }
+    BackHandler(asMap) { asMap = false }   // el botón Atrás del teléfono vuelve a la lista
 
     Column(Modifier.fillMaxSize()) {
         Column(Modifier.padding(top = 14.dp, bottom = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -92,15 +97,32 @@ fun VenuesScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
                 val c = C.corridor(cor)
                 val here by produceState<LatLng?>(null) { value = runCatching { vm.container.location.last() }.getOrNull() }
                 val located = list.filter { it.lat != 0.0 }
-                key(cor) { // al cambiar de corredor se crea un mapa centrado en él
-                    OsmMap(
-                        Modifier.fillMaxSize().padding(top = 8.dp), center = LatLng(c.lat, c.lng), zoom = 11.0, mapType = vm.mapType,
-                        markers = located.map { MapMarker(it.id, LatLng(it.lat, it.lng), it.name, it.promo) },
-                        myPos = here, onMarkerClick = { id -> located.firstOrNull { it.id == id }?.let { detail = it } },
-                    )
+                val mapState = remember(cor) { OsmMapState() }
+                LaunchedEffect(cor, located.size) { delay(350); mapState.fit(located.map { LatLng(it.lat, it.lng) }) }
+                Box(Modifier.fillMaxSize().padding(top = 8.dp)) {
+                    key(cor) { // al cambiar de corredor se crea un mapa centrado en él
+                        OsmMap(
+                            Modifier.fillMaxSize(), state = mapState, center = LatLng(c.lat, c.lng), zoom = 12.0, mapType = vm.mapType,
+                            markers = located.map { MapMarker(it.id, LatLng(it.lat, it.lng), it.name, it.promo) },
+                            myPos = here, onMarkerClick = { id -> located.firstOrNull { it.id == id }?.let { detail = it } },
+                        )
+                    }
+                    // Volver a la lista
+                    Row(
+                        Modifier.align(Alignment.TopStart).padding(12.dp).cardShadow(CircleShape).clip(CircleShape).background(Color.White)
+                            .clickable(onClickLabel = "Volver a la lista") { asMap = false }.padding(start = 10.dp, end = 16.dp, top = 10.dp, bottom = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, null, Modifier.size(20.dp), tint = Ink); Spacer(Modifier.width(6.dp))
+                        Text("Lista", fontWeight = FontWeight.Bold, color = Ink)
+                    }
+                    // Cuántos lugares hay en el mapa
+                    Box(Modifier.align(Alignment.TopEnd).padding(12.dp).cardShadow(CircleShape).clip(CircleShape).background(Color.White).padding(horizontal = 12.dp, vertical = 8.dp)) {
+                        Lbl("${located.size} lugar${if (located.size == 1) "" else "es"} · ${c.name}", Ink)
+                    }
                 }
             } else {
-                Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).wrapContentWidth().widthIn(max = 640.dp).padding(horizontal = 16.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                     if (active.isNotEmpty()) Card2(tone = Surf1, border = OrangeSoft) {
                         IconLine(Icons.Filled.ReceiptLong, "Pedidos activos")
                         active.forEach { o ->
@@ -113,7 +135,7 @@ fun VenuesScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
                     }
                     if (list.isEmpty()) Empty("No hay comercios en este corredor todavía.", Icons.Filled.Storefront)
                     list.forEachIndexed { i, v ->
-                        val canOrder = v.menu.isNotEmpty() && v.ownerId.isNotBlank()
+                        val canOrder = v.menu.any { it.on && it.cat != "Servicios" } && v.ownerId.isNotBlank()
                         Card2(index = i, padding = 0.dp, onClick = { detail = v }) {
                             MediaHeader(venueTint(v), venueIcon(v), 116.dp) {
                                 Column(Modifier.align(Alignment.BottomStart).fillMaxWidth(0.76f).padding(start = 14.dp, bottom = 10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -144,7 +166,7 @@ fun VenuesScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
     }
 
     detail?.let { v ->
-        val canOrder = v.menu.isNotEmpty() && v.ownerId.isNotBlank()
+        val canOrder = v.menu.any { it.on && it.cat != "Servicios" } && v.ownerId.isNotBlank()
         Sheet({ detail = null }) {
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { Pill(v.badge, venueBadge(v), Color.White); if (!v.open) Pill("Cerrado", RedSoft, Red) }
             Text(v.name, fontFamily = Chivo, fontWeight = FontWeight.Black, fontSize = 24.sp, lineHeight = 28.sp)
@@ -153,7 +175,7 @@ fun VenuesScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
             if (v.promo.isNotBlank()) IconLine(Icons.Filled.LocalOffer, v.promo)
             val preview = v.menu.filter { it.on }.take(5)
             if (preview.isNotEmpty()) Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Surf0).padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Lbl("Del menú")
+                Lbl(if ("moto" in v.types) "Servicios" else "Del menú")
                 preview.forEach { m -> Row(verticalAlignment = Alignment.CenterVertically) { Text(m.name, Modifier.weight(1f)); Num(cop(m.price), OrangeDark, 14) } }
             }
             Btn("Guiar en la app", Modifier.fillMaxWidth(), Icons.Filled.Navigation, enabled = v.lat != 0.0) { detail = null; startGuide(vm, nav, v.name, listOf(v)) }

@@ -11,6 +11,7 @@ object C {
 
     // Coordenadas aproximadas del centro de cada corredor (ajústalas a tus puntos reales).
     val CORRIDORS = listOf(
+        Corridor("cali", "Cali", 3.4516, -76.5320),
         Corridor("calima", "Lago Calima", 3.9330, -76.4850),
         Corridor("linea", "Alto de La Línea", 4.5050, -75.5300),
         Corridor("palmas", "Las Palmas", 3.4750, -76.6000),
@@ -22,6 +23,7 @@ object C {
         "food" to Triple("Comida + Parqueo", "Aliado Apex", "Gastronomía & Descanso"),
         "cafe" to Triple("Café & Mirador", "Mirador Especial", "Café de origen & panorámica"),
         "moto" to Triple("Gasolina & Talleres", "S.O.S Técnico", "Taller & asistencia"),
+        "tour" to Triple("Sitios turísticos", "Sitio turístico", "Turismo & historia"),
     )
     val CUISINES = listOf("Parrilla", "Criolla", "Café", "Pizza", "Pescado", "Postres", "Saludable")
     val KW = mapOf(

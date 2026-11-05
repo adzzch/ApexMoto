@@ -69,7 +69,7 @@ val Mono = JetBrainsMono
 
 val REQ_ST = mapOf("p" to "Pendiente", "ok" to "Aceptada", "go" to "En camino", "ride" to "En ruta", "fin" to "Finalizada", "no" to "Rechazada")
 val ORD_ST = mapOf("new" to "Enviado", "prep" to "Preparando", "ready" to "¡Listo!", "done" to "Entregado", "no" to "Rechazado")
-val SOS_ST = mapOf("new" to "Buscando taller", "ok" to "Taller asignado", "go" to "En camino", "fin" to "Resuelto", "no" to "Cancelado")
+val SOS_ST = mapOf("new" to "Buscando taller", "ok" to "Taller asignado", "go" to "En camino", "site" to "Atendiendo", "fin" to "Resuelto", "no" to "Cancelado")
 
 // ───────────────── Movimiento ─────────────────
 /** Curva de salida exponencial: arranca rápido y se asienta suave. */
@@ -108,10 +108,14 @@ fun Modifier.cardShadow(shape: Shape): Modifier =
 // ───────────────── Estructura ─────────────────
 @Composable
 fun Screen(content: @Composable ColumnScope.() -> Unit) {
-    Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp), content = content,
-    )
+    // Celulares: ocupa todo el ancho con márgenes de 16 dp. Pantallas anchas (tablets, plegables, horizontal):
+    // el contenido se centra con un ancho máximo para que no quede estirado ni pegado a un lado.
+    Box(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), contentAlignment = Alignment.TopCenter) {
+        Column(
+            Modifier.widthIn(max = 640.dp).fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp), content = content,
+        )
+    }
 }
 
 /** Tarjeta blanca de la app. index >= 0 la hace entrar con la cascada de la lista. */
@@ -149,15 +153,19 @@ fun H(text: String, icon: ImageVector? = null) {
 
 /** Cifra en monoespaciada (precios, distancias, tiempos). */
 @Composable
-fun Num(text: String, color: Color = Ink, size: Int = 15, modifier: Modifier = Modifier) =
-    Text(text, modifier, color = color, fontFamily = JetBrainsMono, fontWeight = FontWeight.ExtraBold, fontSize = size.sp, letterSpacing = (-0.02).em, maxLines = 1)
+fun Num(text: String, color: Color = Ink, size: Int = 15, modifier: Modifier = Modifier) {
+    // Las cifras largas (p. ej. $1.250.000) bajan de tamaño en vez de cortarse en tarjetas angostas.
+    val s = when { size >= 18 && text.length > 10 -> size * 0.72f; size >= 18 && text.length > 8 -> size * 0.85f; else -> size.toFloat() }
+    Text(text, modifier, color = color, fontFamily = JetBrainsMono, fontWeight = FontWeight.ExtraBold, fontSize = s.sp, letterSpacing = (-0.02).em,
+        maxLines = 1, softWrap = false, overflow = TextOverflow.Ellipsis)
+}
 
 // ───────────────── Etiquetas ─────────────────
 @Composable
 fun Pill(text: String, bg: Color = Surf3, fg: Color = Muted, icon: ImageVector? = null) {
     Row(Modifier.clip(RoundedCornerShape(6.dp)).background(bg).padding(horizontal = 7.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
         if (icon != null) { Icon(icon, null, Modifier.size(12.dp), tint = fg); Spacer(Modifier.width(4.dp)) }
-        Text(text, color = fg, fontFamily = JetBrainsMono, fontWeight = FontWeight.ExtraBold, fontSize = 10.5.sp, letterSpacing = 0.02.em, maxLines = 1)
+        Text(text, color = fg, fontFamily = JetBrainsMono, fontWeight = FontWeight.ExtraBold, fontSize = 10.5.sp, letterSpacing = 0.02.em, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -287,7 +295,7 @@ fun Chip(label: String, selected: Boolean, icon: ImageVector? = null, accent: Co
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (icon != null) { Icon(icon, null, Modifier.size(16.dp), tint = fg); Spacer(Modifier.width(6.dp)) }
-        Text(label, color = fg, fontFamily = JetBrainsMono, fontWeight = FontWeight.Bold, fontSize = 12.sp, maxLines = 1)
+        Text(label, color = fg, fontFamily = JetBrainsMono, fontWeight = FontWeight.Bold, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -297,6 +305,7 @@ fun Segmented(options: List<Triple<String, String, ImageVector?>>, selected: Str
     val idx = options.indexOfFirst { it.first == selected }.coerceAtLeast(0)
     BoxWithConstraints(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Surf0).padding(4.dp)) {
         val w = maxWidth / options.size
+        val showIcons = w >= 165.dp
         val x by animateDpAsState(w * idx, spring(dampingRatio = 0.78f, stiffness = Spring.StiffnessMediumLow), label = "seg")
         Box(Modifier.offset(x = x).width(w).height(44.dp).glow(Orange, RoundedCornerShape(11.dp), elevation = 8.dp).clip(RoundedCornerShape(11.dp)).background(Orange))
         Row(Modifier.fillMaxWidth()) {
@@ -306,8 +315,9 @@ fun Segmented(options: List<Triple<String, String, ImageVector?>>, selected: Str
                     Modifier.weight(1f).height(44.dp).clip(RoundedCornerShape(11.dp)).clickable { onSelect(k) },
                     horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    if (ic != null) { Icon(ic, null, Modifier.size(17.dp), tint = fg); Spacer(Modifier.width(6.dp)) }
-                    Text(t, color = fg, fontFamily = JetBrainsMono, fontWeight = FontWeight.Bold, fontSize = 12.5.sp, maxLines = 1)
+                    if (ic != null && showIcons) { Icon(ic, null, Modifier.size(17.dp), tint = fg); Spacer(Modifier.width(6.dp)) }
+                    Text(t, color = fg, fontFamily = JetBrainsMono, fontWeight = FontWeight.Bold, fontSize = if (options.size > 2) 11.5.sp else 12.5.sp,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
         }
@@ -325,7 +335,7 @@ fun Field(label: String, value: String, onChange: (String) -> Unit, modifier: Mo
         if (label.isNotBlank()) Lbl(label)
         OutlinedTextField(
             value = value, onValueChange = onChange, modifier = Modifier.fillMaxWidth(),
-            placeholder = { if (hint.isNotBlank()) Text(hint, color = Muted) }, singleLine = lines == 1, minLines = lines,
+            placeholder = { if (hint.isNotBlank()) Text(hint, color = Muted, maxLines = lines, overflow = TextOverflow.Ellipsis) }, singleLine = lines == 1, minLines = lines,
             leadingIcon = leading?.let { { Icon(it, null, tint = Muted) } }, trailingIcon = trailing,
             prefix = prefix?.let { { Text(it, color = Ink, fontFamily = JetBrainsMono, fontWeight = FontWeight.Bold) } },
             keyboardOptions = KeyboardOptions(keyboardType = kb, imeAction = ime),
@@ -377,6 +387,8 @@ fun Drop(label: String, options: List<Pair<String, String>>, selected: String, o
 }
 
 private val DateFmt = DateTimeFormatter.ofPattern("EEE d MMM", Locale("es", "CO"))
+private val ShortFmt = DateTimeFormatter.ofPattern("d MMM", Locale("es", "CO"))
+fun shortDate(iso: String): String = runCatching { LocalDate.parse(iso).format(ShortFmt).replace(".", "") }.getOrDefault(iso)
 fun prettyDate(iso: String): String = runCatching { LocalDate.parse(iso).format(DateFmt).replaceFirstChar { it.uppercase() } }.getOrDefault(iso)
 
 @Composable
@@ -384,7 +396,7 @@ fun DateField(label: String, value: String, min: String? = null, modifier: Modif
     val ctx = LocalContext.current
     Column(modifier, verticalArrangement = Arrangement.spacedBy(5.dp)) {
         Lbl(label)
-        FilledBox(if (value.isBlank()) "Elegir fecha" else prettyDate(value), Icons.Filled.CalendarMonth, false, {
+        FilledBox(if (value.isBlank()) "Elegir fecha" else shortDate(value), Icons.Filled.CalendarMonth, false, {
             val d = LocalDate.parse(value.ifBlank { today() })
             val dlg = DatePickerDialog(ctx, { _, y, m, day -> onPick(LocalDate.of(y, m + 1, day).toString()) }, d.year, d.monthValue - 1, d.dayOfMonth)
             min?.let { dlg.datePicker.minDate = LocalDate.parse(it).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli() }

@@ -3,8 +3,10 @@ package co.apexmoto.app.data
 import com.google.firebase.firestore.DocumentId
 
 object Role {
-    const val RIDER = "m"; const val SHOP = "c"; const val OWNER = "o"; const val DRIVER = "d"
-    fun label(r: String) = when (r) { RIDER -> "Rider"; SHOP -> "Comercio"; OWNER -> "Dueño de moto"; else -> "Conductor guía" }
+    const val RIDER = "m"; const val SHOP = "c"; const val OWNER = "o"; const val DRIVER = "d"; const val WORKSHOP = "t"
+    fun label(r: String) = when (r) { RIDER -> "Rider"; SHOP -> "Comercio"; OWNER -> "Dueño de moto"; WORKSHOP -> "Taller mecánico"; else -> "Conductor guía" }
+    /** Roles que administran un negocio (comercio o taller) y por eso tienen un Venue propio. */
+    fun hasVenue(r: String) = r == SHOP || r == WORKSHOP
 }
 
 // Todos los modelos tienen valores por defecto y propiedades var: Firestore los necesita para leer/escribir.
@@ -21,6 +23,8 @@ data class Venue(
     var rating: Double = 5.0, var reviews: Int = 0, var badge: String = "Aliado Apex", var kind: String = "",
     var promo: String = "", var desc: String = "", var tags: List<String> = emptyList(), var cuisines: List<String> = emptyList(),
     var menu: List<MenuItem> = emptyList(), var lat: Double = 0.0, var lng: Double = 0.0, var visits: Int = 0,
+    // Solo talleres: qué tipos de S.O.S. atiende, hasta qué distancia y si está recibiendo S.O.S. ahora.
+    var covers: List<String> = listOf("flat", "battery", "fuel", "tow", "mech"), var radiusKm: Int = 40, var sosOn: Boolean = true,
 )
 
 data class Bike(
@@ -67,6 +71,7 @@ data class Sos(
     @DocumentId var id: String = "", var fromId: String = "", var fromName: String = "", var kind: String = "", var kindName: String = "",
     var locationText: String = "", var lat: Double = 0.0, var lng: Double = 0.0, var note: String = "", var price: Long = 0,
     var status: String = "new", var providerId: String = "", var providerName: String = "", var eta: Int = 0, var createdAt: Long = 0,
+    var acceptedAt: Long = 0, var doneAt: Long = 0,
 )
 
 data class ChatMessage(

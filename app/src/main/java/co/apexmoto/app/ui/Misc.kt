@@ -121,7 +121,7 @@ fun SettingsScreen(vm: AppViewModel) {
             }
             SwitchRow("Guía por voz", "Lee en voz alta cada instrucción mientras manejas", vm.voice) { vm.updateVoice(it) }
         }
-        Sub("ApexMoto 1.0")
+        Sub("ApexMoto ${BuildConfig.VERSION_NAME}")
     }
 }
 

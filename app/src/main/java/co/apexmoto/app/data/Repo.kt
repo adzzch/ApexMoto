@@ -42,6 +42,7 @@ class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth) {
         val u = AppUser(fu.uid, name.trim().ifBlank { "Moto Rider" }, (fu.email ?: fu.phoneNumber).orEmpty().lowercase(), role)
         col("users").document(fu.uid).set(u).await()
         if (role == Role.SHOP) newVenue(fu.uid, bizName.ifBlank { "Mi negocio" }, corridor)
+        if (role == Role.WORKSHOP) newWorkshop(fu.uid, bizName.ifBlank { "Mi taller" }, corridor)
         if (role == Role.DRIVER) ensureDriver(u)
         return u
     }
@@ -70,6 +71,15 @@ class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth) {
         val c = C.corridor(corridor)
         col("venues").add(Venue(ownerId = owner, name = name, corridor = corridor, lat = c.lat, lng = c.lng,
             kind = C.CATS["food"]!!.third, promo = "Define tu promoción", desc = "Cuéntales a los moteros qué ofreces.")).await()
+    }
+
+    /** Taller: aparece para los riders en "Gasolina & Talleres" y arranca con un catálogo de servicios básico. */
+    suspend fun newWorkshop(owner: String, name: String, corridor: String) {
+        val c = C.corridor(corridor)
+        val k = C.CATS["moto"]!!
+        val services = C.SOS_KINDS.mapIndexed { i, s -> MenuItem("s$i", s.name, "Atención en carretera", s.price, "Servicios") }
+        col("venues").add(Venue(ownerId = owner, name = name, corridor = corridor, lat = c.lat, lng = c.lng, types = listOf("moto"),
+            badge = k.second, kind = k.third, promo = "Revisión básica gratis", desc = "Mecánica y asistencia para motos en carretera.", menu = services)).await()
     }
 
     suspend fun saveVenue(v: Venue) { col("venues").document(v.id).set(v).await() }
@@ -156,9 +166,12 @@ class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth) {
         db.runTransaction { tx ->
             val s = tx.get(ref)
             if (s.getString("status") != "new") throw IllegalStateException("Otro taller ya aceptó este S.O.S.")
-            tx.update(ref, mapOf("status" to "ok", "providerId" to providerId, "providerName" to providerName, "eta" to eta))
+            tx.update(ref, mapOf("status" to "ok", "providerId" to providerId, "providerName" to providerName, "eta" to eta, "acceptedAt" to now()))
         }.await()
     }
+    suspend fun finishSos(id: String) { col("sos").document(id).update(mapOf("status" to "fin", "doneAt" to now())).await() }
+    /** El taller suelta el S.O.S. (no puede ir): vuelve a quedar disponible para otros talleres. */
+    suspend fun releaseSos(id: String) { col("sos").document(id).update(mapOf("status" to "new", "providerId" to "", "providerName" to "", "eta" to 0)).await() }
 
     // ───────── Chat ─────────
     fun messages(thread: String) = col("chats").whereEqualTo("thread", thread).live<ChatMessage>()
@@ -186,12 +199,21 @@ class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth) {
         seedDemo()
     }
 
+    /** Si quien carga los datos demo es conductor guía y no tiene moto registrada, le asigna una para probar. */
+    private suspend fun assignDemoBikeToMe() {
+        val uid = auth.currentUser?.uid ?: return
+        val ref = col("drivers").document(uid)
+        val snap = ref.get().await()
+        if (snap.exists() && snap.getString("bike").isNullOrBlank()) ref.update(mapOf("bike" to "Honda XRE 300", "zone" to "Cali")).await()
+    }
+
     suspend fun seedDemo() {
         val marker = col("meta").document("seed")
         if (marker.get().await().exists()) error("Los datos demo ya fueron cargados")
         fun m(i: Int, n: String, d: String, p: Long, c: String) = MenuItem("m$i", n, d, p, c)
+        // lat/lng reales (aproximadas) para los lugares de Cali; los demás se ubican alrededor del centro de su corredor.
         data class S(val n: String, val t: List<String>, val cor: String, val km: Int, val r: Double, val rv: Int, val promo: String,
-                     val desc: String, val tags: List<String>, val cu: List<String>, val menu: List<MenuItem>)
+                     val desc: String, val tags: List<String>, val cu: List<String>, val menu: List<MenuItem>, val lat: Double = 0.0, val lng: Double = 0.0)
         val venues = listOf(
             S("Parrilla El Mirador", listOf("food"), "calima", 38, 4.8, 124, "10% de descuento + parqueo gratis", "Asados con vista al lago y parqueadero vigilado.",
                 listOf("asado", "parrilla", "lago"), listOf("Parrilla"), listOf(m(1, "Picada para dos", "Carnes y chorizo", 58000, "Platos fuertes"), m(2, "Churrasco", "300 g con papas", 42000, "Platos fuertes"), m(3, "Limonada", "Natural", 8000, "Bebidas"))),
@@ -209,6 +231,44 @@ class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth) {
                 listOf("pizza", "italiana"), listOf("Pizza"), listOf(m(1, "Pizza mediana", "Hawaiana", 34000, "Platos fuertes"))),
             S("Estación Chicamocha", listOf("moto"), "chica", 118, 4.3, 40, "Lavado de cadena gratis", "Gasolina y asistencia básica.",
                 listOf("gasolina", "taller"), emptyList(), listOf(m(1, "Lavado y lubricación", "De cadena", 15000, "Servicios"))),
+
+            // ── Cali ciudad · sitios turísticos (coordenadas aproximadas; ajústalas si hace falta)
+            S("Monumento a Sebastián de Belalcázar", listOf("tour"), "cali", 2, 4.7, 0, "", "Estatua del fundador de Cali en el cerro del oeste, con vista panorámica sobre la ciudad.",
+                listOf("mirador", "historia", "monumento", "belalcazar"), emptyList(), emptyList(), 3.4517, -76.5468),
+            S("Parque del Gato del Río", listOf("tour"), "cali", 2, 4.8, 0, "", "El Gato de Hernando Tejada a orillas del río Cali, rodeado de las gatas intervenidas por artistas.",
+                listOf("parque", "rio", "gato", "arte"), emptyList(), emptyList(), 3.4558, -76.5393),
+            S("Loma de la Cruz", listOf("tour"), "cali", 3, 4.6, 0, "", "Parque artesanal con artesanías, música en vivo y comida callejera, sobre todo al caer la tarde.",
+                listOf("artesanias", "parque", "comida", "loma"), emptyList(), emptyList(), 3.4431, -76.5392),
+            S("Cristo Rey", listOf("tour"), "cali", 6, 4.8, 0, "", "La estatua en el cerro de Los Cristales: el mirador más alto sobre todo el valle. Vía de montaña.",
+                listOf("mirador", "cristo", "cerro", "panoramica"), emptyList(), emptyList(), 3.4364, -76.5649),
+            S("Colina de San Antonio", listOf("tour"), "cali", 3, 4.8, 0, "", "Capilla colonial y mirador en el barrio más tradicional de Cali, con cafés y casas antiguas.",
+                listOf("mirador", "historia", "san antonio", "cafe"), emptyList(), emptyList(), 3.4466, -76.5384),
+            S("Iglesia La Ermita", listOf("tour"), "cali", 1, 4.8, 0, "", "Templo neogótico junto al río Cali y al Bulevar del Río, uno de los íconos de la ciudad.",
+                listOf("iglesia", "historia", "centro", "rio"), emptyList(), emptyList(), 3.4530, -76.5326),
+            S("Bulevar del Río", listOf("tour"), "cali", 1, 4.7, 0, "", "Paseo peatonal a lo largo del río Cali, entre La Ermita y el Puente Ortiz.",
+                listOf("paseo", "rio", "centro"), emptyList(), emptyList(), 3.4521, -76.5340),
+            S("Zoológico de Cali", listOf("tour"), "cali", 3, 4.8, 0, "", "Uno de los zoológicos más reconocidos del país, a orillas del río Cali en Santa Teresita.",
+                listOf("zoologico", "familia", "naturaleza"), emptyList(), emptyList(), 3.4486, -76.5546),
+
+            // ── Cali ciudad · restaurantes reales usados SOLO como datos de prueba (no son aliados reales; menús y promociones inventados)
+            S("El Zaguán de San Antonio", listOf("food"), "cali", 3, 4.6, 0, "Cupón de prueba", "Cocina vallecaucana tradicional con terraza sobre los tejados de San Antonio.",
+                listOf("tipica", "sancocho", "san antonio", "terraza"), listOf("Criolla"),
+                listOf(m(1, "Sancocho de gallina", "Con arroz y aguacate", 32000, "Platos fuertes"), m(2, "Arroz atollado", "Receta valluna", 30000, "Platos fuertes"), m(3, "Lulada", "Bebida típica", 9000, "Bebidas")), 3.4471, -76.5379),
+            S("Platillos Voladores", listOf("food"), "cali", 2, 4.7, 0, "Cupón de prueba", "Cocina de autor con producto local en el barrio Granada (Calle 3 N # 7-19).",
+                listOf("autor", "granada", "gourmet"), listOf("Saludable"),
+                listOf(m(1, "Pesca del día", "Con leche de coco", 54000, "Platos fuertes"), m(2, "Ceviche de la casa", "Para compartir", 36000, "Entradas"), m(3, "Jugo natural", "Fruta de temporada", 10000, "Bebidas")), 3.4573, -76.5333),
+            S("Domingo", listOf("food"), "cali", 3, 4.8, 0, "Cupón de prueba", "Cocina del Pacífico colombiano moderna en San Antonio, con menú degustación.",
+                listOf("pacifico", "autor", "san antonio", "pescado"), listOf("Pescado"),
+                listOf(m(1, "Encocado de camarón", "Arroz con coco", 52000, "Platos fuertes"), m(2, "Pandebono de la casa", "Para la mesa", 12000, "Entradas"), m(3, "Viche cóctel", "Destilado del Pacífico", 26000, "Bebidas")), 3.4462, -76.5371),
+            S("Casa Ibérica", listOf("food"), "cali", 2, 4.6, 0, "Cupón de prueba", "Tapas y paella españolas en El Peñón.",
+                listOf("tapas", "paella", "penon", "espanola"), listOf("Pescado"),
+                listOf(m(1, "Paella para dos", "Mixta", 98000, "Platos fuertes"), m(2, "Tabla de tapas", "Selección de la casa", 45000, "Entradas"), m(3, "Sangría", "Copa", 18000, "Bebidas")), 3.4497, -76.5418),
+            S("Pizzería Carpaneto", listOf("food"), "cali", 2, 4.7, 0, "Cupón de prueba", "Pizza napolitana en el barrio Granada.",
+                listOf("pizza", "italiana", "granada"), listOf("Pizza"),
+                listOf(m(1, "Pizza margarita", "Napolitana", 38000, "Platos fuertes"), m(2, "Pizza diávola", "Salami picante", 44000, "Platos fuertes"), m(3, "Tiramisú", "Porción", 16000, "Postres")), 3.4591, -76.5341),
+            S("Cantina La 15", listOf("food"), "cali", 3, 4.4, 0, "Cupón de prueba", "Comida mexicana y cócteles a buen precio en Granada Norte.",
+                listOf("mexicana", "tacos", "granada", "barato", "economico"), listOf("Parrilla"),
+                listOf(m(1, "Tacos al pastor", "Orden de 3", 26000, "Platos fuertes"), m(2, "Nachos para compartir", "Con guacamole", 28000, "Entradas"), m(3, "Michelada", "Vaso", 14000, "Bebidas")), 3.4606, -76.5327),
         )
         venues.forEachIndexed { i, s ->
             val c = C.corridor(s.cor)
@@ -216,7 +276,7 @@ class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth) {
             // ID fijo: cargar los datos demo dos veces ya no genera comercios repetidos
             col("venues").document("demo_v${i + 1}").set(Venue(name = s.n, types = s.t, corridor = s.cor, km = s.km, rating = s.r, reviews = s.rv, badge = k.second, kind = k.third,
                 promo = s.promo, desc = s.desc, tags = s.tags, cuisines = s.cu, menu = s.menu,
-                lat = c.lat + ((i % 3) - 1) * 0.012, lng = c.lng + (i % 2) * 0.015)).await()
+                lat = if (s.lat != 0.0) s.lat else c.lat + ((i % 3) - 1) * 0.012, lng = if (s.lng != 0.0) s.lng else c.lng + (i % 2) * 0.015)).await()
         }
         listOf(
             Bike(name = "Yamaha MT-07", cc = 689, category = "Deportiva", pricePerDay = 280000, city = "Cali", specs = listOf("73 hp", "ABS"), rating = 4.9, trips = 31, instant = true),
@@ -232,6 +292,7 @@ class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth) {
             Rodada(name = "Rodada Lago Calima", whenLabel = "Sábado 7:00", captain = "@camilo", meet = "Peaje Cencar, Cali", style = "Turismo", seats = 10),
             Rodada(name = "Madrugón La Línea", whenLabel = "Domingo 5:30", captain = "@laura", meet = "Estación Terpel Armenia", style = "Aventura", seats = 8),
         ).forEachIndexed { i, r -> col("rodadas").document("demo_r${i + 1}").set(r).await() }
+        assignDemoBikeToMe()
         marker.set(mapOf("at" to now())).await()
     }
 }

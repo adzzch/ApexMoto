@@ -23,8 +23,8 @@ android {
         applicationId = "co.apexmoto.app"
         minSdk = 26
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.1"
         buildConfigField("String", "ORS_API_KEY", "\"$orsKey\"")
     }
     buildFeatures { compose = true; buildConfig = true }
@@ -34,6 +34,14 @@ android {
     }
     kotlinOptions { jvmTarget = "17" }
     packaging { resources { excludes += "/META-INF/{AL2.0,LGPL2.1}" } }
+    // El APK sale con nombre y versión: apexmotov1.1.apk (y apexmotov1.1-release.apk en release).
+    applicationVariants.all {
+        val variant = this
+        outputs.all {
+            val suffix = if (variant.buildType.name == "debug") "" else "-${variant.buildType.name}"
+            (this as com.android.build.gradle.internal.api.BaseVariantOutputImpl).outputFileName = "apexmotov${variant.versionName}$suffix.apk"
+        }
+    }
 }
 
 dependencies {

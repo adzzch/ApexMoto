@@ -1,11 +1,15 @@
 package co.apexmoto.app.ui.theme
 
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
@@ -104,4 +108,11 @@ private val ApexShapes = Shapes(
 )
 
 @Composable
-fun ApexTheme(content: @Composable () -> Unit) = MaterialTheme(colorScheme = Scheme, typography = Type, shapes = ApexShapes, content = content)
+fun ApexTheme(content: @Composable () -> Unit) = MaterialTheme(colorScheme = Scheme, typography = Type, shapes = ApexShapes) {
+    // Color de texto por defecto explícito: ningún texto queda dependiendo del modo claro/oscuro del sistema.
+    // La app respeta la letra grande del celular, pero con un tope (1.15x): por encima de eso los textos
+    // empujan y parten las tarjetas, botones y barras en pantallas angostas.
+    val d = LocalDensity.current
+    val scaled = Density(d.density, d.fontScale.coerceIn(0.85f, 1.15f))
+    CompositionLocalProvider(LocalContentColor provides Ink, LocalDensity provides scaled, content = content)
+}

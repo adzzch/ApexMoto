@@ -82,7 +82,7 @@ class RoutesClient(private val apiKey: String) {
                 val s = st.getJSONObject(j)
                 val wp = s.optJSONArray("way_points")
                 val start = points.getOrNull(wp?.optInt(0) ?: 0) ?: continue
-                steps += RouteStep(s.optString("instruction").ifBlank { "Continúa por la vía" }, s.optDouble("distance").toInt(), start)
+                steps += RouteStep(forRider(s.optString("instruction")).ifBlank { "Continúa por la vía" }, s.optDouble("distance").toInt(), start)
             }
         }
         return RoutePlan(sum.optDouble("distance").toInt(), sum.optDouble("duration").toInt(), points, steps)
@@ -113,9 +113,9 @@ class LocationHelper(private val ctx: Context) {
     suspend fun last(): LatLng? {
         if (!hasPermission()) return null
         // Pide una ubicación fresca (si no llega en 4 s usa la última conocida, que puede ser vieja)
-        val fresh = runCatching {
+        val fresh = try {
             withTimeoutOrNull(4000) { client.getCurrentLocation(Priority.PRIORITY_HIGH_ACCURACY, CancellationTokenSource().token).await() }
-        }.getOrNull()
+        } catch (e: kotlinx.coroutines.CancellationException) { throw e } catch (e: Exception) { null }
         val l = fresh ?: client.lastLocation.await() ?: return null
         return LatLng(l.latitude, l.longitude)
     }
@@ -139,3 +139,10 @@ fun openInGoogleMaps(ctx: Context, lat: Double, lng: Double) {
         ctx.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("geo:$lat,$lng?q=$lat,$lng")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
     }
 }
+
+/** OpenRouteService traduce algunas instrucciones como si fueras a pie ("Camina hacia…"); se ajustan para moto. */
+private fun forRider(t: String): String = when {
+    t.startsWith("Camina ") -> "Avanza " + t.removePrefix("Camina ")
+    t.startsWith("Camine ") -> "Avance " + t.removePrefix("Camine ")
+    else -> t
+}.replace(" caminando", "")

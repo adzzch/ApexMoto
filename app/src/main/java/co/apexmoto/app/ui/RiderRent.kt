@@ -136,8 +136,8 @@ private fun ColumnScope.BikesList(vm: AppViewModel, nav: NavController) {
     val list = bikes.filter { it.available && (city == "all" || it.city == city) && (cat == "all" || it.category == cat) }
         .let { l -> when (sort) { "pa" -> l.sortedBy { it.pricePerDay }; "pd" -> l.sortedByDescending { it.pricePerDay }; "rt" -> l.sortedByDescending { it.rating }; else -> l.sortedByDescending { it.rating * 10 + it.trips / 100.0 } } }
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Lbl("${list.size} moto${if (list.size == 1) "" else "s"} · $days día${if (days == 1) "" else "s"}", modifier = Modifier.weight(1f))
-        Drop("", listOf("rec" to "Recomendadas", "pa" to "Menor precio", "pd" to "Mayor precio", "rt" to "Mejor calificadas"), sort, { sort = it }, Modifier.width(190.dp))
+        Lbl("${list.size} moto${if (list.size == 1) "" else "s"} · $days día${if (days == 1) "" else "s"}", modifier = Modifier.weight(0.9f))
+        Drop("", listOf("rec" to "Recomendadas", "pa" to "Menor precio", "pd" to "Mayor precio", "rt" to "Mejor calificadas"), sort, { sort = it }, Modifier.weight(1.1f))
     }
     if (list.isEmpty()) Empty("No hay motos con esos filtros.", Icons.Filled.TwoWheeler)
     list.forEachIndexed { i, b ->
