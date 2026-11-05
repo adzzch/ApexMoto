@@ -25,14 +25,14 @@ data class Venue(
 
 data class Bike(
     @DocumentId var id: String = "", var ownerId: String = "", var name: String = "", var cc: Int = 250, var category: String = "Aventura",
-    var usdPerDay: Long = 40, var city: String = "Cali", var specs: List<String> = emptyList(), var rating: Double = 5.0,
+    var pricePerDay: Long = 150000, var city: String = "Cali", var specs: List<String> = emptyList(), var rating: Double = 5.0,
     var trips: Int = 0, var instant: Boolean = false, var delivery: Boolean = false, var available: Boolean = true,
     var booked: List<String> = emptyList(),
 )
 
 data class Driver(
     @DocumentId var id: String = "", var ownerId: String = "", var name: String = "", var bike: String = "", var zone: String = "Cali",
-    var rate: Long = 60, var rating: Double = 5.0, var reviews: Int = 0, var services: List<String> = listOf("Ruta guiada"),
+    var rate: Long = 200000, var rating: Double = 5.0, var reviews: Int = 0, var services: List<String> = listOf("Ruta guiada"),
     var bio: String = "", var online: Boolean = true,
 )
 

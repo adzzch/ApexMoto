@@ -39,10 +39,13 @@ object C {
     val MENU_CATS = listOf("Entradas", "Platos fuertes", "Bebidas", "Postres", "Servicios")
     val PLANS = listOf(
         Plan("b", "Básica", 0, "Cobertura obligatoria"),
-        Plan("s", "Estándar", 8, "Reduce responsabilidad por daños"),
-        Plan("p", "Premium", 15, "Cero responsabilidad"),
+        Plan("s", "Estándar", 30000, "Reduce responsabilidad por daños"),
+        Plan("p", "Premium", 55000, "Cero responsabilidad"),
     )
-    val EXTRAS = listOf(Extra("casco", "Casco extra", 3), Extra("maletas", "Maletas laterales", 6), Extra("gps", "Soporte GPS", 2), Extra("intercom", "Intercom", 5))
+    val EXTRAS = listOf(Extra("casco", "Casco extra", 12000), Extra("maletas", "Maletas laterales", 25000), Extra("gps", "Soporte GPS", 8000), Extra("intercom", "Intercom", 20000))
     val SOS_KINDS = listOf(SosKind("flat", "Pinchazo", 35000), SosKind("battery", "Batería", 45000), SosKind("fuel", "Sin gasolina", 25000), SosKind("tow", "Remolque", 120000), SosKind("mech", "Falla mecánica", 60000))
+    // Todos los precios de la app están en pesos colombianos (COP).
+    const val DELIVERY_FEE = 40000L
+
     val RIDE_STYLES = listOf("Turismo", "Aventura", "Deportivo", "Relajado")
 }

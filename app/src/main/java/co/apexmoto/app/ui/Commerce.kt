@@ -2,6 +2,23 @@
 
 package co.apexmoto.app.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.em
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -32,13 +49,33 @@ fun ShopDashboard(vm: AppViewModel, u: AppUser) {
     val coupons by vm.shopCoupons.collectAsState()
     Screen {
         if (v == null) { Empty("Cargando tu negocio…"); return@Screen }
-        H(v.name)
-        SwitchRow(if (v.open) "Abierto" else "Cerrado", "Los riders ven tu estado en tiempo real", v.open) { on -> vm.act { vm.repo.saveVenue(v.copy(open = on)) } }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Stat("${orders.count { it.status == "new" }}", "pedidos nuevos", Modifier.weight(1f)); Stat("${v.visits}", "visitas (Ir)", Modifier.weight(1f))
+        Card2(index = 0) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) { Text(v.name, fontFamily = Chivo, fontWeight = FontWeight.ExtraBold, fontSize = 20.sp); Lbl("${v.kind} · Km ${v.km}", CyanDeep) }
+                Pill(v.badge, venueBadge(v), Color.White)
+            }
+            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Surf0).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Ping(v.open); Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) { Text(if (v.open) "Abierto" else "Cerrado", fontWeight = FontWeight.Bold); Lbl("Los riders ven tu estado en tiempo real") }
+                ApexSwitch(v.open) { on -> vm.act { vm.repo.saveVenue(v.copy(open = on)) } }
+            }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Stat(cop(orders.filter { it.status == "done" }.sumOf { it.total }), "vendido", Modifier.weight(1f)); Stat("${coupons.count { it.used }}/${coupons.size}", "cupones canjeados", Modifier.weight(1f))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            StatCard("${orders.count { it.status == "new" }}", "Pedidos nuevos", Modifier.weight(1f), CyanDeep, 1)
+            StatCard(cop(orders.filter { it.status == "done" }.sumOf { it.total }), "Ventas", Modifier.weight(1f), Green, 2)
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            StatCard("${v.visits}", "Moteros con GPS", Modifier.weight(1f), CyanDeep, 3)
+            StatCard("${coupons.count { it.used }}/${coupons.size}", "Cupones canjeados", Modifier.weight(1f), OrangeDark, 4)
+        }
+        H("Últimos pedidos", Icons.Filled.ReceiptLong)
+        val recent = orders.sortedByDescending { it.createdAt }.take(4)
+        if (recent.isEmpty()) Empty("Todavía no hay pedidos.", Icons.Filled.ReceiptLong)
+        recent.forEachIndexed { i, o ->
+            Card2(index = 5 + i) { Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) { Text(o.fromName, fontWeight = FontWeight.Bold); Lbl("${o.items.sumOf { it.qty }} producto(s) · llega en ${o.eta}") }
+                Num(cop(o.total), Ink, 14); Spacer(Modifier.width(8.dp)); StatusPill(ORD_ST[o.status] ?: o.status, o.status)
+            } }
         }
     }
 }
@@ -55,12 +92,12 @@ fun ShopOrdersScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
             H("S.O.S. cercanos")
             if (open.isEmpty()) Sub("No hay emergencias activas.")
             open.forEach { s ->
-                Card2(border = Red) {
+                Card2(border = RedSoft) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) { Text("${s.kindName} · ${s.fromName}", fontWeight = FontWeight.Bold); Sub(s.locationText) }
                         StatusPill(SOS_ST[s.status] ?: s.status, s.status)
                     }
-                    Text("Tarifa ${cop(s.price)}", color = Orange, fontWeight = FontWeight.Bold)
+                    Num("Tarifa ${cop(s.price)}", OrangeDark, 15)
                     when (s.status) {
                         "new" -> Btn("Aceptar (llego en 20 min)", Modifier.fillMaxWidth(), Icons.Filled.Check) { vm.act("S.O.S. aceptado") { vm.repo.acceptSos(s.id, u.id, v.name, 20) } }
                         "ok" -> Btn("Voy en camino", Modifier.fillMaxWidth(), Icons.Filled.Navigation) { vm.act { vm.repo.setSosStatus(s.id, "go") } }
@@ -71,15 +108,15 @@ fun ShopOrdersScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
         }
         H("Pedidos")
         if (orders.isEmpty()) Empty("Cuando un rider haga un pedido aparecerá aquí.")
-        orders.sortedByDescending { it.createdAt }.forEach { o ->
-            Card2 {
+        orders.sortedByDescending { it.createdAt }.forEachIndexed { i, o ->
+            Card2(index = i) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) { Text(o.fromName, fontWeight = FontWeight.Bold); Sub("Llega en ${o.eta}") }
                     StatusPill(ORD_ST[o.status] ?: o.status, o.status)
                 }
                 o.items.forEach { Sub("${it.qty} × ${it.name} · ${cop(it.qty * it.price)}") }
                 if (o.note.isNotBlank()) Sub("Nota: ${o.note}")
-                Text("Total ${cop(o.total)}", fontWeight = FontWeight.Bold, color = Orange)
+                Num("Total ${cop(o.total)}", OrangeDark, 16)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     next[o.status]?.let { (st, label) -> Btn(label, Modifier.weight(1f)) { vm.act { vm.repo.setOrderStatus(o.id, st) } } }
                     if (o.status == "new") Btn("Rechazar", Modifier.weight(1f), kind = BK.Danger) { vm.act { vm.repo.setOrderStatus(o.id, "no") } }
@@ -105,7 +142,7 @@ fun ShopMenuScreen(vm: AppViewModel, u: AppUser) {
             Card2 {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) { Text(m.name, fontWeight = FontWeight.Bold); Sub("${m.cat} · ${cop(m.price)}") }
-                    Switch(m.on, { on -> vm.act { vm.repo.setMenu(v.id, v.menu.map { if (it.id == m.id) it.copy(on = on) else it }) } })
+                    ApexSwitch(m.on, { on -> vm.act { vm.repo.setMenu(v.id, v.menu.map { if (it.id == m.id) it.copy(on = on) else it }) } })
                     IconButton({ edit = m }) { Icon(Icons.Filled.Edit, "Editar") }
                     IconButton({ vm.act { vm.repo.setMenu(v.id, v.menu.filter { it.id != m.id }) } }) { Icon(Icons.Filled.Delete, "Eliminar") }
                 }
@@ -185,8 +222,8 @@ fun ShopRedeemScreen(vm: AppViewModel, u: AppUser) {
         if (coupons.isEmpty()) Empty("Aún no se han generado cupones para tu negocio.")
         coupons.sortedByDescending { it.createdAt }.forEach { c ->
             Card2 { Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) { Text(c.code, fontFamily = Mono, fontWeight = FontWeight.Bold); Sub(c.userName) }
-                if (c.used) Pill("Canjeado", androidx.compose.ui.graphics.Color(0x2E1B8A3A), Green) else Pill("Disponible")
+                Column(Modifier.weight(1f)) { Num(c.code, Ink, 16); Sub(c.userName) }
+                if (c.used) Pill("Canjeado", GreenSoft, Green) else Pill("Disponible")
             } }
         }
     }

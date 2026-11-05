@@ -2,6 +2,28 @@
 
 package co.apexmoto.app.ui
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.*
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.em
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -36,6 +58,11 @@ fun startGuide(vm: AppViewModel, nav: NavController, title: String, vs: List<Ven
     nav.navigate("navigate")
 }
 
+fun venueTint(v: Venue) = when (v.types.firstOrNull()) { "cafe" -> CyanTint; "moto" -> GreenTint; else -> OrangeSoft }
+fun venueBadge(v: Venue) = when (v.types.firstOrNull()) { "cafe" -> CyanDeep; "moto" -> Green; else -> Orange }
+fun venueIcon(v: Venue) = when (v.types.firstOrNull()) { "cafe" -> Icons.Filled.LocalCafe; "moto" -> Icons.Filled.Build; else -> Icons.Filled.Restaurant }
+fun corridorIcon(key: String) = when (key) { "linea" -> Icons.Filled.Landscape; "palmas" -> Icons.Filled.Speed; "chica" -> Icons.Filled.Terrain; else -> Icons.Filled.NearMe }
+
 @Composable
 fun VenuesScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
     val ctx = LocalContext.current
@@ -50,86 +77,99 @@ fun VenuesScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
     val active = orders.filter { it.status != "done" && it.status != "no" }
 
     Column(Modifier.fillMaxSize()) {
-        Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                C.CORRIDORS.forEach { c -> Chip(c.name, cor == c.key) { cor = c.key } }
+        Column(Modifier.padding(top = 14.dp, bottom = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                C.CORRIDORS.forEach { c -> Chip(c.name, cor == c.key, corridorIcon(c.key)) { cor = c.key } }
             }
-            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Chip("Todos", fl == "all") { fl = "all" }
-                C.CATS.forEach { (k, v) -> Chip(v.first, fl == k) { fl = k } }
-                Chip(if (asMap) "Ver lista" else "Ver mapa", asMap) { asMap = !asMap }
+            Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Chip(if (asMap) "Ver lista" else "Ver mapa", asMap, if (asMap) Icons.Filled.ViewAgenda else Icons.Filled.Map, accent = Ink) { asMap = !asMap }
+                Chip("Todos", fl == "all", accent = Cyan) { fl = "all" }
+                C.CATS.forEach { (k, v) -> Chip(v.first, fl == k, accent = Cyan) { fl = k } }
             }
         }
-        if (asMap) {
-            val c = C.corridor(cor)
-            val here by produceState<LatLng?>(null) { value = runCatching { vm.container.location.last() }.getOrNull() }
-            val located = list.filter { it.lat != 0.0 }
-            key(cor) { // al cambiar de corredor se crea un mapa centrado en él
-                OsmMap(
-                    Modifier.weight(1f).fillMaxWidth(), center = LatLng(c.lat, c.lng), zoom = 11.0, mapType = vm.mapType,
-                    markers = located.map { MapMarker(it.id, LatLng(it.lat, it.lng), it.name, it.promo) },
-                    myPos = here, onMarkerClick = { id -> located.firstOrNull { it.id == id }?.let { detail = it } },
-                )
-            }
-        } else {
-            Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                active.forEach { o ->
-                    Card2(border = Orange) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Column(Modifier.weight(1f)) { Text("Pedido en ${o.venueName}", fontWeight = FontWeight.Bold); Sub("${o.items.sumOf { it.qty }} ítems · ${cop(o.total)} · llegas ${o.eta}") }
-                            StatusPill(ORD_ST[o.status] ?: o.status, o.status)
-                        }
-                        if (o.ownerId.isNotBlank()) Btn("Escribir al comercio", icon = Icons.Filled.Chat, kind = BK.Ghost) { nav.chat("ord_${o.id}", o.venueName, o.ownerId) }
-                    }
+        AnimatedContent(asMap, Modifier.weight(1f), label = "map", transitionSpec = { fadeIn(tween(260)) togetherWith fadeOut(tween(160)) }) { showMap ->
+            if (showMap) {
+                val c = C.corridor(cor)
+                val here by produceState<LatLng?>(null) { value = runCatching { vm.container.location.last() }.getOrNull() }
+                val located = list.filter { it.lat != 0.0 }
+                key(cor) { // al cambiar de corredor se crea un mapa centrado en él
+                    OsmMap(
+                        Modifier.fillMaxSize().padding(top = 8.dp), center = LatLng(c.lat, c.lng), zoom = 11.0, mapType = vm.mapType,
+                        markers = located.map { MapMarker(it.id, LatLng(it.lat, it.lng), it.name, it.promo) },
+                        myPos = here, onMarkerClick = { id -> located.firstOrNull { it.id == id }?.let { detail = it } },
+                    )
                 }
-                if (list.isEmpty()) Empty("No hay comercios en este corredor todavía.")
-                list.forEach { v ->
-                    Card2(onClick = { detail = v }) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Column(Modifier.weight(1f)) { Text(v.name, style = MaterialTheme.typography.titleMedium); Lbl("${v.badge} · km ${v.km}") }
-                            Stars(v.rating)
-                        }
-                        Text(v.promo, color = Orange, fontWeight = FontWeight.SemiBold)
-                        Sub(v.desc)
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            if (v.menu.isNotEmpty() && v.ownerId.isNotBlank()) Btn("Pedir", Modifier.weight(1f), Icons.Filled.Restaurant) { nav.navigate("menu/${v.id}") }
-                            Btn("Ir", Modifier.weight(1f), Icons.Filled.Navigation, kind = BK.Ghost, enabled = v.lat != 0.0) { startGuide(vm, nav, v.name, listOf(v)) }
-                            Btn("Cupón", Modifier.weight(1f), Icons.Filled.LocalOffer, kind = BK.Ghost, enabled = v.ownerId.isNotBlank()) {
-                                vm.act { coupon = vm.repo.couponFor(v, u) }
+            } else {
+                Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                    if (active.isNotEmpty()) Card2(tone = Surf1, border = OrangeSoft) {
+                        IconLine(Icons.Filled.ReceiptLong, "Pedidos activos")
+                        active.forEach { o ->
+                            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Color.White).padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Column(Modifier.weight(1f)) { Text(o.venueName, fontWeight = FontWeight.Bold); Lbl("${o.items.sumOf { it.qty }} producto(s) · ${cop(o.total)} · llegas ${o.eta}") }
+                                StatusPill(ORD_ST[o.status] ?: o.status, o.status)
+                                if (o.ownerId.isNotBlank()) { Spacer(Modifier.width(8.dp)); IconBtn(Icons.Filled.Chat, "Escribir al comercio") { nav.chat("ord_${o.id}", o.venueName, o.ownerId) } }
                             }
                         }
                     }
+                    if (list.isEmpty()) Empty("No hay comercios en este corredor todavía.", Icons.Filled.Storefront)
+                    list.forEachIndexed { i, v ->
+                        val canOrder = v.menu.isNotEmpty() && v.ownerId.isNotBlank()
+                        Card2(index = i, padding = 0.dp, onClick = { detail = v }) {
+                            MediaHeader(venueTint(v), venueIcon(v), 116.dp) {
+                                Column(Modifier.align(Alignment.BottomStart).fillMaxWidth(0.76f).padding(start = 14.dp, bottom = 10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        Pill(v.badge, venueBadge(v), Color.White)
+                                        if (!v.open) Pill("Cerrado", RedSoft, Red)
+                                    }
+                                    Text(v.name, style = MaterialTheme.typography.titleMedium.copy(fontSize = 17.sp, fontWeight = FontWeight.ExtraBold), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Lbl("${v.kind} · Km ${v.km}", CyanDeep)
+                                }
+                                Box(Modifier.align(Alignment.BottomEnd).padding(end = 14.dp, bottom = 12.dp)) { Stars(v.rating) }
+                            }
+                            Column(Modifier.padding(start = 14.dp, end = 14.dp, bottom = 14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                if (v.promo.isNotBlank()) IconLine(Icons.Filled.LocalOffer, v.promo)
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    if (canOrder) Btn("Menú", Modifier.weight(1f), Icons.Filled.RestaurantMenu) { nav.navigate("menu/${v.id}") }
+                                    else Btn("Ver detalles", Modifier.weight(1f)) { detail = v }
+                                    IconBtn(Icons.Filled.TurnRight, "Ir con guía", enabled = v.lat != 0.0) { startGuide(vm, nav, v.name, listOf(v)) }
+                                    IconBtn(Icons.Filled.LocalOffer, "Pedir cupón", enabled = v.ownerId.isNotBlank()) { vm.act { coupon = vm.repo.couponFor(v, u) } }
+                                }
+                            }
+                        }
+                    }
+                    Spacer(Modifier.height(4.dp))
                 }
             }
         }
     }
 
     detail?.let { v ->
-        AlertDialog(
-            onDismissRequest = { detail = null },
-            title = { Text(v.name) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Lbl("${v.kind} · km ${v.km} · ${v.reviews} reseñas")
-                    Text(v.desc); Text(v.promo, color = Orange, fontWeight = FontWeight.Bold)
-                    if (v.menu.isNotEmpty()) v.menu.filter { it.on }.take(5).forEach { Sub("${it.name} · ${cop(it.price)}") }
-                    TextButton({ openInGoogleMaps(ctx, v.lat, v.lng) }, enabled = v.lat != 0.0) { Text("Abrir en otra app") }
-                }
-            },
-            confirmButton = { Btn("Guiar en la app", icon = Icons.Filled.Navigation, enabled = v.lat != 0.0) { detail = null; startGuide(vm, nav, v.name, listOf(v)) } },
-            dismissButton = { TextButton({ detail = null }) { Text("Cerrar") } },
-        )
+        val canOrder = v.menu.isNotEmpty() && v.ownerId.isNotBlank()
+        Sheet({ detail = null }) {
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { Pill(v.badge, venueBadge(v), Color.White); if (!v.open) Pill("Cerrado", RedSoft, Red) }
+            Text(v.name, fontFamily = Chivo, fontWeight = FontWeight.Black, fontSize = 24.sp, lineHeight = 28.sp)
+            Row(verticalAlignment = Alignment.CenterVertically) { Stars(v.rating); Spacer(Modifier.width(10.dp)); Lbl("${v.reviews} reseñas · ${v.kind} · Km ${v.km}") }
+            if (v.desc.isNotBlank()) Text(v.desc, style = MaterialTheme.typography.bodyLarge)
+            if (v.promo.isNotBlank()) IconLine(Icons.Filled.LocalOffer, v.promo)
+            val preview = v.menu.filter { it.on }.take(5)
+            if (preview.isNotEmpty()) Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Surf0).padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Lbl("Del menú")
+                preview.forEach { m -> Row(verticalAlignment = Alignment.CenterVertically) { Text(m.name, Modifier.weight(1f)); Num(cop(m.price), OrangeDark, 14) } }
+            }
+            Btn("Guiar en la app", Modifier.fillMaxWidth(), Icons.Filled.Navigation, enabled = v.lat != 0.0) { detail = null; startGuide(vm, nav, v.name, listOf(v)) }
+            GoogleMapsButton(Modifier.fillMaxWidth(), enabled = v.lat != 0.0) { openInGoogleMaps(ctx, v.lat, v.lng) }
+            if (canOrder) Btn("Ver menú y pedir", Modifier.fillMaxWidth(), Icons.Filled.RestaurantMenu, kind = BK.Ghost) { detail = null; nav.navigate("menu/${v.id}") }
+        }
     }
     coupon?.let { c ->
-        AlertDialog(
-            onDismissRequest = { coupon = null },
-            title = { Text("Tu cupón") },
-            text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(c.code, style = MaterialTheme.typography.headlineSmall, color = Orange, fontFamily = Mono)
-                Sub("Muéstralo en el comercio para canjear tu beneficio.")
-            } },
-            confirmButton = { TextButton({ coupon = null }) { Text("Listo") } },
-        )
+        Sheet({ coupon = null }) {
+            H("Tu cupón", Icons.Filled.LocalOffer)
+            Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(OrangeSoft).border(2.dp, Orange.copy(alpha = 0.35f), RoundedCornerShape(16.dp)).padding(vertical = 22.dp), contentAlignment = Alignment.Center) {
+                Text(c.code, color = OrangeDark, fontFamily = JetBrainsMono, fontWeight = FontWeight.ExtraBold, fontSize = 32.sp, letterSpacing = 0.08.em)
+            }
+            Sub("Muéstralo en el comercio para canjear tu beneficio.")
+            Btn("Listo", Modifier.fillMaxWidth()) { coupon = null }
+        }
     }
 }
 
@@ -144,31 +184,50 @@ fun MenuScreen(vm: AppViewModel, nav: NavController, u: AppUser, venueId: String
     val items = v.menu.filter { it.on && it.cat != "Servicios" }
     val lines = items.filter { (cart[it.id] ?: 0) > 0 }.map { OrderItem(it.name, cart[it.id]!!, it.price) }
     val total = lines.sumOf { it.qty * it.price }
-    Screen {
-        H(v.name); Sub(v.promo)
-        C.MENU_CATS.forEach { cat ->
-            val xs = items.filter { it.cat == cat }
-            if (xs.isNotEmpty()) {
-                Lbl(cat)
-                xs.forEach { m ->
-                    Card2 {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Column(Modifier.weight(1f)) { Text(m.name, fontWeight = FontWeight.Bold); if (m.desc.isNotBlank()) Sub(m.desc); Text(cop(m.price), color = Orange, fontWeight = FontWeight.Bold) }
-                            val q = cart[m.id] ?: 0
-                            IconButton({ if (q > 0) cart[m.id] = q - 1 }) { Icon(Icons.Filled.Remove, "Quitar") }
-                            Text("$q", fontWeight = FontWeight.Bold)
-                            IconButton({ cart[m.id] = q + 1 }) { Icon(Icons.Filled.Add, "Agregar") }
+    Column(Modifier.fillMaxSize()) {
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+            MediaHeader(venueTint(v), venueIcon(v), 132.dp) {
+                Column(Modifier.align(Alignment.BottomStart).padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Pill(v.badge, venueBadge(v), Color.White)
+                    Text(v.name, fontFamily = Chivo, fontWeight = FontWeight.Black, fontSize = 24.sp)
+                    if (v.promo.isNotBlank()) IconLine(Icons.Filled.LocalOffer, v.promo)
+                }
+            }
+            Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                var n = 0
+                C.MENU_CATS.forEach { cat ->
+                    val xs = items.filter { it.cat == cat }
+                    if (xs.isNotEmpty()) {
+                        H(cat)
+                        xs.forEach { m ->
+                            Card2(index = n++) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                        Text(m.name, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                        if (m.desc.isNotBlank()) Sub(m.desc)
+                                        Num(cop(m.price), OrangeDark, 15)
+                                    }
+                                    val q = cart[m.id] ?: 0
+                                    Stepper(q, { if (q > 0) cart[m.id] = q - 1 }, { cart[m.id] = q + 1 })
+                                }
+                            }
                         }
                     }
                 }
+                if (items.isEmpty()) Empty("Este comercio aún no publica su menú.", Icons.Filled.RestaurantMenu)
+                Card2 {
+                    Lbl("¿En cuánto llegas?")
+                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf("15 min", "30 min", "45 min", "1 h", "2 h").forEach { t -> Chip(t, eta == t, accent = Cyan) { eta = t } }
+                    }
+                    Field("Nota para el comercio (opcional)", note, { note = it }, hint = "Ej: sin cebolla, vamos 3 motos")
+                }
+                Spacer(Modifier.height(4.dp))
             }
         }
-        if (items.isEmpty()) Empty("Este comercio aún no publica su menú.")
-        Card2 {
-            Drop("¿En cuánto llegas?", listOf("15 min", "30 min", "45 min", "1 h", "2 h").map { it to it }, eta, { eta = it })
-            Field("Nota para el comercio (opcional)", note, { note = it })
-            Text("Total ${cop(total)}", style = MaterialTheme.typography.titleLarge)
-            Btn("Enviar pedido", Modifier.fillMaxWidth(), Icons.Filled.Send, enabled = lines.isNotEmpty()) {
+        BottomBar {
+            Column(Modifier.weight(1f)) { Lbl("${lines.sumOf { it.qty }} producto(s)"); Num(cop(animatedMoney(total)), Ink, 20) }
+            Btn("Enviar pedido", icon = Icons.AutoMirrored.Filled.Send, enabled = lines.isNotEmpty()) {
                 vm.act("¡Pedido enviado! El comercio lo está revisando") { vm.repo.placeOrder(v, u, lines, eta, note) }
                 nav.popBackStack()
             }

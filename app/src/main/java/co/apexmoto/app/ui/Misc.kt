@@ -2,6 +2,17 @@
 
 package co.apexmoto.app.ui
 
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.em
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -40,7 +51,16 @@ fun ProfileScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
         dismissButton = { TextButton({ confirmReset = false }) { Text("Cancelar") } },
     )
     Screen {
-        Card2 { Text(u.name, style = MaterialTheme.typography.titleLarge); Lbl("${Role.label(u.role)} · ${u.email}") }
+        Card2(index = 0) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Avatar(u.name, 60.dp); Spacer(Modifier.width(14.dp))
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(u.name, fontFamily = Chivo, fontWeight = FontWeight.ExtraBold, fontSize = 21.sp)
+                    Pill(Role.label(u.role), OrangeSoft, OrangeDark)
+                    if (u.email.isNotBlank()) Lbl(u.email)
+                }
+            }
+        }
         if (u.role == Role.RIDER || u.role == Role.DRIVER) {
             Card2 {
                 SwitchRow("Modo conductor guía", "Recibe solicitudes de riders que quieren una salida guiada", u.role == Role.DRIVER) { vm.setDriverMode(it) }
@@ -65,7 +85,7 @@ fun ProfileScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
             rent.sortedByDescending { it.createdAt }.take(6).forEach { r ->
                 Card2 {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) { Text(r.itemName, fontWeight = FontWeight.Bold); Sub("${r.dateFrom} → ${r.dateTo}") }
+                        Column(Modifier.weight(1f)) { Text(r.itemName, fontWeight = FontWeight.Bold); Sub("${prettyDate(r.dateFrom)} → ${prettyDate(r.dateTo)}") }
                         StatusPill(REQ_ST[r.status] ?: r.status, r.status)
                     }
                     if (r.status != "no" && r.toId.isNotBlank()) Btn("Chat con el dueño", Modifier.fillMaxWidth(), Icons.Filled.Chat, kind = BK.Ghost) { nav.chat("req_${r.id}", r.itemName, r.toId) }
@@ -83,13 +103,13 @@ fun ProfileScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
 fun SettingsScreen(vm: AppViewModel) {
     val key = BuildConfig.ORS_API_KEY
     Screen {
-        Card2(border = if (key.isBlank()) Red else Green) {
+        Card2(border = if (key.isBlank()) RedSoft else GreenSoft) {
             H("Clave de OpenRouteService")
             if (key.isBlank()) {
-                Text("No hay clave configurada.", color = Red, fontWeight = FontWeight.Bold)
+                IconLine(Icons.Filled.ErrorOutline, "No hay clave configurada.", Red)
                 Sub("Los mapas funcionan, pero las rutas y la guía necesitan una clave gratuita. Regístrate en openrouteservice.org, crea un token y agrega ORS_API_KEY=tu_clave en el archivo local.properties del proyecto; luego sincroniza y vuelve a compilar.")
             } else {
-                Text("Configurada ✓  (…${key.takeLast(4)})", color = Green, fontWeight = FontWeight.Bold)
+                IconLine(Icons.Filled.CheckCircle, "Configurada (…${key.takeLast(4)})", Green)
                 Sub("Se usa para calcular rutas e instrucciones giro a giro. Los mapas vienen de OpenStreetMap.")
             }
         }
@@ -120,16 +140,22 @@ fun ChatScreen(vm: AppViewModel, u: AppUser, thread: String) {
             items(list, key = { it.id }) { m ->
                 val mine = m.fromId == u.id
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = if (mine) Arrangement.End else Arrangement.Start) {
-                    Column(Modifier.clip(RoundedCornerShape(14.dp)).background(if (mine) Orange else Color.White).padding(10.dp).widthIn(max = 280.dp)) {
-                        if (!mine) Text(m.fromName, fontSize = 11.sp, color = Muted, fontWeight = FontWeight.Bold)
-                        Text(m.text, color = if (mine) Color.White else Ink)
+                    val shape = if (mine) RoundedCornerShape(16.dp, 16.dp, 4.dp, 16.dp) else RoundedCornerShape(16.dp, 16.dp, 16.dp, 4.dp)
+                    Column(Modifier.reveal(0).widthIn(max = 290.dp).clip(shape).background(if (mine) Orange else Color.White).padding(horizontal = 12.dp, vertical = 9.dp)) {
+                        if (!mine) Text(m.fromName, color = CyanDeep, fontFamily = Mono, fontWeight = FontWeight.SemiBold, fontSize = 10.sp)
+                        Text(m.text, color = if (mine) Color.White else Ink, style = MaterialTheme.typography.bodyMedium)
                     }
                 }
             }
         }
-        Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedTextField(text, { text = it }, Modifier.weight(1f), placeholder = { Text("Escribe un mensaje") }, maxLines = 3)
-            FilledIconButton({ val t = text; if (t.isNotBlank()) { text = ""; vm.act { vm.repo.send(thread, u, t) } } }) { Icon(Icons.AutoMirrored.Filled.Send, "Enviar") }
+        BottomBar {
+            OutlinedTextField(text, { text = it }, Modifier.weight(1f), placeholder = { Text("Escribe un mensaje", color = Muted) }, maxLines = 3,
+                shape = RoundedCornerShape(24.dp), colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = Surf0, unfocusedContainerColor = Surf0, focusedBorderColor = CyanDeep, unfocusedBorderColor = Color.Transparent, cursorColor = Orange))
+            Box(Modifier.size(48.dp).glow(Orange, CircleShape, on = text.isNotBlank(), elevation = 8.dp).clip(CircleShape).background(if (text.isNotBlank()) Orange else Surf4)
+                .clickable(onClickLabel = "Enviar") { val t = text; if (t.isNotBlank()) { text = ""; vm.act { vm.repo.send(thread, u, t) } } }, contentAlignment = Alignment.Center) {
+                Icon(Icons.AutoMirrored.Filled.Send, "Enviar", tint = Color.White)
+            }
         }
     }
 }

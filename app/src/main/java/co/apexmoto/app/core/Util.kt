@@ -8,7 +8,6 @@ import java.util.Locale
 import kotlin.math.*
 
 fun cop(n: Number): String = "$" + NumberFormat.getIntegerInstance(Locale("es", "CO")).format(Math.round(n.toDouble()))
-fun usd(n: Number): String = "$" + Math.round(n.toDouble()) + " USD"
 fun norm(s: String): String = Normalizer.normalize(s.lowercase(), Normalizer.Form.NFD).replace(Regex("\\p{Mn}+"), "")
 fun today(): String = LocalDate.now().toString()
 fun addDays(d: String, n: Long): String = LocalDate.parse(d).plusDays(n).toString()

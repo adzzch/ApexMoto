@@ -218,14 +218,14 @@ class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth) {
                 lat = c.lat + ((i % 3) - 1) * 0.012, lng = c.lng + (i % 2) * 0.015)).await()
         }
         listOf(
-            Bike(name = "Yamaha MT-07", cc = 689, category = "Deportiva", usdPerDay = 70, city = "Cali", specs = listOf("73 hp", "ABS"), rating = 4.9, trips = 31, instant = true),
-            Bike(name = "Honda XRE 300", cc = 300, category = "Aventura", usdPerDay = 45, city = "Cali", specs = listOf("Doble propósito"), rating = 4.8, trips = 54, delivery = true),
-            Bike(name = "Suzuki V-Strom 650", cc = 645, category = "Aventura", usdPerDay = 85, city = "Medellín", specs = listOf("Maletas incluidas"), rating = 4.9, trips = 22),
-            Bike(name = "Royal Enfield Himalayan", cc = 411, category = "Aventura", usdPerDay = 55, city = "Bogotá", specs = listOf("Ideal para trocha"), rating = 4.7, trips = 40, instant = true),
+            Bike(name = "Yamaha MT-07", cc = 689, category = "Deportiva", pricePerDay = 280000, city = "Cali", specs = listOf("73 hp", "ABS"), rating = 4.9, trips = 31, instant = true),
+            Bike(name = "Honda XRE 300", cc = 300, category = "Aventura", pricePerDay = 160000, city = "Cali", specs = listOf("Doble propósito"), rating = 4.8, trips = 54, delivery = true),
+            Bike(name = "Suzuki V-Strom 650", cc = 645, category = "Aventura", pricePerDay = 320000, city = "Medellín", specs = listOf("Maletas incluidas"), rating = 4.9, trips = 22),
+            Bike(name = "Royal Enfield Himalayan", cc = 411, category = "Aventura", pricePerDay = 200000, city = "Bogotá", specs = listOf("Ideal para trocha"), rating = 4.7, trips = 40, instant = true),
         ).forEachIndexed { i, b -> col("bikes").document("demo_b${i + 1}").set(b).await() }
         listOf(
-            Driver(name = "Camilo R.", bike = "Honda XRE 300", zone = "Cali", rate = 60, rating = 4.9, reviews = 38, services = listOf("Ruta guiada", "Escolta"), bio = "10 años guiando por el Valle y el Eje Cafetero."),
-            Driver(name = "Laura M.", bike = "BMW G 310 GS", zone = "Bogotá", rate = 75, rating = 4.8, reviews = 21, services = listOf("Ruta guiada", "Fotografía"), bio = "Guía certificada, rutas de montaña."),
+            Driver(name = "Camilo R.", bike = "Honda XRE 300", zone = "Cali", rate = 220000, rating = 4.9, reviews = 38, services = listOf("Ruta guiada", "Escolta"), bio = "10 años guiando por el Valle y el Eje Cafetero."),
+            Driver(name = "Laura M.", bike = "BMW G 310 GS", zone = "Bogotá", rate = 250000, rating = 4.8, reviews = 21, services = listOf("Ruta guiada", "Fotografía"), bio = "Guía certificada, rutas de montaña."),
         ).forEachIndexed { i, d -> col("drivers").document("demo_d${i + 1}").set(d).await() }
         listOf(
             Rodada(name = "Rodada Lago Calima", whenLabel = "Sábado 7:00", captain = "@camilo", meet = "Peaje Cencar, Cali", style = "Turismo", seats = 10),

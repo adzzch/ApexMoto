@@ -2,6 +2,7 @@
 
 package co.apexmoto.app.ui
 
+import androidx.compose.foundation.shape.RoundedCornerShape
 import android.Manifest
 import android.speech.tts.TextToSpeech
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -137,27 +138,27 @@ fun NavigationScreen(vm: AppViewModel) {
         if (guiding || arrived) {
             val next = steps.getOrNull(idx + 1)?.start ?: stops.last()
             val dNext = pos?.let { haversine(it.latitude, it.longitude, next.latitude, next.longitude) }
-            Card(Modifier.align(Alignment.TopCenter).padding(12.dp).fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Ink)) {
+            Card(Modifier.align(Alignment.TopCenter).padding(12.dp).fillMaxWidth(), shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = Ink), elevation = CardDefaults.cardElevation(8.dp)) {
                 Column(Modifier.padding(14.dp)) {
-                    Text(if (arrived) "¡Llegaste a tu destino!" else steps.getOrNull(idx)?.text ?: "Sigue la ruta", color = androidx.compose.ui.graphics.Color.White, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
-                    if (!arrived && dNext != null) Text("en ${fmtDist(dNext)}", color = androidx.compose.ui.graphics.Color(0xFFFFB27A), fontWeight = FontWeight.Bold)
+                    Text(if (arrived) "¡Llegaste a tu destino!" else steps.getOrNull(idx)?.text ?: "Sigue la ruta", color = androidx.compose.ui.graphics.Color.White, style = MaterialTheme.typography.titleLarge)
+                    if (!arrived && dNext != null) Text("en ${fmtDist(dNext)}", color = NavAccent, fontFamily = JetBrainsMono, fontWeight = FontWeight.Bold)
                 }
             }
         }
 
         // Panel inferior
-        Card(Modifier.align(Alignment.BottomCenter).padding(12.dp).fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = androidx.compose.ui.graphics.Color.White)) {
+        Card(Modifier.align(Alignment.BottomCenter).padding(12.dp).fillMaxWidth(), shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = androidx.compose.ui.graphics.Color.White), elevation = CardDefaults.cardElevation(8.dp)) {
             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(session.title, style = MaterialTheme.typography.titleMedium)
                 if (session.stops.size > 1) Sub(session.stops.joinToString(" → ") { it.name })
                 when {
                     loading -> Row(verticalAlignment = Alignment.CenterVertically) { CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp); Spacer(Modifier.width(8.dp)); Sub("Calculando ruta…") }
-                    error != null -> Text(error!!, color = Red, fontSize = 13.sp)
+                    error != null -> Text(error!!, color = Red, style = MaterialTheme.typography.bodySmall)
                     plan != null -> Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Stat(fmtDist(plan!!.distanceM.toDouble()), "distancia", Modifier.weight(1f)); Stat(fmtDur(plan!!.durationS), "tiempo estimado", Modifier.weight(1f))
                     }
                 }
-                originNote?.let { Text(it, color = Orange, fontSize = 12.sp) }
+                originNote?.let { Text(it, color = OrangeDark, style = MaterialTheme.typography.labelMedium) }
                 if (!hasPerm) Btn("Dar permiso de ubicación", Modifier.fillMaxWidth(), Icons.Filled.MyLocation, kind = BK.Ghost) {
                     launcher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
                 }
@@ -170,8 +171,8 @@ fun NavigationScreen(vm: AppViewModel) {
                     }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Btn("Abrir en otra app", Modifier.weight(1f), Icons.Filled.Map, kind = BK.Ghost) { stops.last().let { openInGoogleMaps(ctx, it.latitude, it.longitude) } }
-                    IconButton({ vm.updateVoice(!vm.voice) }) { Icon(if (vm.voice) Icons.Filled.VolumeUp else Icons.Filled.VolumeOff, "Voz") }
+                    GoogleMapsButton(Modifier.weight(1f)) { stops.last().let { openInGoogleMaps(ctx, it.latitude, it.longitude) } }
+                    IconBtn(if (vm.voice) Icons.Filled.VolumeUp else Icons.Filled.VolumeOff, if (vm.voice) "Silenciar voz" else "Activar voz") { vm.updateVoice(!vm.voice) }
                 }
             }
         }

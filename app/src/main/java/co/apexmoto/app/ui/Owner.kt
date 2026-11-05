@@ -2,6 +2,23 @@
 
 package co.apexmoto.app.ui
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.unit.em
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -13,7 +30,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
-import co.apexmoto.app.core.usd
+import co.apexmoto.app.core.cop
 import co.apexmoto.app.data.*
 import co.apexmoto.app.ui.theme.*
 
@@ -29,11 +46,13 @@ fun OwnerFleetScreen(vm: AppViewModel, u: AppUser) {
             Btn("Agregar", icon = Icons.Filled.Add) { edit = Bike(ownerId = u.id) }
         }
         if (mine.isEmpty()) Empty("Publica tu primera moto para empezar a recibir solicitudes.")
-        mine.forEach { b ->
-            Card2 {
+        mine.forEachIndexed { i, b ->
+            Card2(index = i) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(48.dp).clip(RoundedCornerShape(12.dp)).background(bikeTint(b)), contentAlignment = Alignment.Center) { Icon(Icons.Filled.TwoWheeler, null, tint = Ink.copy(alpha = 0.6f)) }
+                    Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) { Text(b.name, style = MaterialTheme.typography.titleMedium); Lbl("${b.cc} cc · ${b.category} · ${b.city}") }
-                    Text(usd(b.usdPerDay) + "/día", color = Orange, fontWeight = FontWeight.ExtraBold)
+                    Num(cop(b.pricePerDay) + "/día", OrangeDark, 15)
                 }
                 SwitchRow(if (b.available) "Disponible" else "Pausada", "", b.available) { on -> vm.act { vm.repo.saveBike(b.copy(available = on)) } }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -45,7 +64,7 @@ fun OwnerFleetScreen(vm: AppViewModel, u: AppUser) {
     }
     edit?.let { b ->
         var name by remember(b.id) { mutableStateOf(b.name) }; var cc by remember(b.id) { mutableStateOf(b.cc.toString()) }
-        var price by remember(b.id) { mutableStateOf(b.usdPerDay.toString()) }; var city by remember(b.id) { mutableStateOf(b.city) }
+        var price by remember(b.id) { mutableStateOf(b.pricePerDay.toString()) }; var city by remember(b.id) { mutableStateOf(b.city) }
         var cat by remember(b.id) { mutableStateOf(b.category) }; var specs by remember(b.id) { mutableStateOf(b.specs.joinToString(", ")) }
         var instant by remember(b.id) { mutableStateOf(b.instant) }; var delivery by remember(b.id) { mutableStateOf(b.delivery) }
         AlertDialog(
@@ -54,7 +73,7 @@ fun OwnerFleetScreen(vm: AppViewModel, u: AppUser) {
                 Field("Modelo", name, { name = it })
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Field("Cilindraje", cc, { cc = it.filter(Char::isDigit) }, Modifier.weight(1f), KeyboardType.Number)
-                    Field("USD/día", price, { price = it.filter(Char::isDigit) }, Modifier.weight(1f), KeyboardType.Number)
+                    Field("COP por día", price, { price = it.filter(Char::isDigit) }, Modifier.weight(1f), KeyboardType.Number)
                 }
                 Field("Ciudad", city, { city = it })
                 Drop("Tipo", listOf("Aventura", "Deportiva", "Turismo", "Urbana").map { it to it }, cat, { cat = it })
@@ -64,7 +83,7 @@ fun OwnerFleetScreen(vm: AppViewModel, u: AppUser) {
             } },
             confirmButton = { Btn("Guardar", enabled = name.isNotBlank() && (price.toLongOrNull() ?: 0) > 0) {
                 edit = null
-                vm.act("Moto guardada") { vm.repo.saveBike(b.copy(name = name, cc = cc.toIntOrNull() ?: 0, usdPerDay = price.toLong(), city = city, category = cat,
+                vm.act("Moto guardada") { vm.repo.saveBike(b.copy(name = name, cc = cc.toIntOrNull() ?: 0, pricePerDay = price.toLong(), city = city, category = cat,
                     specs = specs.split(",").map { it.trim() }.filter { it.isNotEmpty() }, instant = instant, delivery = delivery)) }
             } },
             dismissButton = { TextButton({ edit = null }) { Text("Cancelar") } },
@@ -79,15 +98,15 @@ fun OwnerRequestsScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
     Screen {
         H("Solicitudes de renta")
         if (list.isEmpty()) Empty("Cuando un rider pida tu moto, la solicitud aparecerá aquí.")
-        list.forEach { r ->
-            Card2 {
+        list.forEachIndexed { i, r ->
+            Card2(index = i) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) { Text("${r.itemName} · ${r.fromName}", fontWeight = FontWeight.Bold); Sub("${r.dateFrom} → ${r.dateTo} · ${r.plan}") }
+                    Column(Modifier.weight(1f)) { Text("${r.itemName} · ${r.fromName}", fontWeight = FontWeight.Bold); Sub("${prettyDate(r.dateFrom)} → ${prettyDate(r.dateTo)} · ${r.plan}") }
                     StatusPill(REQ_ST[r.status] ?: r.status, r.status)
                 }
                 if (r.extras.isNotEmpty()) Sub("Extras: ${r.extras.joinToString(", ")}")
                 if (r.delivery) Sub("Con entrega a domicilio")
-                Text("Total ${usd(r.total)}", fontWeight = FontWeight.Bold, color = Orange)
+                Num("Total ${cop(r.total)}", OrangeDark, 16)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     when (r.status) {
                         "p" -> {
@@ -113,12 +132,15 @@ fun EarningsScreen(vm: AppViewModel, u: AppUser) {
     val total = done.sumOf { if (isDriver) it.amount else it.total }
     Screen {
         H(if (isDriver) "Ganancias" else "Ingresos")
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Stat(usd(total), if (isDriver) "servicios finalizados" else "rentas confirmadas", Modifier.weight(1f)); Stat("${done.size}", "operaciones", Modifier.weight(1f)) }
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            StatCard(cop(total), if (isDriver) "Servicios finalizados" else "Rentas confirmadas", Modifier.weight(1.4f), Green, 0)
+            StatCard("${done.size}", "Operaciones", Modifier.weight(1f), CyanDeep, 1)
+        }
         if (done.isEmpty()) Empty("Todavía no tienes movimientos.")
         done.sortedByDescending { it.createdAt }.forEach { r ->
             Card2 { Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) { Text(r.itemName, fontWeight = FontWeight.Bold); Sub("${r.fromName} · ${r.dateFrom}") }
-                Text(usd(if (isDriver) r.amount else r.total), fontWeight = FontWeight.ExtraBold, color = Green)
+                Column(Modifier.weight(1f)) { Text(r.itemName, fontWeight = FontWeight.Bold); Sub("${r.fromName} · ${prettyDate(r.dateFrom)}") }
+                Num(cop(if (isDriver) r.amount else r.total), Green, 15)
             } }
         }
     }
@@ -132,13 +154,13 @@ fun DriverTripsScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
     Screen {
         H("Salidas solicitadas")
         if (list.isEmpty()) Empty("Cuando un rider te contrate, la salida aparecerá aquí.")
-        list.forEach { r ->
-            Card2 {
+        list.forEachIndexed { i, r ->
+            Card2(index = i) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) { Text("${r.fromName} · ${r.service}", fontWeight = FontWeight.Bold); Sub("${r.dateFrom} · ${r.days} día(s)"); Sub("Encuentro: ${r.meet}") }
+                    Column(Modifier.weight(1f)) { Text("${r.fromName} · ${r.service}", fontWeight = FontWeight.Bold); Sub("${prettyDate(r.dateFrom)} · ${r.days} día(s)"); Sub("Encuentro: ${r.meet}") }
                     StatusPill(REQ_ST[r.status] ?: r.status, r.status)
                 }
-                Text(usd(r.amount), fontWeight = FontWeight.ExtraBold, color = Orange)
+                Num(cop(r.amount), OrangeDark, 16)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     when (r.status) {
                         "p" -> {
@@ -166,10 +188,16 @@ fun DriverServiceScreen(vm: AppViewModel, u: AppUser) {
     var services by remember(d.id) { mutableStateOf(d.services.toSet()) }; var online by remember(d.id) { mutableStateOf(d.online) }
     val all = listOf("Ruta guiada", "Escolta", "Fotografía", "Instructor")
     Screen {
-        H("Mi servicio"); Stars(d.rating); Sub("${d.reviews} reseñas")
+        Card2 {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Avatar(u.name, 52.dp); Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) { Text(u.name, fontFamily = Chivo, fontWeight = FontWeight.ExtraBold, fontSize = 19.sp); Row(verticalAlignment = Alignment.CenterVertically) { Stars(d.rating); Spacer(Modifier.width(8.dp)); Lbl("${d.reviews} reseñas") } }
+                Ping(online)
+            }
+        }
         SwitchRow(if (online) "En línea" else "Fuera de línea", "Los riders solo ven conductores en línea", online) { online = it }
         Field("Moto que usas", bike, { bike = it }); Field("Zona", zone, { zone = it })
-        Field("Tarifa por día (USD)", rate, { rate = it.filter(Char::isDigit) }, kb = KeyboardType.Number)
+        Field("Tarifa por día (COP)", rate, { rate = it.filter(Char::isDigit) }, kb = KeyboardType.Number)
         Field("Presentación", bio, { bio = it }, lines = 3)
         Lbl("Servicios")
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { all.forEach { s -> Chip(s, s in services) { services = if (s in services) services - s else services + s } } }

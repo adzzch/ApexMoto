@@ -62,5 +62,6 @@ Abre la carpeta en Android Studio (versión reciente), sincroniza Gradle y ejecu
 - **Coordenadas demo aproximadas:** los centros de cada corredor y los comercios demo están en `core/Constants.kt` y `data/Repo.kt`. Ajústalos a los puntos reales.
 - **Datos demo sin dueño:** los comercios, motos y conductores demo no tienen cuenta propietaria, así que pedidos y solicitudes hacia ellos quedan en "Enviado/Pendiente". Para probar el flujo completo crea una cuenta Comercio y una Rider (dos celulares o cierra sesión entre una y otra).
 - **Reglas de Firestore:** son de desarrollo. Permiten crear datos demo sin dueño (`ownerId == ''`) y que cualquier usuario autenticado vea los S.O.S. Endurécelas antes de publicar.
-- **Fuentes e ícono:** usa fuentes del sistema y el ícono por defecto. Puedes agregar Chivo, Space Grotesk y JetBrains Mono y tu ícono de launcher.
+- **Fuentes e ícono:** las fuentes de marca (Chivo, Space Grotesk y JetBrains Mono) ya vienen en `app/src/main/res/font/`. El ícono de la app (moto blanca sobre naranja) está en `res/drawable/ic_launcher_foreground.xml`.
+- **Moneda:** todos los precios están en pesos colombianos (COP). Si tenías datos demo cargados de antes (precios en dólares), usa **Perfil → Reiniciar datos demo**.
 - **Pendiente respecto al prototipo:** pagos reales, notificaciones push (FCM), fotos de comercios y motos, reseñas y la lista de pilotos de Comunidad.
