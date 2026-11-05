@@ -19,6 +19,7 @@ import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
@@ -238,6 +239,7 @@ private enum class AuthStep { Login, Register, Phone, Code }
 fun AuthScreen(vm: AppViewModel) {
     val ctx = LocalContext.current
     val focus = LocalFocusManager.current
+    val keyboard = LocalSoftwareKeyboardController.current
     var step by rememberSaveable { mutableStateOf(AuthStep.Login) }
     var name by rememberSaveable { mutableStateOf("") }
     var email by rememberSaveable { mutableStateOf("") }
@@ -250,6 +252,8 @@ fun AuthScreen(vm: AppViewModel) {
     var code by rememberSaveable { mutableStateOf("") }
     var verificationId by rememberSaveable { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
+    var sentTo by remember { mutableStateOf<String?>(null) }     // aviso "código enviado"
+    var smsError by remember { mutableStateOf<String?>(null) }   // aviso de error al enviar
     val emailOk = email.trim().matches(Regex("^\\S+@\\S+\\.\\S+$"))
     val digits = phone.filter { it.isDigit() }
 
@@ -261,12 +265,13 @@ fun AuthScreen(vm: AppViewModel) {
     fun sendSms() {
         val activity = ctx.findActivity()
         if (activity == null) { vm.toast("No se pudo iniciar la verificación. Cierra y abre la app."); return }
+        keyboard?.hide()   // cierra el teclado sin mover el foco (moverlo hacía que un Enter físico tocara "Volver")
         busy = true
         val full = if (phone.trim().startsWith("+")) "+" + digits else "+57$digits"
         vm.container.phone.send(activity, full,
-            onCode = { verificationId = it; busy = false; code = ""; step = AuthStep.Code },
+            onCode = { verificationId = it; busy = false; code = ""; sentTo = prettyPhone(full) },
             onAuto = { busy = false; vm.signInCredential(it) },
-            onError = { busy = false; vm.toast(it) })
+            onError = { busy = false; smsError = smsErrorText(it) })
     }
     fun login() { focus.clearFocus(); busy = true; vm.login(email, pw).invokeOnCompletion { busy = false } }
     fun register() { focus.clearFocus(); busy = true; vm.register(name, email, pw, role, biz, cor).invokeOnCompletion { busy = false } }
@@ -378,6 +383,60 @@ fun AuthScreen(vm: AppViewModel) {
             }
         }
     }
+
+    sentTo?.let { to ->
+        NoticeDialog(
+            icon = Icons.Filled.MarkChatRead, tint = Green, bg = GreenSoft, title = "Código enviado",
+            text = "Enviamos un código de 6 dígitos por SMS al", highlight = to,
+            foot = "Puede tardar hasta un minuto en llegar.",
+            onOk = { sentTo = null; step = AuthStep.Code },
+        )
+    }
+    smsError?.let { msg ->
+        NoticeDialog(
+            icon = Icons.Filled.SmsFailed, tint = Red, bg = RedSoft, title = "No pudimos enviar el código",
+            text = msg, onOk = { smsError = null },
+        )
+    }
+}
+
+/** +573158724062 → +57 315 872 4062 */
+private fun prettyPhone(full: String): String {
+    val d = full.filter { it.isDigit() }
+    return if (full.startsWith("+57") && d.length == 12) "+57 ${d.substring(2, 5)} ${d.substring(5, 8)} ${d.substring(8)}" else full
+}
+
+/** Traduce los errores de Firebase Phone Auth a algo que la persona entienda y pueda resolver. */
+private fun smsErrorText(raw: String): String = when {
+    "BILLING_NOT_ENABLED" in raw ->
+        "El envío de SMS a números reales no está activo en este proyecto: Firebase lo exige con el plan de facturación. " +
+            "Mientras tanto, entra con tu correo o con Google, o usa un número de prueba configurado en Firebase."
+    "TOO_MANY_REQUESTS" in raw || "blocked" in raw.lowercase() ->
+        "Hiciste demasiados intentos desde este dispositivo. Espera unos minutos y vuelve a intentarlo."
+    "INVALID_PHONE_NUMBER" in raw || "format" in raw.lowercase() ->
+        "Ese número no parece válido. Revisa que tenga 10 dígitos, por ejemplo 300 123 4567."
+    "QUOTA_EXCEEDED" in raw || "quota" in raw.lowercase() ->
+        "Se alcanzó el límite de SMS por hoy. Entra con tu correo o con Google, o inténtalo mañana."
+    "network" in raw.lowercase() -> "Sin conexión. Revisa tu internet e inténtalo de nuevo."
+    else -> "Algo falló al enviar el SMS. Inténtalo de nuevo en un momento o entra con tu correo o con Google."
+}
+
+/** Aviso centrado con ícono, mensaje y un solo botón Aceptar. Se ve encima del teclado. */
+@Composable
+private fun NoticeDialog(icon: ImageVector, tint: Color, bg: Color, title: String, text: String, highlight: String? = null, foot: String? = null, onOk: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onOk, containerColor = Color.White, shape = RoundedCornerShape(24.dp),
+        icon = { Box(Modifier.size(56.dp).clip(CircleShape).background(bg), contentAlignment = Alignment.Center) { Icon(icon, null, Modifier.size(28.dp), tint = tint) } },
+        title = { Text(title, fontFamily = Chivo, fontWeight = FontWeight.ExtraBold, fontSize = 20.sp, textAlign = TextAlign.Center) },
+        text = {
+            Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(text, color = Muted, textAlign = TextAlign.Center, style = MaterialTheme.typography.bodyMedium)
+                if (highlight != null) Text(highlight, color = Ink, fontFamily = JetBrainsMono, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp)
+                if (foot != null) Text(foot, color = Muted, textAlign = TextAlign.Center, style = MaterialTheme.typography.bodySmall)
+            }
+        },
+        confirmButton = { Btn("Aceptar", Modifier.fillMaxWidth()) { onOk() } },
+    )
 }
 
 @Composable
