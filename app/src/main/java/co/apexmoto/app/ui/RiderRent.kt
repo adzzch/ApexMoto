@@ -108,7 +108,7 @@ fun bikeTint(b: Bike) = when (b.category) { "Deportiva" -> OrangeSoft; "Turismo"
 @Composable
 fun RentScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
     Screen {
-        Segmented(listOf(Triple("moto", "Solo moto", Icons.Filled.TwoWheeler), Triple("cond", "Conductor guía", Icons.Filled.SportsMotorsports)), vm.rentMode) { vm.rentMode = it }
+        Segmented(listOf(Triple("moto", "Solo moto", Icons.Filled.TwoWheeler), Triple("cond", "Guía de rutas", Icons.Filled.SportsMotorsports)), vm.rentMode) { vm.rentMode = it }
         AnimatedContent(vm.rentMode, label = "rent", transitionSpec = { fadeIn(tween(240)) togetherWith fadeOut(tween(120)) }) { mode ->
             Column(verticalArrangement = Arrangement.spacedBy(14.dp)) { if (mode == "moto") BikesList(vm, nav) else DriversList(vm, nav, u) }
         }
@@ -173,7 +173,10 @@ fun BikeDetailScreen(vm: AppViewModel, nav: NavController, u: AppUser, id: Strin
     var plan by remember { mutableStateOf("s") }
     var extras by remember { mutableStateOf(setOf<String>()) }
     var delivery by remember { mutableStateOf(false) }
+    var license by remember { mutableStateOf(false) }
     if (b == null) { Screen { Empty("Cargando moto…") }; return }
+    val docsOk = bikeDocsOk(b.soatUntil, b.rtmUntil, vm.rentTo)
+    val cat = licenseFor(b.cc)
     val days = maxOf(1, daysBetween(vm.rentFrom, vm.rentTo) + 1)
     val pl = C.PLANS.first { it.key == plan }
     val ex = C.EXTRAS.filter { it.key in extras }
@@ -200,8 +203,21 @@ fun BikeDetailScreen(vm: AppViewModel, nav: NavController, u: AppUser, id: Strin
                     }
                     if (busy) Pill("La moto no está disponible en esas fechas", RedSoft, Red)
                 }
+                Card2(border = if (docsOk) null else RedSoft) {
+                    H("Requisitos", Icons.Filled.VerifiedUser)
+                    if (docsOk) IconLine(Icons.Filled.CheckCircle, "SOAT hasta ${shortDate(b.soatUntil)} · Revisión técnico-mecánica hasta ${shortDate(b.rtmUntil)}", Green, bold = false)
+                    else IconLine(Icons.Filled.ErrorOutline, "El dueño no tiene SOAT o revisión técnico-mecánica vigentes para esas fechas. No se puede rentar.", Red, bold = false)
+                    Sub("Son fechas declaradas por el dueño. Pídele los documentos al recibir la moto.")
+                    // Declaración del rider. No se pide foto ni número de la licencia: el dueño la verifica al entregar.
+                    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).clip(RoundedCornerShape(10.dp)).clickable { license = !license }.padding(vertical = 6.dp), verticalAlignment = Alignment.Top) {
+                        Checkbox(license, null, colors = CheckboxDefaults.colors(checkedColor = Orange, uncheckedColor = Outline, checkmarkColor = Color.White))
+                        Spacer(Modifier.width(10.dp))
+                        Text("Declaro que tengo licencia de conducción vigente categoría $cat y que la presentaré al recibir la moto.", fontSize = 13.sp, lineHeight = 18.sp)
+                    }
+                }
                 Card2 {
                     H("Protección", Icons.Filled.Shield)
+                    Sub("Son condiciones que ofrece el dueño de la moto. No son un seguro. Pídele el detalle antes de reservar.")
                     C.PLANS.forEach { p ->
                         OptionTile(plan == p.key, { plan = p.key }, Modifier.fillMaxWidth()) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -235,20 +251,19 @@ fun BikeDetailScreen(vm: AppViewModel, nav: NavController, u: AppUser, id: Strin
                     if (pl.perDay > 0) Row { Text("Protección ${pl.name}", Modifier.weight(1f), color = Muted); Num(cop(pl.perDay * days), Ink, 14) }
                     if (ex.isNotEmpty()) Row { Text("Extras", Modifier.weight(1f), color = Muted); Num(cop(ex.sumOf { it.price } * days), Ink, 14) }
                     if (delivery) Row { Text("Entrega", Modifier.weight(1f), color = Muted); Num(cop(C.DELIVERY_FEE), Ink, 14) }
+                    Sub("Le pagas directamente al dueño. Puedes retractarte sin costo dentro de los 5 días hábiles siguientes, antes de recibir la moto.")
                 }
                 Spacer(Modifier.height(4.dp))
             }
         }
         BottomBar {
             Column(Modifier.weight(1f)) { Lbl("Total"); Num(cop(animatedMoney(total)), OrangeDark, 22) }
-            Btn(if (b.instant) "Reservar" else "Solicitar", icon = Icons.Filled.Check, enabled = !busy) {
+            Btn(if (b.instant) "Reservar" else "Solicitar", icon = Icons.Filled.Check, enabled = !busy && docsOk && license) {
                 val req = ServiceRequest(type = "rent", fromId = u.id, fromName = u.name, toId = b.ownerId, itemId = b.id, itemName = b.name, days = days,
                     amount = base, total = total, dateFrom = vm.rentFrom, dateTo = vm.rentTo, plan = pl.name, extras = ex.map { it.name }, delivery = delivery,
-                    status = if (b.instant) "ok" else "p")
-                vm.act(if (b.instant) "¡Moto reservada!" else "Solicitud enviada al dueño") {
-                    vm.repo.createRequest(req)
-                    if (b.instant) vm.repo.addBooking(b.id, vm.rentFrom, vm.rentTo)
-                }
+                    status = if (b.instant) "ok" else "p", licenseDeclared = true, licenseCat = cat)
+                // La solicitud y el apartado de fechas van en un solo lote (o quedan las dos cosas o ninguna).
+                vm.act(if (b.instant) "¡Moto reservada!" else "Solicitud enviada al dueño") { vm.repo.createRequest(req, if (b.instant) b else null) }
                 nav.popBackStack()
             }
         }
@@ -261,9 +276,12 @@ private fun ColumnScope.DriversList(vm: AppViewModel, nav: NavController, u: App
     val mine by vm.reqFrom.collectAsState()
     var hire by remember { mutableStateOf<Driver?>(null) }
     var rate by remember { mutableStateOf<ServiceRequest?>(null) }
-    if (vm.preRoute.isNotBlank()) Card2(tone = Surf1, border = CyanSoft) { IconLine(Icons.Filled.Route, "Buscas conductor para: ${vm.preRoute}", CyanDeep) }
+    var cancel by remember { mutableStateOf<ServiceRequest?>(null) }
+    cancel?.let { r -> CancelRequestDialog(vm, r) { cancel = null } }
+    Card2(tone = Surf1) { IconLine(Icons.Filled.Info, "El guía va en su propia moto y tú en la tuya. No es un servicio de transporte.", CyanDeep, bold = false) }
+    if (vm.preRoute.isNotBlank()) Card2(tone = Surf1, border = CyanSoft) { IconLine(Icons.Filled.Route, "Buscas guía para: ${vm.preRoute}", CyanDeep) }
     val online = drivers.filter { it.online && it.ownerId != u.id }
-    if (online.isEmpty()) Empty("No hay conductores en línea ahora mismo.", Icons.Filled.SportsMotorsports)
+    if (online.isEmpty()) Empty("No hay guías en línea ahora mismo.", Icons.Filled.SportsMotorsports)
     online.forEachIndexed { i, d ->
         Card2(index = i) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -283,16 +301,18 @@ private fun ColumnScope.DriversList(vm: AppViewModel, nav: NavController, u: App
     }
     val svc = mine.filter { it.type == "drv" }.sortedByDescending { it.createdAt }
     if (svc.isNotEmpty()) {
-        H("Mis servicios con conductor")
+        H("Mis salidas con guía")
         svc.forEach { r ->
             Card2 {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) { Text("${r.driverName} · ${r.service}", fontWeight = FontWeight.Bold); Lbl("${prettyDate(r.dateFrom)} · ${r.days} día(s) · ${cop(r.amount)}") }
                     StatusPill(REQ_ST[r.status] ?: r.status, r.status)
                 }
+                if (r.cancelKind == "retracto") Sub("Retracto ejercido: la devolución es total.")
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Btn("Chat", Modifier.weight(1f), Icons.Filled.Chat, kind = BK.Ghost) { nav.chat("req_${r.id}", r.driverName, r.toId) }
+                    if (r.status !in listOf("no", "can") && r.toId.isNotBlank()) Btn("Chat", Modifier.weight(1f), Icons.Filled.Chat, kind = BK.Ghost) { nav.chat("req_${r.id}", r.driverName, r.toId) }
                     if (r.status == "fin" && r.rated == 0) Btn("Calificar", Modifier.weight(1f), Icons.Filled.Star) { rate = r }
+                    if (canCancel(r)) Btn("Cancelar", Modifier.weight(1f), Icons.Filled.Close, kind = BK.Danger) { cancel = r }
                 }
             }
         }
@@ -314,6 +334,7 @@ private fun ColumnScope.DriversList(vm: AppViewModel, nav: NavController, u: App
             }
             Field("Punto de encuentro", meet, { meet = it }, hint = "Ej: Estación Terpel, salida a Buga")
             Row(verticalAlignment = Alignment.CenterVertically) { Lbl("Total", modifier = Modifier.weight(1f)); Num(cop(animatedMoney(n * d.rate)), OrangeDark, 20) }
+            Sub("Cada uno conduce su moto, con licencia, SOAT y revisión vigentes. Le pagas directamente al guía.")
             Btn("Enviar solicitud", Modifier.fillMaxWidth(), Icons.AutoMirrored.Filled.Send, enabled = meet.isNotBlank()) {
                 val req = ServiceRequest(type = "drv", fromId = u.id, fromName = u.name, toId = d.ownerId, itemId = d.id, itemName = vm.preRoute.ifBlank { service },
                     days = n, amount = n * d.rate, total = n * d.rate, dateFrom = date, meet = meet, service = service, driverName = d.name)

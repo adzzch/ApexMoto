@@ -46,20 +46,29 @@ import co.apexmoto.app.data.*
 import co.apexmoto.app.ui.theme.*
 import kotlinx.coroutines.launch
 
-/** Pide la ubicación actual y la entrega en callback (con permiso en tiempo de ejecución). */
+/**
+ * Pide la ubicación actual y la entrega en callback. El permiso se pide en contexto (cuando la persona toca el botón)
+ * y, la primera vez, después de un aviso que explica para qué se usa; esa aceptación queda registrada.
+ */
 @Composable
 fun rememberLocationRequest(vm: AppViewModel, onResult: (Double, Double) -> Unit): () -> Unit {
     val scope = rememberCoroutineScope()
+    var disclose by remember { mutableStateOf(false) }
     val fetch: () -> Unit = {
         scope.launch {
             val l = vm.container.location.last()
-            if (l == null) vm.toast("No pude obtener tu ubicación. Activa el GPS e inténtalo de nuevo.") else onResult(l.latitude, l.longitude)
+            if (l == null) vm.toast("No pude obtener tu ubicación. Revisa el permiso y el GPS, o escribe dónde estás.") else onResult(l.latitude, l.longitude)
         }
     }
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { fetch() }
+    val perms = arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
+    if (disclose) LocationDisclosure(onAccept = { disclose = false; vm.acceptLocation(); launcher.launch(perms) }, onDismiss = { disclose = false })
     return {
-        if (vm.container.location.hasPermission()) fetch()
-        else launcher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
+        when {
+            !vm.locationConsented -> disclose = true
+            vm.container.location.hasPermission() -> fetch()
+            else -> launcher.launch(perms)
+        }
     }
 }
 
@@ -75,6 +84,12 @@ fun WorkshopScreen(vm: AppViewModel, nav: androidx.navigation.NavController, u: 
     var lat by remember { mutableStateOf(0.0) }
     var lng by remember { mutableStateOf(0.0) }
     val getLoc = rememberLocationRequest(vm) { a, b -> lat = a; lng = b; if (place.isBlank()) place = "Mi ubicación actual" }
+    // Un S.O.S. viejo que nadie aceptó se cancela solo, para que la ubicación no quede expuesta indefinidamente.
+    LaunchedEffect(current?.id, current?.status) {
+        val c = current
+        if (c != null && c.status == "new" && c.createdAt > 0 && System.currentTimeMillis() - c.createdAt > C.SOS_TTL_MS)
+            vm.act("Tu S.O.S. anterior caducó sin taller asignado. Puedes enviar uno nuevo.") { vm.repo.cancelSos(c.id) }
+    }
 
     Screen {
         if (current != null) {
@@ -91,7 +106,7 @@ fun WorkshopScreen(vm: AppViewModel, nav: androidx.navigation.NavController, u: 
                 else Text("${current.providerName} llega en ${current.eta} min", fontWeight = FontWeight.Bold, fontSize = 15.sp)
                 if (current.providerId.isNotBlank()) Btn("Chat con el taller", Modifier.fillMaxWidth(), Icons.Filled.Chat, kind = BK.Ghost) { nav.chat("sos_${current.id}", current.providerName, current.providerId) }
                 Row(verticalAlignment = Alignment.CenterVertically) { Lbl("Tarifa estimada", modifier = Modifier.weight(1f)); Num(cop(current.price), OrangeDark, 18) }
-                if (current.status != "site") Btn("Cancelar S.O.S.", Modifier.fillMaxWidth(), Icons.Filled.Close, kind = BK.Danger) { vm.act("S.O.S. cancelado") { vm.repo.setSosStatus(current.id, "no") } }
+                if (current.status != "site") Btn("Cancelar S.O.S.", Modifier.fillMaxWidth(), Icons.Filled.Close, kind = BK.Danger) { vm.act("S.O.S. cancelado") { vm.repo.cancelSos(current.id) } }
             }
         } else {
             Card2 {
@@ -118,6 +133,8 @@ fun WorkshopScreen(vm: AppViewModel, nav: androidx.navigation.NavController, u: 
                         }
                         Field("¿Dónde estás?", place, { place = it }, hint = "Km 12 vía al mar, junto a la gasolinera")
                         Btn(if (lat != 0.0) "Ubicación fijada" else "Usar mi ubicación", Modifier.fillMaxWidth(), if (lat != 0.0) Icons.Filled.CheckCircle else Icons.Filled.MyLocation, kind = BK.Ghost) { getLoc() }
+                        if (lat != 0.0) Lbl("Los talleres aliados verán este punto hasta que termine el S.O.S.; después se borra.")
+                        Lbl("Si hay heridos o peligro, llama primero al 123.", Red)
                         Field("Detalle (opcional)", note, { note = it }, lines = 2, hint = "Ej: llanta trasera, tengo repuesto")
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Btn("Cancelar", Modifier.weight(0.7f), kind = BK.Ghost) { asking = false }

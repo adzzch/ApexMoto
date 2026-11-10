@@ -1,2 +1,4 @@
 # Android Studio crea local.properties con sdk.dir. Agrega tu clave gratuita de openrouteservice.org al final:
 ORS_API_KEY=PEGA_AQUI_TU_CLAVE_DE_OPENROUTESERVICE
+# Opcional: activa App Check (antifraude) cuando la app esté registrada en Firebase > App Check. Ver docs/seguridad.md.
+APP_CHECK_ENABLED=false

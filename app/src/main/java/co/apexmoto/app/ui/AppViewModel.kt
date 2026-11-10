@@ -15,6 +15,10 @@ import co.apexmoto.app.auth.SignInCancelled
 import co.apexmoto.app.core.addDays
 import co.apexmoto.app.core.today
 import co.apexmoto.app.data.*
+import co.apexmoto.app.legal.AcceptMethod
+import co.apexmoto.app.legal.Legal
+import co.apexmoto.app.legal.LegalDoc
+import com.google.firebase.firestore.FirebaseFirestoreException
 import co.apexmoto.app.maps.NavSession
 import com.google.firebase.auth.AuthCredential
 import com.google.firebase.auth.GoogleAuthProvider
@@ -45,8 +49,11 @@ class AppViewModel(val container: AppContainer) : ViewModel() {
     var rentFrom by mutableStateOf(addDays(today(), 2))
     var rentTo by mutableStateOf(addDays(today(), 4))
     var preRoute by mutableStateOf("")
+    /** true cuando la persona ya autorizó el uso de la ubicación (aviso vigente). Sin esto la app no la consulta. */
+    var locationConsented by mutableStateOf(false); private set
 
     init {
+        viewModelScope.launch { user.collect { locationConsented = it != null && Legal.isCurrent(it.legal, Legal.LOCATION) } }
         viewModelScope.launch {
             try {
                 user.value = repo.currentUser()
@@ -64,6 +71,13 @@ class AppViewModel(val container: AppContainer) : ViewModel() {
         } catch (e: kotlinx.coroutines.CancellationException) { throw e   // tarea cancelada (se cerró la pantalla): no es un error
         } catch (e: com.google.firebase.auth.FirebaseAuthException) { toast(authError(e.errorCode))
         } catch (e: com.google.firebase.FirebaseNetworkException) { toast("Sin conexión. Revisa tu internet e inténtalo de nuevo.")
+        } catch (e: FirebaseFirestoreException) {
+            // Las reglas del servidor rechazaron la operación: no es tuya, ya cambió de estado o la repetiste muy rápido.
+            toast(when (e.code) {
+                FirebaseFirestoreException.Code.PERMISSION_DENIED -> "No se pudo completar. Si acabas de hacer lo mismo, espera unos segundos e inténtalo de nuevo."
+                FirebaseFirestoreException.Code.UNAVAILABLE -> "Sin conexión. Revisa tu internet e inténtalo de nuevo."
+                else -> "Algo salió mal. Inténtalo de nuevo."
+            })
         } catch (e: Exception) { toast(e.message ?: "Algo salió mal. Inténtalo de nuevo.") }
     }
 
@@ -80,7 +94,7 @@ class AppViewModel(val container: AppContainer) : ViewModel() {
     val reqFrom = byUser { repo.requestsFrom(it.id) }
     val reqTo = byUser { repo.requestsTo(it.id) }
     val shopCoupons = byUser { repo.couponsOfOwner(it.id) }
-    val sos = byUser { repo.sosAll() }
+    val sos = byUser { if (it.role == Role.WORKSHOP) repo.sosForWorkshop(it.id) else repo.sosMine(it.id) }
     val savedRoutes = byUser { repo.routesOf(it.id) }
 
     // Sesión
@@ -105,7 +119,7 @@ class AppViewModel(val container: AppContainer) : ViewModel() {
         else -> "No pudimos completar el ingreso. Inténtalo de nuevo."
     }
     fun register(name: String, email: String, pw: String, role: String, biz: String, corridor: String) =
-        act { user.value = repo.register(name, email, pw, role, biz, corridor); pending = null }
+        act { user.value = repo.register(name, email, pw, role, biz, corridor, AcceptMethod.REGISTER); pending = null }
     fun signInCredential(c: AuthCredential) = act { repo.signInWithCredential(c); afterAuth() }
     fun googleSignIn(activityCtx: Context) = act {
         val token = container.google.idToken(activityCtx)
@@ -113,12 +127,26 @@ class AppViewModel(val container: AppContainer) : ViewModel() {
     }
     fun verifyCode(verificationId: String, code: String) = signInCredential(PhoneAuthProvider.getCredential(verificationId, code.trim()))
     fun completeProfile(name: String, role: String, biz: String, corridor: String) =
-        act { user.value = repo.completeProfile(name, role, biz, corridor); pending = null }
+        act { user.value = repo.completeProfile(name, role, biz, corridor, AcceptMethod.FIRST_LOGIN); pending = null }
     fun logout() { repo.logout(); user.value = null; pending = null }
+    /** Para activar el modo guía la pantalla muestra antes las condiciones del rol; aquí queda el registro de esa aceptación. */
     fun setDriverMode(on: Boolean) = act {
         val u = user.value ?: return@act
-        val role = if (on) Role.DRIVER else Role.RIDER
-        repo.setRole(u, role); user.value = u.copy(role = role)
+        user.value = repo.setRole(u, if (on) Role.DRIVER else Role.RIDER, AcceptMethod.ROLE)
+    }
+
+    // Legal y privacidad
+    fun acceptDocs(docs: List<LegalDoc>, method: String) = act {
+        val u = user.value ?: return@act
+        user.value = repo.acceptDocs(u, docs, method)
+    }
+    /** La persona tocó "Aceptar" en el aviso de ubicación: se habilita de inmediato y se guarda el registro. */
+    fun acceptLocation() { locationConsented = true; acceptDocs(listOf(Legal.doc(Legal.LOCATION)), AcceptMethod.LOCATION) }
+    fun updateName(name: String) = act("Nombre actualizado") { val u = user.value ?: return@act; user.value = repo.updateName(u, name) }
+    fun deleteAccount() = act {
+        val u = user.value ?: return@act
+        repo.deleteAccount(u); user.value = null; pending = null
+        toast("Tu cuenta fue eliminada.")
     }
 
     fun updateMapType(t: Int) { mapType = t; container.prefs.mapType = t }

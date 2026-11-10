@@ -1,68 +1,375 @@
 rules_version = '2';
+
+// ApexMoto · Reglas de Firestore (producción)
+//
+// Principios:
+//  1. Mínimo privilegio: cada persona lee y escribe solo lo suyo y lo que necesita para un servicio en el que participa.
+//  2. Nada se confía al cliente: dueños, estados, tamaños y transiciones se validan aquí.
+//  3. Las pruebas legales (legal_acceptances, privacy_requests) solo se crean; no se pueden modificar ni borrar desde la app.
+//  4. Los datos demo y la administración exigen un documento en /admins/{uid}, que solo se crea desde la consola de Firebase.
+//
+// Pruebas: carpeta firestore-tests (npm test). Al cambiar la versión de un documento legal, actualiza versionOk().
 service cloud.firestore {
   match /databases/{db}/documents {
+
+    // ───────── Utilidades ─────────
     function signedIn() { return request.auth != null; }
     function uid() { return request.auth.uid; }
+    function path(c, id) { return /databases/$(db)/documents/$(c)/$(id); }
+    function role() { return get(path('users', uid())).data.role; }
+    function isAdmin() { return signedIn() && exists(path('admins', uid())); }
     function onlyChanges(keys) { return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys); }
+    function str(d, k, max) { return d[k] is string && d[k].size() <= max; }
+    function text(d, k, max) { return str(d, k, max) && d[k].size() > 0; }
+    function isDate(s) { return s is string && s.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$'); }
+    function zero(x) { return x == 0 || x == 0.0; }
+    function coords(d) { return d.lat is number && d.lng is number && d.lat >= -90 && d.lat <= 90 && d.lng >= -180 && d.lng <= 180; }
 
-    match /users/{id} {
-      allow read: if signedIn();
-      allow create, update: if uid() == id;
+    // ───────── Límite de uso (antiabuso) ─────────
+    // Cada acción sensible escribe, en el mismo lote, un sello con la hora del servidor en rate_limits/{uid}.
+    // El sello solo se acepta si pasó el tiempo mínimo desde el anterior: un cliente modificado no puede inundar la base.
+    function stampOk(k, secs) {
+      let has = k in request.resource.data;
+      let had = resource != null && k in resource.data;
+      return (!has && !had)
+        || (has && had && request.resource.data[k] == resource.data[k])
+        || (has && request.resource.data[k] == request.time && (!had || request.time > resource.data[k] + duration.value(secs, 's')));
     }
-    // NOTA: ownerId == '' permite cargar y reiniciar (borrar) los datos demo. En producción quita esa excepción.
+    function stamped(k) { return getAfter(path('rate_limits', uid())).data[k] == request.time; }
+
+    match /rate_limits/{id} {
+      allow get: if signedIn() && uid() == id;
+      allow create, update: if signedIn() && uid() == id
+        && request.resource.data.keys().hasOnly(['sos', 'order', 'request'])
+        && stampOk('sos', 60) && stampOk('order', 15) && stampOk('request', 15);
+    }
+
+    // ───────── Documentos legales y aceptación trazable ─────────
+    // Versiones que hoy se pueden aceptar. Al publicar una versión nueva de un documento, agrégala aquí
+    // (y quita la anterior cuando la app que la trae ya no deba poder registrarse).
+    function versionOk(docId, version) {
+      let valid = {
+        'terminos': ['1.0.0'],
+        'privacidad': ['1.0.0'],
+        'ubicacion': ['1.0.0'],
+        'declaracion-guia': ['1.0.0'],
+        'declaracion-propietario': ['1.0.0']
+      };
+      return docId is string && version is string && docId in valid && version in valid[docId];
+    }
+    // El perfil dice que aceptó un documento solo si existe (al terminar el lote) el registro de esa aceptación.
+    function accepted(d, docId) {
+      return docId in d.legal && versionOk(docId, d.legal[docId])
+        && existsAfter(path('legal_acceptances', uid() + '_' + docId + '_' + d.legal[docId]));
+    }
+    function legalOk(d) {
+      return d.legal is map
+        && d.legal.keys().hasOnly(['terminos', 'privacidad', 'ubicacion', 'declaracion-guia', 'declaracion-propietario'])
+        && accepted(d, 'terminos') && accepted(d, 'privacidad')
+        && (d.role != 'd' || accepted(d, 'declaracion-guia'))
+        && (d.role != 'o' || accepted(d, 'declaracion-propietario'))
+        && (!('ubicacion' in d.legal) || accepted(d, 'ubicacion'))
+        && (!('declaracion-guia' in d.legal) || accepted(d, 'declaracion-guia'))
+        && (!('declaracion-propietario' in d.legal) || accepted(d, 'declaracion-propietario'));
+    }
+
+    // Registro probatorio: una aceptación por persona, documento y versión. Solo creación.
+    match /legal_acceptances/{id} {
+      allow read: if signedIn() && (resource.data.userId == uid() || isAdmin());
+      allow create: if signedIn()
+        && request.resource.data.userId == uid()
+        && id == uid() + '_' + request.resource.data.docId + '_' + request.resource.data.version
+        && versionOk(request.resource.data.docId, request.resource.data.version)
+        && request.resource.data.acceptedAt == request.time            // hora del servidor, no la del teléfono
+        && request.resource.data.platform == 'android'
+        && request.resource.data.keys().hasOnly(['userId', 'docId', 'version', 'docHash', 'acceptedAt', 'method', 'platform', 'appVersion', 'os', 'deviceId', 'locale', 'role'])
+        && request.resource.data.keys().hasAll(['userId', 'docId', 'version', 'docHash', 'acceptedAt', 'method', 'platform'])
+        && request.resource.data.docHash.matches('^[0-9a-f]{64}$')
+        && text(request.resource.data, 'method', 40)
+        && str(request.resource.data, 'appVersion', 40) && str(request.resource.data, 'os', 60)
+        && str(request.resource.data, 'deviceId', 200) && str(request.resource.data, 'locale', 20) && str(request.resource.data, 'role', 2);
+      allow update, delete: if false;
+    }
+
+    // ───────── Usuarios ─────────
+    // Nadie lee el perfil de otra persona (ahí están su correo o celular). Sin consulta de listas.
+    function userShape(d) {
+      return d.keys().hasOnly(['name', 'email', 'role', 'legal']) && d.keys().hasAll(['name', 'email', 'role', 'legal'])
+        && text(d, 'name', 60) && str(d, 'email', 120) && d.role in ['m', 'c', 'o', 'd', 't'];
+    }
+    match /users/{id} {
+      allow get: if signedIn() && (uid() == id || isAdmin());
+      allow create: if signedIn() && uid() == id && userShape(request.resource.data) && legalOk(request.resource.data);
+      allow update: if signedIn() && uid() == id && userShape(request.resource.data)
+        && onlyChanges(['name', 'role', 'legal'])
+        // El rol solo puede alternar entre rider y guía; los demás se eligen al registrarse.
+        && (request.resource.data.role == resource.data.role
+            || (resource.data.role in ['m', 'd'] && request.resource.data.role in ['m', 'd']))
+        // Una aceptación registrada no se puede retirar del perfil.
+        && (!('legal' in resource.data) || request.resource.data.legal.keys().hasAll(resource.data.legal.keys()))
+        && legalOk(request.resource.data);
+      allow delete: if signedIn() && uid() == id;       // derecho de supresión
+    }
+
+    // Administradores: se crean a mano en la consola. Nadie los escribe desde la app.
+    match /admins/{id} {
+      allow get: if signedIn() && uid() == id;
+    }
+
+    // Solicitudes de titulares y PQR. La persona las crea y las consulta; solo un administrador las responde.
+    match /privacy_requests/{id} {
+      allow read: if signedIn() && (resource.data.userId == uid() || isAdmin());
+      allow create: if signedIn()
+        && request.resource.data.userId == uid()
+        && request.resource.data.status == 'recibida'
+        && request.resource.data.createdAt == request.time            // desde aquí corre el plazo legal
+        && request.resource.data.type in ['consulta', 'rectificacion', 'supresion', 'revocatoria', 'prueba', 'oferente', 'queja', 'supresion_cuenta']
+        && text(request.resource.data, 'detail', 2000) && str(request.resource.data, 'contact', 120)
+        && request.resource.data.response == '' && request.resource.data.respondedAt == null
+        && request.resource.data.keys().hasOnly(['userId', 'type', 'detail', 'contact', 'status', 'createdAt', 'response', 'respondedAt']);
+      allow update: if isAdmin() && onlyChanges(['status', 'response', 'respondedAt']);
+      allow delete: if false;
+    }
+
+    // Identificación del oferente (art. 53 Ley 1480). Privada: solo su titular y un administrador.
+    match /providers/{id} {
+      allow get: if signedIn() && (uid() == id || isAdmin());
+      allow create, update: if signedIn() && uid() == id && role() in ['c', 'o', 'd', 't']
+        && request.resource.data.keys().hasOnly(['legalName', 'idType', 'idNumber', 'address', 'phone', 'updatedAt'])
+        && text(request.resource.data, 'legalName', 120) && request.resource.data.idType in ['CC', 'CE', 'NIT', 'PAS']
+        && text(request.resource.data, 'idNumber', 20) && text(request.resource.data, 'address', 160) && text(request.resource.data, 'phone', 20);
+      allow delete: if signedIn() && uid() == id;
+    }
+
+    // ───────── Comercios y talleres ─────────
+    function venueShape(d) {
+      return text(d, 'name', 80) && str(d, 'desc', 500) && str(d, 'promo', 160)
+        && d.menu is list && d.menu.size() <= 80 && d.types is list && d.types.size() <= 4 && coords(d);
+    }
     match /venues/{id} {
       allow read: if signedIn();
-      allow create: if signedIn() && request.resource.data.ownerId in [uid(), ''];
-      allow update: if signedIn() && (resource.data.ownerId == uid() || onlyChanges(['visits']));
-      allow delete: if signedIn() && resource.data.ownerId in [uid(), ''];
+      allow create: if isAdmin() || (signedIn() && request.resource.data.ownerId == uid() && role() in ['c', 't']
+        && venueShape(request.resource.data) && request.resource.data.reviews == 0 && request.resource.data.visits == 0);
+      allow update: if isAdmin() || (signedIn() && (
+        // El dueño edita su negocio, pero no su calificación ni se lo pasa a otra cuenta.
+        (resource.data.ownerId == uid() && request.resource.data.ownerId == uid() && venueShape(request.resource.data)
+          && request.resource.data.rating == resource.data.rating && request.resource.data.reviews == resource.data.reviews)
+        // Cualquier usuario suma una visita, de a una.
+        || (onlyChanges(['visits']) && request.resource.data.visits == resource.data.visits + 1)));
+      allow delete: if isAdmin() || (signedIn() && resource.data.ownerId == uid());
+    }
+
+    // ───────── Motos ─────────
+    function bikeShape(d) {
+      return text(d, 'name', 80) && d.pricePerDay is int && d.pricePerDay > 0 && d.pricePerDay <= 5000000
+        && d.cc is int && d.cc >= 0 && d.cc <= 2500 && str(d, 'city', 60) && d.specs is list && d.specs.size() <= 10
+        // Una moto solo se publica como disponible con SOAT y revisión técnico-mecánica declarados.
+        && (d.available != true || (isDate(d.soatUntil) && isDate(d.rtmUntil)));
+    }
+    // Quien renta solo puede tocar `booked`, y solo junto con su propia solicitud en el mismo lote:
+    //  · reserva inmediata: la solicitud nace aceptada y se agregan exactamente sus fechas;
+    //  · cancelación: la solicitud estaba aceptada, pasa a cancelada y se quitan exactamente sus fechas.
+    function bookingOk(id) {
+      let rid = request.resource.data.lastReq;
+      let r = getAfter(path('requests', rid)).data;
+      let entry = r.dateFrom + '|' + r.dateTo;
+      return onlyChanges(['booked', 'lastReq']) && r.fromId == uid() && r.itemId == id && r.type == 'rent'
+        && ((r.status == 'ok' && resource.data.instant == true && !exists(path('requests', rid))
+              && !(entry in resource.data.booked) && request.resource.data.booked == resource.data.booked.concat([entry]))
+            || (r.status == 'can' && get(path('requests', rid)).data.status == 'ok'
+              && request.resource.data.booked == resource.data.booked.removeAll([entry])));
     }
     match /bikes/{id} {
       allow read: if signedIn();
-      allow create: if signedIn() && request.resource.data.ownerId in [uid(), ''];
-      allow update: if signedIn() && (resource.data.ownerId == uid() || onlyChanges(['booked']));
-      allow delete: if signedIn() && resource.data.ownerId in [uid(), ''];
+      allow create: if isAdmin() || (signedIn() && request.resource.data.ownerId == uid() && role() == 'o'
+        && bikeShape(request.resource.data) && request.resource.data.booked.size() == 0 && request.resource.data.trips == 0);
+      allow update: if isAdmin() || (signedIn() && (
+        (resource.data.ownerId == uid() && request.resource.data.ownerId == uid() && bikeShape(request.resource.data)
+          && request.resource.data.rating == resource.data.rating && request.resource.data.trips == resource.data.trips)
+        || bookingOk(id)));
+      allow delete: if isAdmin() || (signedIn() && resource.data.ownerId == uid());
+    }
+
+    // ───────── Guías ─────────
+    function driverShape(d) {
+      return text(d, 'name', 60) && str(d, 'bike', 80) && str(d, 'zone', 60) && str(d, 'bio', 500)
+        && d.rate is int && d.rate > 0 && d.rate <= 5000000 && d.services is list && d.services.size() <= 6;
+    }
+    // Calificación: solo quien contrató, una vez, con el servicio finalizado, y en el mismo lote que marca la solicitud como calificada.
+    function ratingOk(id) {
+      let rid = request.resource.data.lastRatingReq;
+      let before = get(path('requests', rid)).data;
+      let stars = getAfter(path('requests', rid)).data.rated;
+      let n = request.resource.data.reviews;
+      return onlyChanges(['rating', 'reviews', 'lastRatingReq'])
+        && before.fromId == uid() && before.itemId == id && before.type == 'drv' && before.status == 'fin' && before.rated == 0
+        && stars is int && stars >= 1 && stars <= 5 && n == resource.data.reviews + 1
+        && math.abs(request.resource.data.rating * n - resource.data.rating * (n - 1) - stars) < 0.01;
     }
     match /drivers/{id} {
       allow read: if signedIn();
-      allow create: if signedIn() && (id == uid() || request.resource.data.ownerId == '');
-      allow update: if signedIn() && (resource.data.ownerId == uid() || onlyChanges(['rating', 'reviews']));
-      allow delete: if signedIn() && resource.data.ownerId in [uid(), ''];
+      allow create: if isAdmin() || (signedIn() && id == uid() && request.resource.data.ownerId == uid() && role() == 'd'
+        && driverShape(request.resource.data) && request.resource.data.reviews == 0);
+      allow update: if isAdmin() || (signedIn() && (
+        (resource.data.ownerId == uid() && request.resource.data.ownerId == uid() && driverShape(request.resource.data)
+          && request.resource.data.rating == resource.data.rating && request.resource.data.reviews == resource.data.reviews)
+        || ratingOk(id)));
+      allow delete: if isAdmin() || (signedIn() && resource.data.ownerId == uid());
+    }
+
+    // ───────── Rodadas ─────────
+    // Unirse o salir: solo cambia la propia presencia en `joined`, y no se pasa de los cupos.
+    function joinOk() {
+      let a = request.resource.data.joined.toSet();
+      let b = resource.data.joined.toSet();
+      return onlyChanges(['joined'])
+        && ((a.difference(b) == [uid()].toSet() && b.difference(a).size() == 0 && request.resource.data.joined.size() <= resource.data.seats)
+          || (b.difference(a) == [uid()].toSet() && a.difference(b).size() == 0));
+    }
+    function rodadaShape(d) {
+      return text(d, 'name', 80) && text(d, 'meet', 160) && str(d, 'whenLabel', 40) && str(d, 'captain', 40) && str(d, 'style', 20)
+        && d.seats is int && d.seats >= 2 && d.seats <= 40 && d.joined is list && d.joined.size() <= d.seats;
     }
     match /rodadas/{id} {
-      allow read, create: if signedIn();
-      allow update: if signedIn() && (resource.data.creatorId == uid() || onlyChanges(['joined']));
-      allow delete: if signedIn() && resource.data.creatorId in [uid(), ''];
+      allow read: if signedIn();
+      allow create: if isAdmin() || (signedIn() && request.resource.data.creatorId == uid() && rodadaShape(request.resource.data)
+        && request.resource.data.joined == [uid()]);
+      allow update: if isAdmin() || (signedIn() && (
+        (resource.data.creatorId == uid() && request.resource.data.creatorId == uid() && rodadaShape(request.resource.data)) || joinOk()));
+      allow delete: if isAdmin() || (signedIn() && resource.data.creatorId == uid());
     }
+
+    // ───────── Pedidos ─────────
     match /orders/{id} {
       allow read: if signedIn() && (resource.data.fromId == uid() || resource.data.ownerId == uid());
-      allow create: if signedIn() && request.resource.data.fromId == uid();
-      allow update: if signedIn() && resource.data.ownerId == uid();
+      allow create: if signedIn() && request.resource.data.fromId == uid() && request.resource.data.status == 'new'
+        // El pedido va al dueño real del comercio, no al que diga el cliente.
+        && request.resource.data.ownerId == get(path('venues', request.resource.data.venueId)).data.ownerId
+        && request.resource.data.items is list && request.resource.data.items.size() >= 1 && request.resource.data.items.size() <= 40
+        && request.resource.data.total is int && request.resource.data.total >= 0
+        && str(request.resource.data, 'note', 300) && str(request.resource.data, 'eta', 20)
+        && text(request.resource.data, 'fromName', 60) && str(request.resource.data, 'venueName', 80)
+        && stamped('order');
+      allow update: if signedIn() && onlyChanges(['status']) && (
+        // El comercio avanza el pedido paso a paso.
+        (resource.data.ownerId == uid() && (
+          (resource.data.status == 'new' && request.resource.data.status in ['prep', 'no'])
+          || (resource.data.status == 'prep' && request.resource.data.status == 'ready')
+          || (resource.data.status == 'ready' && request.resource.data.status == 'done')))
+        // El rider cancela mientras el comercio no lo haya aceptado.
+        || (resource.data.fromId == uid() && resource.data.status == 'new' && request.resource.data.status == 'can'));
+    }
+
+    // ───────── Solicitudes de renta y de guía ─────────
+    function rentOk(d) {
+      let b = get(path('bikes', d.itemId)).data;
+      return d.toId == b.ownerId && b.available == true
+        && (d.status == 'p' || (d.status == 'ok' && b.instant == true))
+        && isDate(d.dateFrom) && isDate(d.dateTo) && d.dateFrom <= d.dateTo
+        // SOAT y revisión vigentes hasta el último día, y declaración de licencia del rider.
+        && isDate(b.soatUntil) && isDate(b.rtmUntil) && b.soatUntil >= d.dateTo && b.rtmUntil >= d.dateTo
+        && d.licenseDeclared == true && d.licenseCat in ['A1', 'A2'];
+    }
+    function guideOk(d) {
+      return d.status == 'p' && d.toId == get(path('drivers', d.itemId)).data.ownerId && isDate(d.dateFrom) && text(d, 'meet', 160);
     }
     match /requests/{id} {
       allow read: if signedIn() && (resource.data.fromId == uid() || resource.data.toId == uid());
-      allow create: if signedIn() && request.resource.data.fromId == uid();
-      allow update: if signedIn() && (resource.data.fromId == uid() || resource.data.toId == uid());
+      allow create: if signedIn() && request.resource.data.fromId == uid()
+        && request.resource.data.rated == 0 && request.resource.data.cancelKind == ''
+        && request.resource.data.total is int && request.resource.data.total >= 0
+        && text(request.resource.data, 'fromName', 60) && str(request.resource.data, 'itemName', 160)
+        && ((request.resource.data.type == 'rent' && rentOk(request.resource.data))
+          || (request.resource.data.type == 'drv' && guideOk(request.resource.data)))
+        && stamped('request');
+      allow update: if signedIn() && (
+        // El aliado (dueño o guía) avanza el estado paso a paso.
+        (resource.data.toId == uid() && onlyChanges(['status']) && (
+          (resource.data.status == 'p' && request.resource.data.status in ['ok', 'no'])
+          || (resource.data.status == 'ok' && resource.data.type == 'rent' && request.resource.data.status == 'ride')
+          || (resource.data.status == 'ok' && resource.data.type == 'drv' && request.resource.data.status == 'go')
+          || (resource.data.status == 'go' && request.resource.data.status == 'ride')
+          || (resource.data.status == 'ride' && request.resource.data.status == 'fin')))
+        // Quien solicitó califica una sola vez, con el servicio finalizado.
+        || (resource.data.fromId == uid() && onlyChanges(['rated']) && resource.data.status == 'fin' && resource.data.rated == 0
+          && request.resource.data.rated is int && request.resource.data.rated >= 1 && request.resource.data.rated <= 5)
+        // Quien solicitó cancela o ejerce el retracto antes de que el servicio empiece.
+        || (resource.data.fromId == uid() && onlyChanges(['status', 'cancelKind', 'cancelledAt'])
+          && resource.data.status in ['p', 'ok'] && request.resource.data.status == 'can'
+          && request.resource.data.cancelKind in ['retracto', 'cancelacion'] && request.resource.data.cancelledAt is int));
     }
+
+    // ───────── Cupones ─────────
     match /coupons/{id} {
       allow read: if signedIn() && (resource.data.userId == uid() || resource.data.ownerId == uid());
-      allow create: if signedIn() && request.resource.data.userId == uid();
-      allow update: if signedIn() && resource.data.ownerId == uid();
+      allow create: if signedIn() && request.resource.data.userId == uid() && request.resource.data.used == false
+        && request.resource.data.ownerId == get(path('venues', request.resource.data.venueId)).data.ownerId
+        && request.resource.data.code.matches('^APX-[A-Z0-9]{4}$') && text(request.resource.data, 'userName', 60);
+      // El comercio lo canjea una sola vez.
+      allow update: if signedIn() && resource.data.ownerId == uid() && onlyChanges(['used', 'usedAt'])
+        && resource.data.used == false && request.resource.data.used == true;
     }
-    // Los S.O.S. los ven todos los usuarios autenticados para que los talleres puedan aceptarlos.
+
+    // ───────── S.O.S. ─────────
+    // Las coordenadas del rider solo las ven: él mismo, los talleres mientras el S.O.S. busca taller y, después,
+    // el taller que lo aceptó. Al terminar o cancelar, las coordenadas se borran (deben quedar en cero).
     match /sos/{id} {
-      allow read: if signedIn();
-      allow create: if signedIn() && request.resource.data.fromId == uid();
-      allow update: if signedIn();
+      allow read: if signedIn() && (resource.data.fromId == uid() || resource.data.providerId == uid()
+        || (resource.data.status == 'new' && role() == 't'));
+      allow create: if signedIn() && request.resource.data.fromId == uid() && request.resource.data.status == 'new'
+        && request.resource.data.providerId == '' && request.resource.data.providerName == ''
+        && request.resource.data.kind in ['flat', 'battery', 'fuel', 'tow', 'mech']
+        && request.resource.data.price is int && request.resource.data.price >= 0 && coords(request.resource.data)
+        && text(request.resource.data, 'locationText', 200) && str(request.resource.data, 'note', 300) && text(request.resource.data, 'fromName', 60)
+        && stamped('sos');
+      allow update: if signedIn() && (
+        // El rider cancela mientras no lo estén atendiendo.
+        (resource.data.fromId == uid() && onlyChanges(['status', 'lat', 'lng', 'doneAt'])
+          && resource.data.status in ['new', 'ok', 'go'] && request.resource.data.status == 'no'
+          && zero(request.resource.data.lat) && zero(request.resource.data.lng))
+        // Un taller (nunca el mismo rider) lo acepta a su nombre.
+        || (resource.data.status == 'new' && request.resource.data.status == 'ok' && resource.data.fromId != uid() && role() == 't'
+          && request.resource.data.providerId == uid() && onlyChanges(['status', 'providerId', 'providerName', 'eta', 'acceptedAt']))
+        // El taller asignado avanza, termina (borrando coordenadas) o lo libera.
+        || (resource.data.providerId == uid() && (
+          (onlyChanges(['status']) && ((resource.data.status == 'ok' && request.resource.data.status == 'go')
+            || (resource.data.status == 'go' && request.resource.data.status == 'site')))
+          || (onlyChanges(['status', 'doneAt', 'lat', 'lng']) && resource.data.status == 'site' && request.resource.data.status == 'fin'
+            && zero(request.resource.data.lat) && zero(request.resource.data.lng))
+          || (onlyChanges(['status', 'providerId', 'providerName', 'eta']) && resource.data.status == 'ok' && request.resource.data.status == 'new'
+            && request.resource.data.providerId == ''))));
+    }
+
+    // ───────── Chat ─────────
+    // Un mensaje solo lo leen sus dos participantes, y solo pueden escribirse las dos partes reales del servicio.
+    function pair(members, a, b) { return members.toSet() == [a, b].toSet(); }
+    function chatOk(d) {
+      let id = d.thread.split('_')[1];
+      return (d.thread.matches('^req_.+') && pair(d.members, get(path('requests', id)).data.fromId, get(path('requests', id)).data.toId))
+        || (d.thread.matches('^ord_.+') && pair(d.members, get(path('orders', id)).data.fromId, get(path('orders', id)).data.ownerId))
+        || (d.thread.matches('^sos_.+') && pair(d.members, get(path('sos', id)).data.fromId, get(path('sos', id)).data.providerId));
     }
     match /chats/{id} {
-      allow read, create: if signedIn();
+      allow read: if signedIn() && uid() in resource.data.members;
+      allow create: if signedIn() && request.resource.data.fromId == uid()
+        && request.resource.data.members is list && request.resource.data.members.size() == 2 && uid() in request.resource.data.members
+        && text(request.resource.data, 'text', 1000) && text(request.resource.data, 'thread', 80) && text(request.resource.data, 'fromName', 60)
+        && chatOk(request.resource.data);
     }
+
+    // ───────── Rutas guardadas (privadas) ─────────
     match /routes/{id} {
-      allow read, update, delete: if signedIn() && resource.data.userId == uid();
-      allow create: if signedIn() && request.resource.data.userId == uid();
+      allow read, delete: if signedIn() && resource.data.userId == uid();
+      allow create: if signedIn() && request.resource.data.userId == uid()
+        && text(request.resource.data, 'name', 160) && request.resource.data.stops is list && request.resource.data.stops.size() <= 30;
     }
+
+    // ───────── Metadatos (marcador de datos demo) ─────────
     match /meta/{id} {
-      allow read, write: if signedIn();
+      allow read: if signedIn();
+      allow write: if isAdmin();
     }
+
+    // Todo lo que no aparece arriba está denegado.
   }
 }

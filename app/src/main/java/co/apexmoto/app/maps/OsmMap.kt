@@ -105,6 +105,8 @@ fun OsmMap(
         if (v.tag != snapshot) {
             v.tag = snapshot
             v.overlays.clear()
+            // Crédito "© OpenStreetMap contributors": lo exigen la licencia ODbL y la política de uso de las teselas.
+            v.overlays.add(org.osmdroid.views.overlay.CopyrightOverlay(v.context))
             onTap?.let { tap ->
                 v.overlays.add(MapEventsOverlay(object : MapEventsReceiver {
                     override fun singleTapConfirmedHelper(p: GeoPoint): Boolean { tap(LatLng(p.latitude, p.longitude)); return true }

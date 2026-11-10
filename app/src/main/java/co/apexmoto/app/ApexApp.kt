@@ -5,6 +5,7 @@ import android.content.Context
 import co.apexmoto.app.auth.GoogleSignIn
 import co.apexmoto.app.auth.PhoneAuth
 import co.apexmoto.app.data.Repo
+import co.apexmoto.app.legal.ConsentRecorder
 import co.apexmoto.app.maps.LocationHelper
 import co.apexmoto.app.maps.RoutesClient
 import com.google.firebase.auth.FirebaseAuth
@@ -23,7 +24,8 @@ class Prefs(ctx: Context) {
 
 /** Contenedor de dependencias (inyección manual, sin Hilt, para mantener el proyecto simple). */
 class AppContainer(ctx: Context) {
-    val repo = Repo(FirebaseFirestore.getInstance(), FirebaseAuth.getInstance())
+    val consent = ConsentRecorder(ctx)
+    val repo = Repo(FirebaseFirestore.getInstance(), FirebaseAuth.getInstance(), consent)
     val routes = RoutesClient(BuildConfig.ORS_API_KEY)
     val location = LocationHelper(ctx)
     val prefs = Prefs(ctx)
@@ -41,6 +43,8 @@ class ApexApp : Application() {
             osmdroidBasePath = cacheDir
             osmdroidTileCache = java.io.File(cacheDir, "tiles")
         }
+        // App Check (antifraude): solo se activa si APP_CHECK_ENABLED=true en local.properties. Ver docs/seguridad.md.
+        if (BuildConfig.APP_CHECK_ENABLED) AppCheckInstaller.install()
         container = AppContainer(this)
     }
 }

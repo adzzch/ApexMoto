@@ -1,20 +1,47 @@
 package co.apexmoto.app.data
 
 import co.apexmoto.app.core.C
+import co.apexmoto.app.core.addDays
+import co.apexmoto.app.core.today
+import co.apexmoto.app.legal.Acceptance
+import co.apexmoto.app.legal.ConsentRecorder
+import co.apexmoto.app.legal.Legal
+import co.apexmoto.app.legal.LegalDoc
+import co.apexmoto.app.legal.PrivacyRequest
+import co.apexmoto.app.legal.Provider
+import co.apexmoto.app.legal.RequestType
+import com.google.firebase.Timestamp
 import com.google.firebase.auth.AuthCredential
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
+import com.google.firebase.firestore.SetOptions
+import com.google.firebase.firestore.WriteBatch
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.tasks.await
+import org.json.JSONArray
+import org.json.JSONObject
+import java.time.Instant
+import java.util.Date
 
-/** Acceso a Firebase Auth + Firestore. Todas las consultas usan un solo filtro de igualdad (sin índices compuestos). */
-class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth) {
+/**
+ * Acceso a Firebase Auth + Firestore. Las consultas usan solo filtros de igualdad (sin índices compuestos)
+ * y cada una pide únicamente lo que las reglas de Firestore le permiten ver a ese usuario.
+ */
+class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth, private val consent: ConsentRecorder) {
     private fun col(n: String) = db.collection(n)
     private fun now() = System.currentTimeMillis()
+
+    /**
+     * Sello de límite de uso: va en el mismo lote que la acción. Las reglas exigen que el sello sea la hora del
+     * servidor y que haya pasado un tiempo mínimo desde el anterior; así un cliente modificado no puede inundar la base.
+     */
+    private fun WriteBatch.stamp(uid: String, kind: String) =
+        set(col("rate_limits").document(uid), mapOf(kind to FieldValue.serverTimestamp()), SetOptions.merge())
 
     private inline fun <reified T : Any> Query.live(): Flow<List<T>> = callbackFlow {
         val reg = addSnapshotListener { s, _ -> if (s != null) trySend(s.toObjects(T::class.java)) }
@@ -23,9 +50,9 @@ class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth) {
 
     // ───────── Autenticación y usuarios ─────────
     /** Crea la cuenta con correo y contraseña y su perfil. */
-    suspend fun register(name: String, email: String, pw: String, role: String, bizName: String = "", corridor: String = "calima"): AppUser {
+    suspend fun register(name: String, email: String, pw: String, role: String, bizName: String, corridor: String, method: String): AppUser {
         auth.createUserWithEmailAndPassword(email.trim(), pw).await()
-        return completeProfile(name, role, bizName, corridor)
+        return completeProfile(name, role, bizName, corridor, method)
     }
 
     suspend fun signInEmail(email: String, pw: String) { auth.signInWithEmailAndPassword(email.trim(), pw).await() }
@@ -36,11 +63,20 @@ class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth) {
     fun authInfo(): PendingProfile? =
         auth.currentUser?.let { PendingProfile(it.displayName.orEmpty(), (it.email ?: it.phoneNumber).orEmpty()) }
 
-    /** Guarda el perfil (rol incluido) de la cuenta autenticada y crea su comercio o perfil de conductor si aplica. */
-    suspend fun completeProfile(name: String, role: String, bizName: String = "", corridor: String = "calima"): AppUser {
+    /**
+     * Guarda el perfil (rol incluido) junto con el registro de cada aceptación legal, en un solo lote:
+     * o quedan las dos cosas o ninguna. Las reglas de Firestore rechazan un perfil sin sus aceptaciones.
+     * Luego crea el comercio o el perfil de guía si aplica.
+     */
+    suspend fun completeProfile(name: String, role: String, bizName: String, corridor: String, method: String): AppUser {
         val fu = auth.currentUser ?: error("Tu sesión no es válida. Vuelve a ingresar.")
-        val u = AppUser(fu.uid, name.trim().ifBlank { "Moto Rider" }, (fu.email ?: fu.phoneNumber).orEmpty().lowercase(), role)
-        col("users").document(fu.uid).set(u).await()
+        val docs = Legal.requiredFor(role)
+        val u = AppUser(fu.uid, name.trim().take(60).ifBlank { "Moto Rider" }, (fu.email ?: fu.phoneNumber).orEmpty().lowercase(), role,
+            legal = docs.associate { it.id to it.version })
+        val b = db.batch()
+        b.set(col("users").document(fu.uid), u)
+        addAcceptances(b, fu.uid, role, docs, method)
+        b.commit().await()
         if (role == Role.SHOP) newVenue(fu.uid, bizName.ifBlank { "Mi negocio" }, corridor)
         if (role == Role.WORKSHOP) newWorkshop(fu.uid, bizName.ifBlank { "Mi taller" }, corridor)
         if (role == Role.DRIVER) ensureDriver(u)
@@ -54,14 +90,133 @@ class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth) {
 
     fun logout() = auth.signOut()
 
-    suspend fun setRole(u: AppUser, role: String) {
-        col("users").document(u.id).update("role", role).await()
-        if (role == Role.DRIVER) ensureDriver(u)
+    /** Cambia entre rider y guía. Para ser guía se registra, en el mismo lote, la aceptación de las condiciones del rol. */
+    suspend fun setRole(u: AppUser, role: String, method: String): AppUser {
+        val docs = Legal.pending(role, u.legal)
+        val legal = u.legal + docs.associate { it.id to it.version }
+        val b = db.batch()
+        b.update(col("users").document(u.id), mapOf("role" to role, "legal" to legal))
+        addAcceptances(b, u.id, role, docs, method)
+        b.commit().await()
+        val nu = u.copy(role = role, legal = legal)
+        if (role == Role.DRIVER) ensureDriver(nu)
+        return nu
+    }
+
+    // ───────── Aceptación legal trazable ─────────
+    /**
+     * Agrega al lote un registro por documento: quién, qué documento y versión, hash del texto, cuándo (hora del servidor),
+     * cómo, desde qué plataforma y con qué instalación. Las aceptaciones que ya existen no se reescriben (son inmutables).
+     */
+    private suspend fun addAcceptances(b: WriteBatch, uid: String, role: String, docs: List<LegalDoc>, method: String) {
+        if (docs.isEmpty()) return
+        val meta = consent.meta()
+        val existing = col("legal_acceptances").whereEqualTo("userId", uid).get().await().documents.map { it.id }.toSet()
+        docs.forEach { d ->
+            val id = Legal.acceptanceId(uid, d)
+            if (id !in existing) b.set(col("legal_acceptances").document(id), Acceptance(userId = uid, docId = d.id, version = d.version,
+                docHash = consent.hash(d), method = method, appVersion = meta.appVersion, os = meta.os, deviceId = meta.deviceId, locale = meta.locale, role = role))
+        }
+    }
+
+    /** Registra la aceptación de uno o varios documentos para una cuenta que ya existe (versión nueva, ubicación…). */
+    suspend fun acceptDocs(u: AppUser, docs: List<LegalDoc>, method: String): AppUser {
+        val todo = docs.filter { u.legal[it.id] != it.version }
+        if (todo.isEmpty()) return u
+        val legal = u.legal + todo.associate { it.id to it.version }
+        val b = db.batch()
+        b.update(col("users").document(u.id), mapOf("legal" to legal))
+        addAcceptances(b, u.id, u.role, todo, method)
+        b.commit().await()
+        return u.copy(legal = legal)
+    }
+
+    fun acceptances(uid: String) = col("legal_acceptances").whereEqualTo("userId", uid).live<Acceptance>()
+
+    // ───────── Derechos de los titulares (Ley 1581 de 2012) ─────────
+    fun privacyRequests(uid: String) = col("privacy_requests").whereEqualTo("userId", uid).live<PrivacyRequest>()
+
+    /** Radica una solicitud. Devuelve el número de radicado. La hora la pone el servidor: desde ahí corre el plazo legal. */
+    suspend fun createPrivacyRequest(u: AppUser, type: String, detail: String): String {
+        val ref = col("privacy_requests").document()
+        ref.set(PrivacyRequest(userId = u.id, type = type, detail = detail.trim().take(2000), contact = u.email)).await()
+        return ref.id
+    }
+
+    suspend fun updateName(u: AppUser, name: String): AppUser {
+        val n = name.trim().take(60)
+        if (n.isBlank()) error("Escribe tu nombre")
+        col("users").document(u.id).update("name", n).await()
+        if (u.role == Role.DRIVER) runCatching { col("drivers").document(u.id).update("name", n).await() }
+        return u.copy(name = n)
+    }
+
+    suspend fun provider(uid: String): Provider? = col("providers").document(uid).get().await().toObject(Provider::class.java)
+    suspend fun saveProvider(uid: String, p: Provider) {
+        col("providers").document(uid).set(p.copy(legalName = p.legalName.trim(), idNumber = p.idNumber.trim(), address = p.address.trim(), phone = p.phone.trim(), updatedAt = now())).await()
+    }
+
+    /** Derecho de acceso: todo lo que la plataforma guarda de esta persona, en un texto que puede leer y compartir. */
+    suspend fun exportMyData(uid: String): String {
+        fun clean(v: Any?): Any? = when (v) {
+            null -> JSONObject.NULL
+            is Timestamp -> v.toDate().toInstant().toString()
+            is Date -> v.toInstant().toString()
+            is Map<*, *> -> JSONObject().also { o -> v.forEach { (k, x) -> o.put(k.toString(), clean(x)) } }
+            is List<*> -> JSONArray().also { a -> v.forEach { a.put(clean(it)) } }
+            else -> v
+        }
+        suspend fun one(c: String): Any = runCatching { col(c).document(uid).get().await().data }.getOrNull()?.let { clean(it) } ?: JSONObject.NULL
+        suspend fun many(c: String, field: String): JSONArray {
+            val docs = runCatching { col(c).whereEqualTo(field, uid).get().await().documents }.getOrDefault(emptyList())
+            return JSONArray().also { a -> docs.forEach { d -> a.put((clean(d.data) as? JSONObject)?.put("_id", d.id) ?: JSONObject.NULL) } }
+        }
+        val out = JSONObject()
+        out.put("generado", Instant.now().toString())
+        out.put("cuenta", JSONObject().put("uid", uid).put("contacto", (auth.currentUser?.email ?: auth.currentUser?.phoneNumber).orEmpty()))
+        out.put("perfil", one("users"))
+        out.put("aceptaciones", many("legal_acceptances", "userId"))
+        out.put("solicitudes_de_privacidad", many("privacy_requests", "userId"))
+        out.put("identificacion_oferente", one("providers"))
+        out.put("perfil_de_guia", one("drivers"))
+        out.put("negocios", many("venues", "ownerId"))
+        out.put("motos", many("bikes", "ownerId"))
+        out.put("pedidos", many("orders", "fromId"))
+        out.put("rentas_y_salidas", many("requests", "fromId"))
+        out.put("cupones", many("coupons", "userId"))
+        out.put("sos", many("sos", "fromId"))
+        out.put("rutas_guardadas", many("routes", "userId"))
+        val chats = runCatching { col("chats").whereArrayContains("members", uid).get().await().documents }.getOrDefault(emptyList())
+        out.put("mensajes_enviados", JSONArray().also { a -> chats.filter { it.getString("fromId") == uid }.forEach { a.put(clean(it.data)) } })
+        return out.toString(2)
+    }
+
+    /**
+     * Derecho de supresión: borra el perfil y lo que la persona publicó, y luego la cuenta de acceso.
+     * Se conservan (ver Política de Privacidad, punto 8) el registro de aceptaciones, las solicitudes de privacidad y el
+     * historial de servicios con otras personas, que son prueba y soporte de reclamos.
+     */
+    suspend fun deleteAccount(u: AppUser) {
+        val fu = auth.currentUser ?: error("Tu sesión no es válida. Vuelve a ingresar.")
+        // Firebase solo deja borrar la cuenta con un ingreso reciente. Se revisa ANTES de borrar datos para no dejarla a medias.
+        val last = fu.metadata?.lastSignInTimestamp ?: 0
+        if (now() - last > 4 * 60_000) error("Por seguridad, cierra sesión, vuelve a ingresar y elimina la cuenta en los siguientes minutos.")
+        col("privacy_requests").document().set(PrivacyRequest(userId = u.id, type = RequestType.ACCOUNT_DELETED,
+            detail = "Eliminación de la cuenta solicitada por el titular desde la aplicación.", contact = u.email)).await()
+        for ((c, f) in listOf("routes" to "userId", "venues" to "ownerId", "bikes" to "ownerId")) {
+            col(c).whereEqualTo(f, u.id).get().await().documents.chunked(400).forEach { chunk ->
+                val b = db.batch(); chunk.forEach { b.delete(it.reference) }; b.commit().await()
+            }
+        }
+        runCatching { col("drivers").document(u.id).delete().await() }
+        runCatching { col("providers").document(u.id).delete().await() }
+        col("users").document(u.id).delete().await()
+        fu.delete().await()
     }
 
     private suspend fun ensureDriver(u: AppUser) {
         val ref = col("drivers").document(u.id)
-        if (!ref.get().await().exists()) ref.set(Driver(ownerId = u.id, name = u.name, bio = "Conductor guía en Apex Moto.")).await()
+        if (!ref.get().await().exists()) ref.set(Driver(ownerId = u.id, name = u.name, bio = "Guía de rutas en ApexMoto.")).await()
     }
 
     // ───────── Comercios ─────────
@@ -91,11 +246,16 @@ class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth) {
     fun ordersOfOwner(uid: String) = col("orders").whereEqualTo("ownerId", uid).live<Order>()
 
     suspend fun placeOrder(v: Venue, u: AppUser, items: List<OrderItem>, eta: String, note: String) {
-        col("orders").add(Order(venueId = v.id, venueName = v.name, ownerId = v.ownerId, fromId = u.id, fromName = u.name,
-            items = items, total = items.sumOf { it.qty * it.price }, eta = eta, note = note, status = "new", createdAt = now())).await()
+        val b = db.batch()
+        b.set(col("orders").document(), Order(venueId = v.id, venueName = v.name, ownerId = v.ownerId, fromId = u.id, fromName = u.name,
+            items = items, total = items.sumOf { it.qty * it.price }, eta = eta, note = note.trim().take(300), status = "new", createdAt = now()))
+        b.stamp(u.id, "order")
+        b.commit().await()
     }
 
     suspend fun setOrderStatus(id: String, st: String) { col("orders").document(id).update("status", st).await() }
+    /** El rider cancela sin costo mientras el comercio no haya aceptado el pedido (Política de cancelaciones, punto 3). */
+    suspend fun cancelOrder(id: String) { col("orders").document(id).update("status", "can").await() }
 
     // ───────── Cupones ─────────
     fun couponsOfOwner(uid: String) = col("coupons").whereEqualTo("ownerId", uid).live<Coupon>()
@@ -144,23 +304,61 @@ class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth) {
     // ───────── Solicitudes (renta y conductor) ─────────
     fun requestsFrom(uid: String) = col("requests").whereEqualTo("fromId", uid).live<ServiceRequest>()
     fun requestsTo(uid: String) = col("requests").whereEqualTo("toId", uid).live<ServiceRequest>()
-    suspend fun createRequest(r: ServiceRequest) { col("requests").add(r.copy(createdAt = now())).await() }
+    /**
+     * Crea la solicitud. Si la moto es de reserva inmediata, aparta las fechas en el mismo lote: las reglas solo dejan
+     * tocar `booked` a quien acaba de crear una solicitud aceptada para esa moto y esas fechas.
+     */
+    suspend fun createRequest(r: ServiceRequest, instantBike: Bike? = null) {
+        val ref = col("requests").document()
+        val b = db.batch()
+        b.set(ref, r.copy(createdAt = now()))
+        if (instantBike != null) b.update(col("bikes").document(instantBike.id), mapOf("booked" to FieldValue.arrayUnion("${r.dateFrom}|${r.dateTo}"), "lastReq" to ref.id))
+        b.stamp(r.fromId, "request")
+        b.commit().await()
+    }
     suspend fun setRequestStatus(id: String, st: String) { col("requests").document(id).update("status", st).await() }
 
+    /**
+     * Cancelación por el rider antes de que empiece el servicio. kind = "retracto" (dentro de los 5 días hábiles,
+     * art. 47 Ley 1480) o "cancelacion". Queda la fecha, y si la renta ya estaba aceptada se liberan las fechas de la moto.
+     */
+    suspend fun cancelRequest(r: ServiceRequest, kind: String) {
+        val b = db.batch()
+        b.update(col("requests").document(r.id), mapOf("status" to "can", "cancelKind" to kind, "cancelledAt" to now()))
+        if (r.type == "rent" && r.status == "ok")
+            b.update(col("bikes").document(r.itemId), mapOf("booked" to FieldValue.arrayRemove("${r.dateFrom}|${r.dateTo}"), "lastReq" to r.id))
+        b.commit().await()
+    }
+
+    /** Calificación y marca de "ya calificado" en un solo lote: una solicitud finalizada solo puede calificar una vez. */
     suspend fun rateDriver(req: ServiceRequest, stars: Int) {
         val ref = col("drivers").document(req.itemId)
         val d = ref.get().await().toObject(Driver::class.java)
+        val b = db.batch()
         if (d != null) {
             val n = d.reviews + 1
-            ref.update(mapOf("rating" to ((d.rating * d.reviews + stars) / n), "reviews" to n)).await()
+            b.update(ref, mapOf("rating" to ((d.rating * d.reviews + stars) / n), "reviews" to n, "lastRatingReq" to req.id))
         }
-        col("requests").document(req.id).update("rated", stars).await()
+        b.update(col("requests").document(req.id), "rated", stars)
+        b.commit().await()
     }
 
     // ───────── S.O.S. taller móvil ─────────
-    fun sosAll() = col("sos").live<Sos>()
-    suspend fun createSos(s: Sos) { col("sos").add(s.copy(createdAt = now())).await() }
+    /** Los S.O.S. que pidió este rider. */
+    fun sosMine(uid: String) = col("sos").whereEqualTo("fromId", uid).live<Sos>()
+    /** Lo único que puede ver un taller: los S.O.S. que aún buscan taller y los que él mismo aceptó. */
+    fun sosForWorkshop(uid: String): Flow<List<Sos>> =
+        combine(col("sos").whereEqualTo("status", "new").live<Sos>(), col("sos").whereEqualTo("providerId", uid).live<Sos>()) { a, b -> (a + b).distinctBy { it.id } }
+
+    suspend fun createSos(s: Sos) {
+        val b = db.batch()
+        b.set(col("sos").document(), s.copy(locationText = s.locationText.trim().take(200), note = s.note.trim().take(300), createdAt = now()))
+        b.stamp(s.fromId, "sos")
+        b.commit().await()
+    }
     suspend fun setSosStatus(id: String, st: String) { col("sos").document(id).update("status", st).await() }
+    /** Al cancelar se borran las coordenadas: la ubicación solo se conserva mientras el servicio está activo. */
+    suspend fun cancelSos(id: String) { col("sos").document(id).update(mapOf("status" to "no", "lat" to 0.0, "lng" to 0.0, "doneAt" to now())).await() }
     suspend fun acceptSos(id: String, providerId: String, providerName: String, eta: Int) {
         val ref = col("sos").document(id)
         db.runTransaction { tx ->
@@ -169,14 +367,18 @@ class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth) {
             tx.update(ref, mapOf("status" to "ok", "providerId" to providerId, "providerName" to providerName, "eta" to eta, "acceptedAt" to now()))
         }.await()
     }
-    suspend fun finishSos(id: String) { col("sos").document(id).update(mapOf("status" to "fin", "doneAt" to now())).await() }
+    /** Al terminar se borran las coordenadas del rider; queda solo la descripción del lugar. */
+    suspend fun finishSos(id: String) { col("sos").document(id).update(mapOf("status" to "fin", "doneAt" to now(), "lat" to 0.0, "lng" to 0.0)).await() }
     /** El taller suelta el S.O.S. (no puede ir): vuelve a quedar disponible para otros talleres. */
     suspend fun releaseSos(id: String) { col("sos").document(id).update(mapOf("status" to "new", "providerId" to "", "providerName" to "", "eta" to 0)).await() }
 
     // ───────── Chat ─────────
-    fun messages(thread: String) = col("chats").whereEqualTo("thread", thread).live<ChatMessage>()
-    suspend fun send(thread: String, u: AppUser, text: String) {
-        col("chats").add(ChatMessage(thread = thread, fromId = u.id, fromName = u.name, text = text.trim(), createdAt = now())).await()
+    /** Solo los mensajes de este hilo en los que participa esta persona (las reglas no dejan leer los demás). */
+    fun messages(thread: String, uid: String) = col("chats").whereEqualTo("thread", thread).whereArrayContains("members", uid).live<ChatMessage>()
+    suspend fun send(thread: String, u: AppUser, to: String, text: String) {
+        if (to.isBlank()) error("Este chat no tiene destinatario.")
+        col("chats").add(ChatMessage(thread = thread, fromId = u.id, fromName = u.name, text = text.trim().take(1000), createdAt = now(),
+            members = listOf(u.id, to).sorted())).await()
     }
 
     // ───────── Rutas guardadas ─────────
@@ -283,10 +485,10 @@ class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth) {
             Bike(name = "Honda XRE 300", cc = 300, category = "Aventura", pricePerDay = 160000, city = "Cali", specs = listOf("Doble propósito"), rating = 4.8, trips = 54, delivery = true),
             Bike(name = "Suzuki V-Strom 650", cc = 645, category = "Aventura", pricePerDay = 320000, city = "Medellín", specs = listOf("Maletas incluidas"), rating = 4.9, trips = 22),
             Bike(name = "Royal Enfield Himalayan", cc = 411, category = "Aventura", pricePerDay = 200000, city = "Bogotá", specs = listOf("Ideal para trocha"), rating = 4.7, trips = 40, instant = true),
-        ).forEachIndexed { i, b -> col("bikes").document("demo_b${i + 1}").set(b).await() }
+        ).forEachIndexed { i, b -> col("bikes").document("demo_b${i + 1}").set(b.copy(soatUntil = addDays(today(), 300), rtmUntil = addDays(today(), 300))).await() }
         listOf(
-            Driver(name = "Camilo R.", bike = "Honda XRE 300", zone = "Cali", rate = 220000, rating = 4.9, reviews = 38, services = listOf("Ruta guiada", "Escolta"), bio = "10 años guiando por el Valle y el Eje Cafetero."),
-            Driver(name = "Laura M.", bike = "BMW G 310 GS", zone = "Bogotá", rate = 250000, rating = 4.8, reviews = 21, services = listOf("Ruta guiada", "Fotografía"), bio = "Guía certificada, rutas de montaña."),
+            Driver(name = "Camilo R.", bike = "Honda XRE 300", zone = "Cali", rate = 220000, rating = 4.9, reviews = 38, services = listOf("Ruta guiada", "Acompañamiento"), bio = "10 años guiando por el Valle y el Eje Cafetero."),
+            Driver(name = "Laura M.", bike = "BMW G 310 GS", zone = "Bogotá", rate = 250000, rating = 4.8, reviews = 21, services = listOf("Ruta guiada", "Fotografía"), bio = "Rutas de montaña y fotografía en ruta."),
         ).forEachIndexed { i, d -> col("drivers").document("demo_d${i + 1}").set(d).await() }
         listOf(
             Rodada(name = "Rodada Lago Calima", whenLabel = "Sábado 7:00", captain = "@camilo", meet = "Peaje Cencar, Cali", style = "Turismo", seats = 10),

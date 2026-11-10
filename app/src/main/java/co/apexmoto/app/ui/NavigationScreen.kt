@@ -52,6 +52,12 @@ fun NavigationScreen(vm: AppViewModel) {
 
     var hasPerm by remember { mutableStateOf(c.location.hasPermission()) }
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { hasPerm = c.location.hasPermission() }
+    val perms = arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
+    // La ubicación se usa solo si la persona aceptó el aviso y además dio el permiso de Android.
+    val canLocate = hasPerm && vm.locationConsented
+    var disclose by remember { mutableStateOf(!vm.locationConsented) }
+    fun askLocation() { if (!vm.locationConsented) disclose = true else launcher.launch(perms) }
+    if (disclose) LocationDisclosure(onAccept = { disclose = false; vm.acceptLocation(); launcher.launch(perms) }, onDismiss = { disclose = false })
     var plan by remember { mutableStateOf<RoutePlan?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var loading by remember { mutableStateOf(true) }
@@ -87,10 +93,10 @@ fun NavigationScreen(vm: AppViewModel) {
     }
     DisposableEffect(Unit) { onDispose { tts?.stop(); tts?.shutdown() } }
 
-    LaunchedEffect(Unit) { if (!hasPerm) launcher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)) }
-    LaunchedEffect(hasPerm) {
+    LaunchedEffect(Unit) { if (!hasPerm && vm.locationConsented) launcher.launch(perms) }
+    LaunchedEffect(canLocate) {
         val cali = LatLng(C.CALI_LAT, C.CALI_LNG)
-        var o = (if (hasPerm) c.location.last() else null) ?: cali
+        var o = (if (canLocate) c.location.last() else null) ?: cali
         val dest = stops.last()
         // Ubicación a más de 300 km del destino (p. ej. el emulador en California): la ruta se muestra desde el centro de Cali
         originNote = if (haversine(o.latitude, o.longitude, dest.latitude, dest.longitude) > 300_000) {
@@ -167,11 +173,12 @@ fun NavigationScreen(vm: AppViewModel) {
                     }
                 }
                 originNote?.let { Text(it, color = OrangeDark, style = MaterialTheme.typography.labelMedium) }
-                if (!hasPerm) Btn("Dar permiso de ubicación", Modifier.fillMaxWidth(), Icons.Filled.MyLocation, kind = BK.Ghost) {
-                    launcher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
+                if (!canLocate) {
+                    Sub("Sin tu ubicación la ruta se calcula desde el centro de Cali y no hay guiado en vivo.")
+                    Btn("Usar mi ubicación", Modifier.fillMaxWidth(), Icons.Filled.MyLocation, kind = BK.Ghost) { askLocation() }
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (!guiding) Btn(if (arrived) "Repetir" else "Iniciar guiado", Modifier.weight(1f), Icons.Filled.Navigation, enabled = plan != null && hasPerm && originNote == null) {
+                    if (!guiding) Btn(if (arrived) "Repetir" else "Iniciar guiado", Modifier.weight(1f), Icons.Filled.Navigation, enabled = plan != null && canLocate && originNote == null) {
                         arrived = false; reached = 0; idx = 0; guiding = true
                     } else Btn("Detener", Modifier.weight(1f), Icons.Filled.Stop, kind = BK.Danger) { guiding = false }
                     Btn("Recalcular", Modifier.weight(1f), Icons.Filled.Refresh, kind = BK.Ghost, enabled = !loading) {

@@ -6,3 +6,8 @@
 /build/
 /app/build/
 /app/google-services.json
+
+# Pruebas de reglas de Firestore
+/firestore-tests/node_modules/
+*-debug.log
+.firebase/

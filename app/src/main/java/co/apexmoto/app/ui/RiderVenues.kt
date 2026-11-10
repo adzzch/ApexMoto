@@ -78,7 +78,7 @@ fun VenuesScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
     var detail by remember { mutableStateOf<Venue?>(null) }
     var coupon by remember { mutableStateOf<Coupon?>(null) }
     val list = venues.filter { it.corridor == cor && (fl == "all" || fl in it.types) }.sortedBy { it.km }
-    val active = orders.filter { it.status != "done" && it.status != "no" }
+    val active = orders.filter { it.status !in listOf("done", "no", "can") }
     BackHandler(asMap) { asMap = false }   // el botón Atrás del teléfono vuelve a la lista
 
     Column(Modifier.fillMaxSize()) {
@@ -95,7 +95,7 @@ fun VenuesScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
         AnimatedContent(asMap, Modifier.weight(1f), label = "map", transitionSpec = { fadeIn(tween(260)) togetherWith fadeOut(tween(160)) }) { showMap ->
             if (showMap) {
                 val c = C.corridor(cor)
-                val here by produceState<LatLng?>(null) { value = runCatching { vm.container.location.last() }.getOrNull() }
+                val here by produceState<LatLng?>(null, vm.locationConsented) { value = if (vm.locationConsented) runCatching { vm.container.location.last() }.getOrNull() else null }
                 val located = list.filter { it.lat != 0.0 }
                 val mapState = remember(cor) { OsmMapState() }
                 LaunchedEffect(cor, located.size) { delay(350); mapState.fit(located.map { LatLng(it.lat, it.lng) }) }
@@ -130,6 +130,8 @@ fun VenuesScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
                                 Column(Modifier.weight(1f)) { Text(o.venueName, fontWeight = FontWeight.Bold); Lbl("${o.items.sumOf { it.qty }} producto(s) · ${cop(o.total)} · llegas ${o.eta}") }
                                 StatusPill(ORD_ST[o.status] ?: o.status, o.status)
                                 if (o.ownerId.isNotBlank()) { Spacer(Modifier.width(8.dp)); IconBtn(Icons.Filled.Chat, "Escribir al comercio") { nav.chat("ord_${o.id}", o.venueName, o.ownerId) } }
+                                // Mientras el comercio no lo acepte, el pedido se cancela sin costo.
+                                if (o.status == "new") { Spacer(Modifier.width(8.dp)); IconBtn(Icons.Filled.Close, "Cancelar pedido", tint = Red, bg = RedSoft) { vm.act("Pedido cancelado") { vm.repo.cancelOrder(o.id) } } }
                             }
                         }
                     }

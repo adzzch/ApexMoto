@@ -30,6 +30,9 @@ coroutines-play = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-play-serv
 firebase-bom = { module = "com.google.firebase:firebase-bom", version.ref = "firebaseBom" }
 firebase-auth = { module = "com.google.firebase:firebase-auth" }
 firebase-firestore = { module = "com.google.firebase:firebase-firestore" }
+firebase-installations = { module = "com.google.firebase:firebase-installations" }
+firebase-appcheck-playintegrity = { module = "com.google.firebase:firebase-appcheck-playintegrity" }
+firebase-appcheck-debug = { module = "com.google.firebase:firebase-appcheck-debug" }
 osmdroid = { module = "org.osmdroid:osmdroid-android", version.ref = "osmdroid" }
 play-location = { module = "com.google.android.gms:play-services-location", version.ref = "playLocation" }
 okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }

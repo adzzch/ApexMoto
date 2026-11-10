@@ -50,4 +50,7 @@ object C {
     const val DELIVERY_FEE = 40000L
 
     val RIDE_STYLES = listOf("Turismo", "Aventura", "Deportivo", "Relajado")
+
+    /** Un S.O.S. que nadie aceptó caduca: deja de mostrarse a los talleres y se cancela (borrando la ubicación) al abrir la app. */
+    const val SOS_TTL_MS = 6 * 60 * 60 * 1000L
 }

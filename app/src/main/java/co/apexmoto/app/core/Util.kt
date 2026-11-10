@@ -23,6 +23,13 @@ fun haversine(aLat: Double, aLng: Double, bLat: Double, bLng: Double): Double {
     return 2 * r * asin(sqrt(h))
 }
 
+/** La moto tiene SOAT y revisión técnico-mecánica declarados y vigentes hasta el último día de la renta. */
+fun bikeDocsOk(soatUntil: String, rtmUntil: String, until: String): Boolean =
+    soatUntil.isNotBlank() && rtmUntil.isNotBlank() && soatUntil >= until && rtmUntil >= until
+
+/** Categoría de licencia que exige la moto (Resolución 1500 de 2005): A1 hasta 125 c. c., A2 para más. */
+fun licenseFor(cc: Int): String = if (cc in 1..125) "A1" else "A2"
+
 /** booked: lista de "desde|hasta" (ambos inclusive). */
 fun overlaps(booked: List<String>, from: String, to: String): Boolean =
     booked.any { val p = it.split("|"); p.size == 2 && !(to < p[0] || from > p[1]) }

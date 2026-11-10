@@ -83,6 +83,7 @@ import co.apexmoto.app.core.C
 import co.apexmoto.app.data.AppUser
 import co.apexmoto.app.data.PendingProfile
 import co.apexmoto.app.data.Role
+import co.apexmoto.app.legal.Legal
 import co.apexmoto.app.ui.theme.*
 
 data class NavTab(val route: String, val icon: ImageVector, val label: String)
@@ -114,6 +115,8 @@ fun ApexRoot(vm: AppViewModel) {
             !vm.ready -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
             u == null && vm.pending != null -> RoleSelectScreen(vm, vm.pending!!)
             u == null -> AuthScreen(vm)
+            // Cuenta sin aceptaciones o con una versión nueva de los documentos: primero debe aceptarlos.
+            Legal.pending(u.role, u.legal).isNotEmpty() -> ReconsentScreen(vm, u)
             else -> MainScaffold(vm, u)
         }
         SnackbarHost(snack, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 84.dp)) { d ->
@@ -161,6 +164,7 @@ fun MainScaffold(vm: AppViewModel, u: AppUser) {
             // Comunes
             composable("profile") { ProfileScreen(vm, nav, u) }
             composable("settings") { SettingsScreen(vm) }
+            composable("legal") { LegalCenterScreen(vm, u) }
             composable("dsv") { DriverServiceScreen(vm, u) }
             composable("ding") { EarningsScreen(vm, u) }
             composable("navigate") { NavigationScreen(vm) }
@@ -169,12 +173,12 @@ fun MainScaffold(vm: AppViewModel, u: AppUser) {
             composable(
                 "chat?thread={thread}&title={title}&to={to}",
                 arguments = listOf("thread", "title", "to").map { navArgument(it) { type = NavType.StringType; defaultValue = "" } },
-            ) { b -> ChatScreen(vm, u, b.arguments?.getString("thread").orEmpty()) }
+            ) { b -> ChatScreen(vm, u, b.arguments?.getString("thread").orEmpty(), b.arguments?.getString("to").orEmpty()) }
         }
     }
 }
 
-private fun spaceFor(role: String) = when (role) { Role.SHOP -> "Espacio Negocio"; Role.OWNER -> "Espacio Dueño"; Role.DRIVER -> "Espacio Conductor"; Role.WORKSHOP -> "Espacio Taller"; else -> "Espacio Rider" }
+private fun spaceFor(role: String) = when (role) { Role.SHOP -> "Espacio Negocio"; Role.OWNER -> "Espacio Dueño"; Role.DRIVER -> "Espacio Guía"; Role.WORKSHOP -> "Espacio Taller"; else -> "Espacio Rider" }
 
 /** Encabezado de marca: logo, nombre y "Espacio · sección". En pantallas internas muestra Volver y el título. */
 @Composable
@@ -243,6 +247,7 @@ private fun titleFor(route: String?) = when {
     route == "navigate" -> "Guiado"
     route == "profile" -> "Mi perfil"
     route == "settings" -> "Configuración"
+    route == "legal" -> "Legal y privacidad"
     route == "dsv" -> "Mi servicio"
     route == "ding" -> "Ganancias"
     else -> "ApexMoto"
@@ -280,6 +285,9 @@ fun AuthScreen(vm: AppViewModel) {
     var smsError by remember { mutableStateOf<String?>(null) }   // aviso de error al enviar
     val emailOk = email.trim().matches(Regex("^\\S+@\\S+\\.\\S+$"))
     val digits = phone.filter { it.isDigit() }
+    // Casillas legales marcadas. Ninguna viene marcada y se reinician al cambiar de paso o de rol.
+    var checks by remember { mutableStateOf(setOf<String>()) }
+    fun legalOk(asRole: String) = checks.containsAll(Legal.requiredFor(asRole).map { it.id })
 
     // Entrada de la marca: el logo cae en su lugar con un pequeño rebote.
     val reduce = reducedMotion()
@@ -301,6 +309,7 @@ fun AuthScreen(vm: AppViewModel) {
     fun register(asRole: String) { focus.clearFocus(); busy = true; vm.register(name, email, pw, asRole, biz, cor).invokeOnCompletion { busy = false } }
     fun verify(c: String) { val vid = verificationId ?: return; focus.clearFocus(); busy = true; vm.verifyCode(vid, c).invokeOnCompletion { busy = false } }
 
+    LaunchedEffect(step, role) { checks = emptySet() }
     LaunchedEffect(step) {
         pw2 = ""
         if (step == AuthStep.Phone || step == AuthStep.Code) pw = ""
@@ -359,8 +368,9 @@ fun AuthScreen(vm: AppViewModel) {
                                 Field("Correo", email, { email = it.trim() }, kb = KeyboardType.Email, hint = "tucorreo@email.com",
                                     leading = Icons.Filled.MailOutline, ime = ImeAction.Next, onIme = { focus.moveFocus(FocusDirection.Down) })
                                 PasswordPair(pw, { pw = it.take(64) }, pw2, { pw2 = it.take(64) }, showPw, { showPw = !showPw }, focus)
+                                LegalChecks(Legal.requiredFor(Role.RIDER), checks) { checks = it }
                                 Btn("Crear cuenta", Modifier.fillMaxWidth(), loading = busy,
-                                    enabled = name.isNotBlank() && emailOk && pwOk && pw2 == pw) { register(Role.RIDER) }
+                                    enabled = name.isNotBlank() && emailOk && pwOk && pw2 == pw && legalOk(Role.RIDER)) { register(Role.RIDER) }
                             }
                             AuthStep.Partner -> {
                                 StepTitle("Únete como aliado", "Para negocios, talleres, dueños de moto y guías.", onBack = { step = AuthStep.Register })
@@ -378,8 +388,9 @@ fun AuthScreen(vm: AppViewModel) {
                                 Field("Correo", email, { email = it.trim() }, kb = KeyboardType.Email, hint = "tucorreo@email.com",
                                     leading = Icons.Filled.MailOutline, ime = ImeAction.Next, onIme = { focus.moveFocus(FocusDirection.Down) })
                                 PasswordPair(pw, { pw = it.take(64) }, pw2, { pw2 = it.take(64) }, showPw, { showPw = !showPw }, focus)
+                                LegalChecks(Legal.requiredFor(role), checks) { checks = it }
                                 Btn("Crear cuenta de aliado", Modifier.fillMaxWidth(), loading = busy,
-                                    enabled = role in PartnerRoles && name.isNotBlank() && emailOk && pwOk && pw2 == pw && (!Role.hasVenue(role) || biz.isNotBlank())) { register(role) }
+                                    enabled = role in PartnerRoles && name.isNotBlank() && emailOk && pwOk && pw2 == pw && (!Role.hasVenue(role) || biz.isNotBlank()) && legalOk(role)) { register(role) }
                             }
                             AuthStep.Phone -> {
                                 StepTitle("Entrar con tu celular", "Te enviamos un código por SMS. Sin contraseñas.", onBack = { step = AuthStep.Login })
@@ -423,6 +434,8 @@ fun AuthScreen(vm: AppViewModel) {
                 AnimatedVisibility(step == AuthStep.Register || step == AuthStep.Login) {
                     LinkText("¿Tienes un negocio, taller o motos? ", "Únete como aliado", CyanDeep, 13) { step = AuthStep.Partner }
                 }
+                // Los documentos legales se pueden leer antes de crear la cuenta.
+                LegalLinks()
             }
         }
     }
@@ -629,7 +642,7 @@ private fun RoleGrid(role: String, show: List<String>, onPick: (String) -> Unit)
         listOf(Role.RIDER, "Rider", "Rutas, comercios, comunidad y renta."),
         listOf(Role.SHOP, "Comercio aliado", "Publica tu menú y recibe pedidos."),
         listOf(Role.OWNER, "Dueño de moto", "Renta tus motos a otros riders."),
-        listOf(Role.DRIVER, "Conductor guía", "Ofrece salidas guiadas."),
+        listOf(Role.DRIVER, "Guía de rutas", "Acompaña a otros riders en tu moto."),
         listOf(Role.WORKSHOP, "Taller mecánico", "Atiende S.O.S. y publica tus servicios."),
     )
     val icons = mapOf(Role.RIDER to Icons.Filled.TwoWheeler, Role.SHOP to Icons.Filled.Storefront, Role.OWNER to Icons.Filled.Garage, Role.DRIVER to Icons.Filled.SportsMotorsports, Role.WORKSHOP to Icons.Filled.Handyman)
@@ -657,6 +670,9 @@ fun RoleSelectScreen(vm: AppViewModel, p: PendingProfile) {
     var biz by remember { mutableStateOf("") }
     var cor by remember { mutableStateOf("cali") }
     var busy by remember { mutableStateOf(false) }
+    // Quien entra con Google o celular también acepta con casillas separadas antes de que se cree su perfil.
+    var checks by remember { mutableStateOf(setOf<String>()) }
+    LaunchedEffect(partner, role) { checks = emptySet() }
     Column(
         Modifier.fillMaxSize().background(Bg).systemBarsPadding().imePadding().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 24.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -680,8 +696,10 @@ fun RoleSelectScreen(vm: AppViewModel, p: PendingProfile) {
                 }
             }
             val asRole = if (partner) role else Role.RIDER
+            val docs = Legal.requiredFor(asRole)
+            LegalChecks(docs, checks) { checks = it }
             Btn(if (partner) "Crear cuenta de aliado" else "Empezar a rodar", Modifier.fillMaxWidth(), Icons.AutoMirrored.Filled.ArrowForward,
-                enabled = name.isNotBlank() && !busy && (!Role.hasVenue(asRole) || biz.isNotBlank())) {
+                enabled = name.isNotBlank() && !busy && (!Role.hasVenue(asRole) || biz.isNotBlank()) && checks.containsAll(docs.map { it.id })) {
                 busy = true
                 vm.completeProfile(name, asRole, biz, cor).invokeOnCompletion { busy = false }
             }

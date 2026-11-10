@@ -36,6 +36,7 @@ import androidx.navigation.NavController
 import co.apexmoto.app.BuildConfig
 import co.apexmoto.app.core.cop
 import co.apexmoto.app.data.*
+import co.apexmoto.app.legal.Legal
 import co.apexmoto.app.ui.theme.*
 
 @Composable
@@ -43,6 +44,10 @@ fun ProfileScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
     val orders by vm.myOrders.collectAsState()
     val reqs by vm.reqFrom.collectAsState()
     var confirmReset by remember { mutableStateOf(false) }
+    var guideTerms by remember { mutableStateOf(false) }
+    var cancel by remember { mutableStateOf<ServiceRequest?>(null) }
+    if (guideTerms) RoleConditionsDialog(Legal.doc(Legal.GUIDE), onAccept = { guideTerms = false; vm.setDriverMode(true) }, onDismiss = { guideTerms = false })
+    cancel?.let { r -> CancelRequestDialog(vm, r) { cancel = null } }
     if (confirmReset) AlertDialog(
         onDismissRequest = { confirmReset = false },
         title = { Text("¿Reiniciar los datos demo?") },
@@ -63,7 +68,10 @@ fun ProfileScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
         }
         if (u.role == Role.RIDER || u.role == Role.DRIVER) {
             Card2 {
-                SwitchRow("Modo conductor guía", "Recibe solicitudes de riders que quieren una salida guiada", u.role == Role.DRIVER) { vm.setDriverMode(it) }
+                // Antes de activar el modo guía se muestran y aceptan las condiciones del rol (licencia, SOAT, sin pasajeros).
+                SwitchRow("Modo guía de rutas", "Acompaña en tu moto a riders que quieren una salida guiada", u.role == Role.DRIVER) { on ->
+                    if (on && !Legal.isCurrent(u.legal, Legal.GUIDE)) guideTerms = true else vm.setDriverMode(on)
+                }
                 if (u.role == Role.DRIVER) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Btn("Mi servicio", Modifier.weight(1f), Icons.Filled.Badge, kind = BK.Ghost) { nav.navigate("dsv") }
                     Btn("Ganancias", Modifier.weight(1f), Icons.Filled.Payments, kind = BK.Ghost) { nav.navigate("ding") }
@@ -88,13 +96,19 @@ fun ProfileScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
                         Column(Modifier.weight(1f)) { Text(r.itemName, fontWeight = FontWeight.Bold); Sub("${prettyDate(r.dateFrom)} → ${prettyDate(r.dateTo)}") }
                         StatusPill(REQ_ST[r.status] ?: r.status, r.status)
                     }
-                    if (r.status != "no" && r.toId.isNotBlank()) Btn("Chat con el dueño", Modifier.fillMaxWidth(), Icons.Filled.Chat, kind = BK.Ghost) { nav.chat("req_${r.id}", r.itemName, r.toId) }
+                    if (r.cancelKind == "retracto") Sub("Retracto ejercido: la devolución es total.")
+                    if (r.status !in listOf("no", "can") && r.toId.isNotBlank()) Btn("Chat con el dueño", Modifier.fillMaxWidth(), Icons.Filled.Chat, kind = BK.Ghost) { nav.chat("req_${r.id}", r.itemName, r.toId) }
+                    if (canCancel(r)) Btn("Cancelar renta", Modifier.fillMaxWidth(), Icons.Filled.Close, kind = BK.Danger, small = true) { cancel = r }
                 }
             }
         }
+        Btn("Legal y privacidad", Modifier.fillMaxWidth(), Icons.Filled.Gavel, kind = BK.Ghost) { nav.navigate("legal") }
         Btn("Configuración", Modifier.fillMaxWidth(), Icons.Filled.Settings, kind = BK.Ghost) { nav.navigate("settings") }
-        Btn("Cargar datos demo (desarrollo)", Modifier.fillMaxWidth(), Icons.Filled.CloudUpload, kind = BK.Ghost) { vm.act("Datos demo cargados") { vm.repo.seedDemo() } }
-        Btn("Reiniciar datos demo (sin repetidos)", Modifier.fillMaxWidth(), Icons.Filled.Refresh, kind = BK.Ghost) { confirmReset = true }
+        // Los datos demo solo existen en compilaciones de desarrollo, y las reglas solo se los permiten a un administrador.
+        if (BuildConfig.DEBUG) {
+            Btn("Cargar datos demo (desarrollo)", Modifier.fillMaxWidth(), Icons.Filled.CloudUpload, kind = BK.Ghost) { vm.act("Datos demo cargados") { vm.repo.seedDemo() } }
+            Btn("Reiniciar datos demo (sin repetidos)", Modifier.fillMaxWidth(), Icons.Filled.Refresh, kind = BK.Ghost) { confirmReset = true }
+        }
         Btn("Cerrar sesión", Modifier.fillMaxWidth(), Icons.AutoMirrored.Filled.Logout, kind = BK.Danger) { vm.logout() }
     }
 }
@@ -103,7 +117,8 @@ fun ProfileScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
 fun SettingsScreen(vm: AppViewModel) {
     val key = BuildConfig.ORS_API_KEY
     Screen {
-        Card2(border = if (key.isBlank()) RedSoft else GreenSoft) {
+        // Diagnóstico de la clave: solo en desarrollo. En producción no se muestra nada de la clave.
+        if (BuildConfig.DEBUG) Card2(border = if (key.isBlank()) RedSoft else GreenSoft) {
             H("Clave de OpenRouteService")
             if (key.isBlank()) {
                 IconLine(Icons.Filled.ErrorOutline, "No hay clave configurada.", Red)
@@ -126,8 +141,8 @@ fun SettingsScreen(vm: AppViewModel) {
 }
 
 @Composable
-fun ChatScreen(vm: AppViewModel, u: AppUser, thread: String) {
-    val flow = remember(thread) { vm.repo.messages(thread) }
+fun ChatScreen(vm: AppViewModel, u: AppUser, thread: String, to: String) {
+    val flow = remember(thread) { vm.repo.messages(thread, u.id) }
     val msgs by flow.collectAsState(initial = emptyList())
     val list = msgs.sortedBy { it.createdAt }
     var text by remember { mutableStateOf("") }
@@ -149,11 +164,11 @@ fun ChatScreen(vm: AppViewModel, u: AppUser, thread: String) {
             }
         }
         BottomBar {
-            OutlinedTextField(text, { text = it }, Modifier.weight(1f), placeholder = { Text("Escribe un mensaje", color = Muted) }, maxLines = 3,
+            OutlinedTextField(text, { text = it.take(1000) }, Modifier.weight(1f), placeholder = { Text("Escribe un mensaje", color = Muted) }, maxLines = 3,
                 shape = RoundedCornerShape(24.dp), colors = OutlinedTextFieldDefaults.colors(
                     focusedContainerColor = Surf0, unfocusedContainerColor = Surf0, focusedBorderColor = CyanDeep, unfocusedBorderColor = Color.Transparent, cursorColor = Orange))
             Box(Modifier.size(48.dp).glow(Orange, CircleShape, on = text.isNotBlank(), elevation = 8.dp).clip(CircleShape).background(if (text.isNotBlank()) Orange else Surf4)
-                .clickable(onClickLabel = "Enviar") { val t = text; if (t.isNotBlank()) { text = ""; vm.act { vm.repo.send(thread, u, t) } } }, contentAlignment = Alignment.Center) {
+                .clickable(onClickLabel = "Enviar") { val t = text; if (t.isNotBlank()) { text = ""; vm.act { vm.repo.send(thread, u, to, t) } } }, contentAlignment = Alignment.Center) {
                 Icon(Icons.AutoMirrored.Filled.Send, "Enviar", tint = Color.White)
             }
         }

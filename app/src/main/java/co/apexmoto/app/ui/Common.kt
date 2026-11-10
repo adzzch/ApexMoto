@@ -67,8 +67,8 @@ import java.util.Locale
 
 val Mono = JetBrainsMono
 
-val REQ_ST = mapOf("p" to "Pendiente", "ok" to "Aceptada", "go" to "En camino", "ride" to "En ruta", "fin" to "Finalizada", "no" to "Rechazada")
-val ORD_ST = mapOf("new" to "Enviado", "prep" to "Preparando", "ready" to "¡Listo!", "done" to "Entregado", "no" to "Rechazado")
+val REQ_ST = mapOf("p" to "Pendiente", "ok" to "Aceptada", "go" to "En camino", "ride" to "En ruta", "fin" to "Finalizada", "no" to "Rechazada", "can" to "Cancelada")
+val ORD_ST = mapOf("new" to "Enviado", "prep" to "Preparando", "ready" to "¡Listo!", "done" to "Entregado", "no" to "Rechazado", "can" to "Cancelado")
 val SOS_ST = mapOf("new" to "Buscando taller", "ok" to "Taller asignado", "go" to "En camino", "site" to "Atendiendo", "fin" to "Resuelto", "no" to "Cancelado")
 
 // ───────────────── Movimiento ─────────────────
@@ -174,7 +174,7 @@ fun StatusPill(text: String, key: String) {
     val (bg, fg) = when (key) {
         "p", "new" -> AmberSoft to Amber
         "ok", "fin", "ready", "done" -> GreenSoft to Green
-        "no" -> RedSoft to Red
+        "no", "can" -> RedSoft to Red
         else -> CyanSoft to CyanDeep
     }
     Pill(text, bg, fg)

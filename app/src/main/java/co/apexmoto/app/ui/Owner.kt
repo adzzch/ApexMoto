@@ -30,7 +30,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
+import co.apexmoto.app.core.bikeDocsOk
 import co.apexmoto.app.core.cop
+import co.apexmoto.app.core.today
 import co.apexmoto.app.data.*
 import co.apexmoto.app.ui.theme.*
 
@@ -54,7 +56,12 @@ fun OwnerFleetScreen(vm: AppViewModel, u: AppUser) {
                     Column(Modifier.weight(1f)) { Text(b.name, style = MaterialTheme.typography.titleMedium); Lbl("${b.cc} cc · ${b.category} · ${b.city}") }
                     Num(cop(b.pricePerDay) + "/día", OrangeDark, 15)
                 }
-                SwitchRow(if (b.available) "Disponible" else "Pausada", "", b.available) { on -> vm.act { vm.repo.saveBike(b.copy(available = on)) } }
+                if (!bikeDocsOk(b.soatUntil, b.rtmUntil, today())) Pill("SOAT o revisión vencidos: no se puede rentar", RedSoft, Red)
+                SwitchRow(if (b.available) "Disponible" else "Pausada", "", b.available) { on ->
+                    // Las reglas del servidor tampoco dejan publicar una moto sin SOAT y revisión declarados.
+                    if (on && (b.soatUntil.isBlank() || b.rtmUntil.isBlank())) vm.toast("Edita la moto y agrega las fechas de SOAT y revisión para publicarla.")
+                    else vm.act { vm.repo.saveBike(b.copy(available = on)) }
+                }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Btn("Editar", Modifier.weight(1f), Icons.Filled.Edit, kind = BK.Ghost) { edit = b }
                     Btn("Eliminar", Modifier.weight(1f), Icons.Filled.Delete, kind = BK.Danger) { vm.act("Moto eliminada") { vm.repo.deleteBike(b.id) } }
@@ -67,9 +74,10 @@ fun OwnerFleetScreen(vm: AppViewModel, u: AppUser) {
         var price by remember(b.id) { mutableStateOf(b.pricePerDay.toString()) }; var city by remember(b.id) { mutableStateOf(b.city) }
         var cat by remember(b.id) { mutableStateOf(b.category) }; var specs by remember(b.id) { mutableStateOf(b.specs.joinToString(", ")) }
         var instant by remember(b.id) { mutableStateOf(b.instant) }; var delivery by remember(b.id) { mutableStateOf(b.delivery) }
+        var soat by remember(b.id) { mutableStateOf(b.soatUntil) }; var rtm by remember(b.id) { mutableStateOf(b.rtmUntil) }
         AlertDialog(
             onDismissRequest = { edit = null }, title = { Text(if (b.id.isBlank()) "Nueva moto" else "Editar moto") },
-            text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            text = { Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Field("Modelo", name, { name = it })
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Field("Cilindraje", cc, { cc = it.filter(Char::isDigit) }, Modifier.weight(1f), KeyboardType.Number)
@@ -80,11 +88,17 @@ fun OwnerFleetScreen(vm: AppViewModel, u: AppUser) {
                 Field("Características (separadas por coma)", specs, { specs = it })
                 SwitchRow("Reserva inmediata", "Sin aprobar cada solicitud", instant) { instant = it }
                 SwitchRow("Entrega a domicilio", "", delivery) { delivery = it }
+                // Sin SOAT y revisión técnico-mecánica vigentes la moto no puede circular (Ley 769 de 2002, arts. 42 y 50 a 52).
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    DateField("SOAT hasta", soat, today(), Modifier.weight(1f)) { soat = it }
+                    DateField("Revisión hasta", rtm, today(), Modifier.weight(1f)) { rtm = it }
+                }
+                Lbl("Moto nueva sin revisión todavía: pon la fecha en que le toca la primera.")
             } },
-            confirmButton = { Btn("Guardar", enabled = name.isNotBlank() && (price.toLongOrNull() ?: 0) > 0) {
+            confirmButton = { Btn("Guardar", enabled = name.isNotBlank() && (price.toLongOrNull() ?: 0) > 0 && soat.isNotBlank() && rtm.isNotBlank()) {
                 edit = null
                 vm.act("Moto guardada") { vm.repo.saveBike(b.copy(name = name, cc = cc.toIntOrNull() ?: 0, pricePerDay = price.toLong(), city = city, category = cat,
-                    specs = specs.split(",").map { it.trim() }.filter { it.isNotEmpty() }, instant = instant, delivery = delivery)) }
+                    specs = specs.split(",").map { it.trim() }.filter { it.isNotEmpty() }, instant = instant, delivery = delivery, soatUntil = soat, rtmUntil = rtm)) }
             } },
             dismissButton = { TextButton({ edit = null }) { Text("Cancelar") } },
         )
@@ -106,6 +120,8 @@ fun OwnerRequestsScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
                 }
                 if (r.extras.isNotEmpty()) Sub("Extras: ${r.extras.joinToString(", ")}")
                 if (r.delivery) Sub("Con entrega a domicilio")
+                if (r.licenseDeclared && r.status in listOf("p", "ok")) IconLine(Icons.Filled.Badge, "Declaró licencia ${r.licenseCat}. Verifícala antes de entregar la moto.", CyanDeep, bold = false)
+                if (r.status == "can") Sub(if (r.cancelKind == "retracto") "El rider ejerció su derecho de retracto: devuélvele todo lo que haya pagado, en máximo 30 días." else "El rider canceló la solicitud.")
                 Num("Total ${cop(r.total)}", OrangeDark, 16)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     when (r.status) {
@@ -116,7 +132,7 @@ fun OwnerRequestsScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
                         "ok" -> Btn("Entregué la moto", Modifier.weight(1f)) { vm.act { vm.repo.setRequestStatus(r.id, "ride") } }
                         "ride" -> Btn("Recibí la moto", Modifier.weight(1f)) { vm.act("Renta finalizada") { vm.repo.setRequestStatus(r.id, "fin") } }
                     }
-                    if (r.status != "no") Btn("Chat", Modifier.weight(1f), Icons.Filled.Chat, kind = BK.Ghost) { nav.chat("req_${r.id}", r.fromName, r.fromId) }
+                    if (r.status !in listOf("no", "can")) Btn("Chat", Modifier.weight(1f), Icons.Filled.Chat, kind = BK.Ghost) { nav.chat("req_${r.id}", r.fromName, r.fromId) }
                 }
             }
         }
@@ -171,8 +187,9 @@ fun DriverTripsScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
                         "go" -> Btn("Iniciar ruta", Modifier.weight(1f), Icons.Filled.Navigation) { vm.act { vm.repo.setRequestStatus(r.id, "ride") } }
                         "ride" -> Btn("Finalizar servicio", Modifier.weight(1f), Icons.Filled.Check) { vm.act("Servicio finalizado") { vm.repo.setRequestStatus(r.id, "fin") } }
                     }
-                    if (r.status != "no") Btn("Chat", Modifier.weight(1f), Icons.Filled.Chat, kind = BK.Ghost) { nav.chat("req_${r.id}", r.fromName, r.fromId) }
+                    if (r.status !in listOf("no", "can")) Btn("Chat", Modifier.weight(1f), Icons.Filled.Chat, kind = BK.Ghost) { nav.chat("req_${r.id}", r.fromName, r.fromId) }
                 }
+                if (r.status == "can") Sub(if (r.cancelKind == "retracto") "El rider ejerció su derecho de retracto: devuélvele todo lo que haya pagado, en máximo 30 días." else "El rider canceló la solicitud.")
             }
         }
     }
@@ -182,11 +199,13 @@ fun DriverTripsScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
 fun DriverServiceScreen(vm: AppViewModel, u: AppUser) {
     val drivers by vm.drivers.collectAsState()
     val d = drivers.firstOrNull { it.ownerId == u.id }
-    if (d == null) { Screen { Empty("Cargando tu perfil de conductor…") }; return }
+    if (d == null) { Screen { Empty("Cargando tu perfil de guía…") }; return }
     var bike by remember(d.id) { mutableStateOf(d.bike) }; var zone by remember(d.id) { mutableStateOf(d.zone) }
     var rate by remember(d.id) { mutableStateOf(d.rate.toString()) }; var bio by remember(d.id) { mutableStateOf(d.bio) }
-    var services by remember(d.id) { mutableStateOf(d.services.toSet()) }; var online by remember(d.id) { mutableStateOf(d.online) }
-    val all = listOf("Ruta guiada", "Escolta", "Fotografía", "Instructor")
+    // No se ofrecen "Instructor" (la enseñanza de conducción exige un centro autorizado) ni "Escolta" (puede confundirse con
+    // vigilancia privada, que es una actividad regulada). Lo ya guardado con esos nombres deja de publicarse al guardar.
+    val all = listOf("Ruta guiada", "Acompañamiento", "Fotografía")
+    var services by remember(d.id) { mutableStateOf(d.services.filter { it in all }.toSet()) }; var online by remember(d.id) { mutableStateOf(d.online) }
     Screen {
         Card2 {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -195,7 +214,7 @@ fun DriverServiceScreen(vm: AppViewModel, u: AppUser) {
                 Ping(online)
             }
         }
-        SwitchRow(if (online) "En línea" else "Fuera de línea", "Los riders solo ven conductores en línea", online) { online = it }
+        SwitchRow(if (online) "En línea" else "Fuera de línea", "Los riders solo ven guías en línea", online) { online = it }
         Field("Moto que usas", bike, { bike = it }); Field("Zona", zone, { zone = it })
         Field("Tarifa por día (COP)", rate, { rate = it.filter(Char::isDigit) }, kb = KeyboardType.Number)
         Field("Presentación", bio, { bio = it }, lines = 3)
