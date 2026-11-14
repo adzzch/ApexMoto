@@ -1,0 +1,11 @@
+rules_version = '2';
+
+// ApexMoto no usa Firebase Storage: la app no sube fotos de documentos, selfis ni ningún otro archivo.
+// Todo queda denegado. Si algún día se activa la verificación con documentos, el diseño de acceso está en docs/seguridad.md.
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

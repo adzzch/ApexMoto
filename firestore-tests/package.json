@@ -1,0 +1,14 @@
+{
+  "name": "apexmoto-firestore-tests",
+  "private": true,
+  "type": "module",
+  "description": "Pruebas de las reglas de seguridad de Firestore de ApexMoto (se ejecutan contra el emulador local).",
+  "scripts": {
+    "test": "firebase emulators:exec --config ../firebase.json --only firestore --project demo-apexmoto \"node --test --test-timeout=30000\""
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^4.0.1",
+    "firebase": "^11.0.0",
+    "firebase-tools": "^13.29.0"
+  }
+}
