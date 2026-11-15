@@ -122,6 +122,15 @@ class AppViewModel(val container: AppContainer) : ViewModel() {
         else toast("Activa la ubicación para compartirla con el grupo.")
     }
 
+    /** S.O.S. en el que el taller le muestra al rider dónde va (solo con la app abierta, ver MainScaffold). */
+    var sharingSos by mutableStateOf<String?>(null); private set
+
+    fun startSosSharing(id: String) {
+        if (container.location.hasPermission() && locationConsented) { sharingSos = id; toast("El rider ya ve que vas en camino") }
+        else toast("Activa la ubicación para mostrarle al rider dónde vas.")
+    }
+    fun stopSosSharing() { sharingSos = null }
+
     /** Deja de compartir y borra la posición publicada: nadie del grupo la sigue viendo. */
     fun stopSharing(uid: String) {
         val rid = sharingRodada ?: return

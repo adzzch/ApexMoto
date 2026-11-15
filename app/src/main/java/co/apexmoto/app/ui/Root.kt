@@ -168,6 +168,26 @@ fun MainScaffold(vm: AppViewModel, u: AppUser) {
         val r = rodadas.firstOrNull { it.id == sharing } ?: return@LaunchedEffect
         if (r.status != "active" || u.id !in r.joined) vm.stopSharing(u.id)
     }
+    // Taller en camino a un S.O.S.: su posición se envía como mucho cada 12 s, solo con la app abierta, y se corta sola
+    // cuando el S.O.S. deja de estar aceptado o en camino.
+    val sharingSos = vm.sharingSos
+    val sosList by vm.sos.collectAsState()
+    LaunchedEffect(sosList, sharingSos) {
+        val s = sosList.firstOrNull { it.id == sharingSos } ?: return@LaunchedEffect
+        if (s.status !in listOf("ok", "go") || s.providerId != u.id) vm.stopSosSharing()
+    }
+    LaunchedEffect(sharingSos) {
+        val sid = sharingSos ?: return@LaunchedEffect
+        owner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            var lastAt = 0L
+            try {
+                vm.container.location.updates().collect { loc ->
+                    val now = System.currentTimeMillis()
+                    if (now - lastAt >= 12_000) runCatching { vm.repo.shareProviderLocation(sid, loc.latitude, loc.longitude) }.onSuccess { lastAt = now }
+                }
+            } catch (e: SecurityException) { vm.stopSosSharing() }
+        }
+    }
     // Mapa del grupo: la posición se envía como mucho cada 12 s y solo si se movió 20 m (o cada minuto si está quieto).
     // Solo con la app en primer plano: al salir de ApexMoto se detiene (no hay ubicación en segundo plano).
     LaunchedEffect(sharing) {

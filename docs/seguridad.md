@@ -26,7 +26,7 @@ La app habla directamente con Firestore; no hay servidor propio. Por eso **las r
 | `orders` | Rider y comercio del pedido | Rider crea y cancela mientras esté "enviado", con la hora de listo entre ahora y 12 h; comercio avanza paso a paso |
 | `requests` | Las dos partes | Solo de renta. Rider crea y cancela antes de empezar; el dueño avanza paso a paso |
 | `coupons` | Rider y comercio | Rider crea; comercio canjea una vez |
-| `sos` | El rider; talleres mientras busca taller; luego solo el taller asignado | Rider crea y cancela; taller acepta a su nombre y avanza; coordenadas en cero al terminar |
+| `sos` | El rider; talleres mientras busca taller; luego solo el taller asignado | Rider crea y cancela; taller acepta a su nombre y con su propio taller, y avanza; mientras va en camino solo él escribe su ubicación (hora del servidor, cada 8 s como mucho); al llegar, terminar o liberar, las coordenadas quedan en cero |
 | `chats` | Los dos participantes | Solo las dos partes reales del pedido, la solicitud o el S.O.S. |
 | `rodadas` | Las públicas, cualquiera con sesión; las de amigos, solo invitados y miembros | Creador: aprueba, rechaza, quita miembros, invita solo a sus amigos (de a uno), elige líder y cierre entre los miembros, inicia y termina con la hora del servidor. Los demás solo se unen (o piden unirse), salen o rechazan la invitación por sí mismos, sin pasar el máximo de motos |
 | `rodadas/{id}/live` | Los miembros, mientras la rodada está activa | Cada miembro solo su posición, con la hora del servidor, como mucho cada 8 s y hasta 12 h después de iniciar; el creador las borra al terminar |
@@ -59,7 +59,7 @@ La app habla directamente con Firestore; no hay servidor propio. Por eso **las r
 
 ## 3. Pruebas de las reglas
 
-`firestore-tests/rules.test.js`: 57 pruebas contra el emulador. Cada una afirma una garantía concreta, tanto lo que debe funcionar como lo que debe rechazarse.
+`firestore-tests/rules.test.js`: 59 pruebas contra el emulador. Cada una afirma una garantía concreta, tanto lo que debe funcionar como lo que debe rechazarse.
 
 ```bash
 cd firestore-tests

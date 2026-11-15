@@ -119,6 +119,10 @@ data class Sos(
     var locationText: String = "", var lat: Double = 0.0, var lng: Double = 0.0, var note: String = "", var price: Long = 0,
     var status: String = "new", var providerId: String = "", var providerName: String = "", var eta: Int = 0, var createdAt: Long = 0,
     var acceptedAt: Long = 0, var doneAt: Long = 0,
+    /** Taller (venue) que lo atendió: para reseñarlo. */
+    var providerVenueId: String = "",
+    /** Dónde va el taller mientras va en camino (solo lo ve el rider). Vuelve a cero al llegar, terminar o liberar. */
+    var providerLat: Double = 0.0, var providerLng: Double = 0.0, var providerAt: Date? = null,
 )
 
 data class ChatMessage(

@@ -57,7 +57,8 @@ En esta versión no pedimos ni guardamos fotos de documentos, selfis de verifica
 - **Negocios:** el comercio o taller puede fijar la ubicación de su local con el GPS.
 - **Mapa de comercios:** tu ubicación se usa en tu teléfono para mostrarte en el mapa. No se guarda.
 - **Mapa del grupo:** si lo activas en una rodada en curso, tu posición (y si tienes un S.O.S. abierto) la ven solo los miembros de esa rodada, como mucho cada 12 segundos. Se borra al dejar de compartir, salir de la rodada o terminarla.
-- No usamos la ubicación en segundo plano ni compartimos tu posición en tiempo real con otros usuarios, salvo en el mapa del grupo cuando tú lo activas.
+- **Taller en camino:** si eres taller y lo activas al ir hacia un S.O.S., tu posición la ve solo ese rider. Se borra al llegar, terminar o liberar el S.O.S.
+- No usamos la ubicación en segundo plano ni compartimos tu posición en tiempo real con otros usuarios, salvo en el mapa del grupo o, si eres taller, con el rider que vas a atender, y solo cuando tú lo activas.
 - Puedes retirar el permiso cuando quieras en los ajustes de Android. Las funciones que dependen de la ubicación dejarán de usarla.
 
 ## 4. Para qué usamos tus datos
@@ -96,6 +97,7 @@ Los servidores de Google y de los proveedores de mapas y rutas pueden estar fuer
 - **Perfil público, amistades, solicitudes y bloqueos:** hasta que los borres o elimines la cuenta.
 - **Estado para tus amigos:** se reemplaza en cada actividad y se borra al apagarlo o al eliminar la cuenta.
 - **Ubicación en el mapa del grupo:** hasta que dejas de compartir, sales de la rodada o la rodada termina.
+- **Ubicación del taller en camino:** hasta que llega, termina o libera el S.O.S.
 - **Rodadas:** las que creaste se borran al eliminar la cuenta; de las demás sales automáticamente.
 - **Reseñas:** hasta que elimines la cuenta, cuando se borran.
 - **Pedidos, rentas y atenciones:** hasta 5 años después del servicio, para atender reclamos y obligaciones legales.

@@ -35,6 +35,7 @@ Revisión de cada formulario de la app. "Se queda" significa que el dato es nece
 | Guía | Todo el perfil (moto, zona, tarifa, presentación, servicios) | Eliminado con el rol (2026-11-15) | ApexMoto no ofrece guías ni transporte de pasajeros (ver revision-abogado.md, A.2) |
 | Aliados | Nombre o razón social, documento, dirección, teléfono | Agregado, privado | Obligación del art. 53 de la Ley 1480. Solo lo ven el titular y el administrador |
 | Comercio, taller | Ubicación del local | Se queda | Dato del negocio, no de la persona |
+| Taller | Ubicación mientras va en camino a un S.O.S. | Agregado, opcional | Solo la ve el rider de ese S.O.S.; se borra al llegar, terminar o liberar |
 
 ### Datos sensibles y biométricos
 

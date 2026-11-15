@@ -437,7 +437,9 @@ service cloud.firestore {
     }
     function reviewOk(d) {
       return (d.kind == 'order' && d.targetType == 'venue' && get(path('orders', d.serviceId)).data.fromId == uid()
-          && get(path('orders', d.serviceId)).data.status == 'done' && get(path('orders', d.serviceId)).data.venueId == d.targetId);
+          && get(path('orders', d.serviceId)).data.status == 'done' && get(path('orders', d.serviceId)).data.venueId == d.targetId)
+        || (d.kind == 'sos' && d.targetType == 'venue' && get(path('sos', d.serviceId)).data.fromId == uid()
+          && get(path('sos', d.serviceId)).data.status == 'fin' && get(path('sos', d.serviceId)).data.providerVenueId == d.targetId);
     }
     // El promedio (rating, reviews) de un comercio, taller o moto solo cambia junto con una reseña nueva de ese destino.
     function ratingOk(id, type) {
@@ -471,6 +473,7 @@ service cloud.firestore {
     // ───────── S.O.S. ─────────
     // Las coordenadas del rider solo las ven: él mismo, los talleres mientras el S.O.S. busca taller y, después,
     // el taller que lo aceptó. Al terminar o cancelar, las coordenadas se borran (deben quedar en cero).
+    function provGone(d) { return zero(d.get('providerLat', 0)) && zero(d.get('providerLng', 0)); }
     match /sos/{id} {
       allow read: if signedIn() && (resource.data.fromId == uid() || resource.data.providerId == uid()
         || (resource.data.status == 'new' && role() == 't'));
@@ -481,21 +484,30 @@ service cloud.firestore {
         && text(request.resource.data, 'locationText', 200) && str(request.resource.data, 'note', 300) && text(request.resource.data, 'fromName', 60)
         && stamped('sos');
       allow update: if signedIn() && (
-        // El rider cancela mientras no lo estén atendiendo.
-        (resource.data.fromId == uid() && onlyChanges(['status', 'lat', 'lng', 'doneAt'])
+        // El rider cancela mientras no lo estén atendiendo (se borran sus coordenadas y las del taller).
+        (resource.data.fromId == uid() && onlyChanges(['status', 'lat', 'lng', 'doneAt', 'providerLat', 'providerLng'])
           && resource.data.status in ['new', 'ok', 'go'] && request.resource.data.status == 'no'
-          && zero(request.resource.data.lat) && zero(request.resource.data.lng))
-        // Un taller (nunca el mismo rider) lo acepta a su nombre.
+          && zero(request.resource.data.lat) && zero(request.resource.data.lng) && provGone(request.resource.data))
+        // Un taller (nunca el mismo rider) lo acepta a su nombre y con su propio taller.
         || (resource.data.status == 'new' && request.resource.data.status == 'ok' && resource.data.fromId != uid() && role() == 't'
-          && request.resource.data.providerId == uid() && onlyChanges(['status', 'providerId', 'providerName', 'eta', 'acceptedAt']))
-        // El taller asignado avanza, termina (borrando coordenadas) o lo libera.
+          && request.resource.data.providerId == uid() && onlyChanges(['status', 'providerId', 'providerName', 'eta', 'acceptedAt', 'providerVenueId'])
+          && get(path('venues', request.resource.data.providerVenueId)).data.ownerId == uid())
+        // El taller asignado muestra dónde va mientras va en camino: solo él, con la hora del servidor y como mucho cada 8 s.
+        || (resource.data.providerId == uid() && resource.data.status in ['ok', 'go'] && onlyChanges(['providerLat', 'providerLng', 'providerAt'])
+          && request.resource.data.providerLat is number && request.resource.data.providerLat >= -90 && request.resource.data.providerLat <= 90
+          && request.resource.data.providerLng is number && request.resource.data.providerLng >= -180 && request.resource.data.providerLng <= 180
+          && request.resource.data.providerAt == request.time
+          && (resource.data.get('providerAt', null) == null || request.time > resource.data.providerAt + duration.value(8, 's')))
+        // El taller asignado avanza, llega (borrando su ubicación), termina (borrando todas las coordenadas) o lo libera.
         || (resource.data.providerId == uid() && (
-          (onlyChanges(['status']) && ((resource.data.status == 'ok' && request.resource.data.status == 'go')
-            || (resource.data.status == 'go' && request.resource.data.status == 'site')))
-          || (onlyChanges(['status', 'doneAt', 'lat', 'lng']) && resource.data.status == 'site' && request.resource.data.status == 'fin'
-            && zero(request.resource.data.lat) && zero(request.resource.data.lng))
-          || (onlyChanges(['status', 'providerId', 'providerName', 'eta']) && resource.data.status == 'ok' && request.resource.data.status == 'new'
-            && request.resource.data.providerId == ''))));
+          (onlyChanges(['status']) && resource.data.status == 'ok' && request.resource.data.status == 'go')
+          || (onlyChanges(['status', 'providerLat', 'providerLng']) && resource.data.status == 'go' && request.resource.data.status == 'site'
+            && provGone(request.resource.data))
+          || (onlyChanges(['status', 'doneAt', 'lat', 'lng', 'providerLat', 'providerLng']) && resource.data.status == 'site' && request.resource.data.status == 'fin'
+            && zero(request.resource.data.lat) && zero(request.resource.data.lng) && provGone(request.resource.data))
+          || (onlyChanges(['status', 'providerId', 'providerName', 'eta', 'providerVenueId', 'providerLat', 'providerLng']) && resource.data.status == 'ok'
+            && request.resource.data.status == 'new' && request.resource.data.providerId == '' && request.resource.data.get('providerVenueId', '') == ''
+            && provGone(request.resource.data)))));
     }
 
     // ───────── Chat ─────────

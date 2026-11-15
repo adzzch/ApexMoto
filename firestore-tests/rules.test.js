@@ -220,13 +220,18 @@ test('S.O.S.: la ubicación solo la ven el rider, los talleres mientras se busca
   await assertFails(getDoc(doc(db(T2), 'sos', 'taken')));                                 // otro taller ya no la ve
 });
 test('S.O.S.: solo un taller acepta, a su propio nombre; el rider no se lo asigna', async () => {
-  await env.withSecurityRulesDisabled((c) => setDoc(doc(c.firestore(), 'sos', 's1'), sos(R)));
-  const accept = (who, as) => updateDoc(doc(db(who), 'sos', 's1'), { status: 'ok', providerId: as, providerName: 'Taller', eta: 30, acceptedAt: 2 });
+  await env.withSecurityRulesDisabled(async (c) => {
+    await setDoc(doc(c.firestore(), 'sos', 's1'), sos(R));
+    await setDoc(doc(c.firestore(), 'venues', 'tv'), venue(T, { types: ['moto'] }));
+    await setDoc(doc(c.firestore(), 'venues', 'tv2'), venue(T2, { types: ['moto'] }));
+  });
+  const accept = (who, as, vid = 'tv') => updateDoc(doc(db(who), 'sos', 's1'), { status: 'ok', providerId: as, providerName: 'Taller', eta: 30, acceptedAt: 2, providerVenueId: vid });
   await assertFails(accept(X, X));
   await assertFails(accept(R, R));
   await assertFails(accept(T, T2));
+  await assertFails(accept(T, T, 'tv2'));                                                 // con el taller de otro
   await assertSucceeds(accept(T, T));
-  await assertFails(accept(T2, T2));                                                      // ya está tomado
+  await assertFails(accept(T2, T2, 'tv2'));                                                      // ya está tomado
 });
 test('S.O.S.: al terminar o cancelar, las coordenadas deben quedar borradas', async () => {
   await env.withSecurityRulesDisabled(async (c) => {
@@ -536,4 +541,34 @@ test('reseñas: solo quien recibió el pedido, una vez, y el promedio se calcula
   await assertSucceeds(getDoc(doc(db(X), 'reviews', 'order_od')));                                // son públicas
   await assertFails(deleteDoc(doc(db(X), 'reviews', 'order_od')));
   await assertSucceeds(deleteDoc(doc(db(R), 'reviews', 'order_od')));                             // su autor la borra
+});
+
+// ───────── Taller ↔ rider (fase 4) ─────────
+test('S.O.S.: el taller muestra dónde va solo mientras va en camino, y la borra al llegar', async () => {
+  await env.withSecurityRulesDisabled(async (c) => {
+    await setDoc(doc(c.firestore(), 'venues', 'tv'), venue(T, { types: ['moto'] }));
+    await setDoc(doc(c.firestore(), 'sos', 's1'), sos(R, { status: 'ok', providerId: T, providerName: 'Taller', providerVenueId: 'tv' }));
+  });
+  const loc = () => ({ providerLat: 3.46, providerLng: -76.52, providerAt: serverTimestamp() });
+  await assertFails(updateDoc(doc(db(R), 'sos', 's1'), loc()));                                  // el rider no la escribe
+  await assertFails(updateDoc(doc(db(T2), 'sos', 's1'), loc()));                                 // ni otro taller
+  await assertSucceeds(updateDoc(doc(db(T), 'sos', 's1'), loc()));
+  await assertFails(updateDoc(doc(db(T), 'sos', 's1'), loc()));                                  // menos de 8 s después
+  await assertSucceeds(updateDoc(doc(db(T), 'sos', 's1'), { status: 'go' }));
+  await assertFails(updateDoc(doc(db(T), 'sos', 's1'), { status: 'site' }));                     // al llegar debe borrar su ubicación
+  await assertSucceeds(updateDoc(doc(db(T), 'sos', 's1'), { status: 'site', providerLat: 0, providerLng: 0 }));
+  await assertFails(updateDoc(doc(db(T), 'sos', 's1'), { providerLat: 3.4, providerLng: -76.5, providerAt: serverTimestamp() }));   // ya está atendiendo
+});
+test('reseñas: el rider califica al taller que lo atendió, una vez y con el S.O.S. resuelto', async () => {
+  await env.withSecurityRulesDisabled(async (c) => {
+    await setDoc(doc(c.firestore(), 'venues', 'tv'), venue(T, { types: ['moto'] }));
+    await setDoc(doc(c.firestore(), 'sos', 'sf'), sos(R, { status: 'fin', providerId: T, providerVenueId: 'tv', lat: 0, lng: 0 }));
+    await setDoc(doc(c.firestore(), 'sos', 'sg'), sos(R, { status: 'go', providerId: T, providerVenueId: 'tv' }));
+  });
+  const rateSos = (uid, sid) => { const d = db(uid); const b = writeBatch(d);
+    b.set(doc(d, 'reviews', `sos_${sid}`), { kind: 'sos', serviceId: sid, targetType: 'venue', targetId: 'tv', authorId: uid, authorName: 'Rider', stars: 5, comment: '', createdAt: 1 });
+    b.update(doc(d, 'venues', 'tv'), { rating: 5, reviews: 1, lastReview: `sos_${sid}` }); return b.commit(); };
+  await assertFails(rateSos(R, 'sg'));                                                           // todavía no se resuelve
+  await assertFails(rateSos(X, 'sf'));                                                           // no era su S.O.S.
+  await assertSucceeds(rateSos(R, 'sf'));
 });

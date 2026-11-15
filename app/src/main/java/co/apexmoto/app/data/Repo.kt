@@ -563,20 +563,33 @@ class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth, private val consen
         b.commit().await()
     }
     suspend fun setSosStatus(id: String, st: String) { col("sos").document(id).update("status", st).await() }
+    /** El taller llegó: empieza la atención y se borra su ubicación. */
+    suspend fun arriveSos(id: String) { col("sos").document(id).update(mapOf("status" to "site", "providerLat" to 0.0, "providerLng" to 0.0)).await() }
+    /** Dónde va el taller mientras va en camino. Solo lo ve el rider de ese S.O.S. */
+    suspend fun shareProviderLocation(id: String, lat: Double, lng: Double) {
+        col("sos").document(id).update(mapOf("providerLat" to lat, "providerLng" to lng, "providerAt" to FieldValue.serverTimestamp())).await()
+    }
     /** Al cancelar se borran las coordenadas: la ubicación solo se conserva mientras el servicio está activo. */
-    suspend fun cancelSos(id: String) { col("sos").document(id).update(mapOf("status" to "no", "lat" to 0.0, "lng" to 0.0, "doneAt" to now())).await() }
-    suspend fun acceptSos(id: String, providerId: String, providerName: String, eta: Int) {
+    suspend fun cancelSos(id: String) {
+        col("sos").document(id).update(mapOf("status" to "no", "lat" to 0.0, "lng" to 0.0, "doneAt" to now(), "providerLat" to 0.0, "providerLng" to 0.0)).await()
+    }
+    suspend fun acceptSos(id: String, providerId: String, providerName: String, eta: Int, venueId: String) {
         val ref = col("sos").document(id)
         db.runTransaction { tx ->
             val s = tx.get(ref)
             if (s.getString("status") != "new") throw IllegalStateException("Otro taller ya aceptó este S.O.S.")
-            tx.update(ref, mapOf("status" to "ok", "providerId" to providerId, "providerName" to providerName, "eta" to eta, "acceptedAt" to now()))
+            tx.update(ref, mapOf("status" to "ok", "providerId" to providerId, "providerName" to providerName, "eta" to eta, "acceptedAt" to now(), "providerVenueId" to venueId))
         }.await()
     }
     /** Al terminar se borran las coordenadas del rider; queda solo la descripción del lugar. */
-    suspend fun finishSos(id: String) { col("sos").document(id).update(mapOf("status" to "fin", "doneAt" to now(), "lat" to 0.0, "lng" to 0.0)).await() }
+    suspend fun finishSos(id: String) {
+        col("sos").document(id).update(mapOf("status" to "fin", "doneAt" to now(), "lat" to 0.0, "lng" to 0.0, "providerLat" to 0.0, "providerLng" to 0.0)).await()
+    }
     /** El taller suelta el S.O.S. (no puede ir): vuelve a quedar disponible para otros talleres. */
-    suspend fun releaseSos(id: String) { col("sos").document(id).update(mapOf("status" to "new", "providerId" to "", "providerName" to "", "eta" to 0)).await() }
+    suspend fun releaseSos(id: String) {
+        col("sos").document(id).update(mapOf("status" to "new", "providerId" to "", "providerName" to "", "eta" to 0, "providerVenueId" to "",
+            "providerLat" to 0.0, "providerLng" to 0.0)).await()
+    }
 
     // ───────── Chat ─────────
     /** Solo los mensajes de este hilo en los que participa esta persona (las reglas no dejan leer los demás). */

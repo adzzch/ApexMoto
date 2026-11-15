@@ -11,7 +11,7 @@ App Android para motociclistas en Colombia (Valle del Cauca primero): rutas por 
 |---|---|
 | **Rider** | Ruta IA y presupuesto, rutas guardadas, comercios en mapa, pedidos con hora de entrega, reseñas y cupones, renta de moto, rodadas con mapa del grupo, amigos, S.O.S. con taller, guiado giro a giro con voz |
 | **Comercio aliado** | Negocio y menú, ubicación en mapa, pedidos, canje de cupones |
-| **Taller mecánico** | Recibe y atiende S.O.S. cercanos paso a paso, catálogo de servicios |
+| **Taller mecánico** | Recibe y atiende S.O.S. cercanos paso a paso, le muestra al rider dónde va, catálogo de servicios y reseñas |
 | **Dueño de moto** | Flota, solicitudes de renta, ingresos |
 
 ApexMoto no ofrece transporte de pasajeros ni guías pagados. El contexto de producto, los usuarios y los principios están en [PRODUCT.md](PRODUCT.md).

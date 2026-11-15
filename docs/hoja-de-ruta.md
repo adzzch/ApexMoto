@@ -53,7 +53,7 @@ En **todas** las fases se incluyen las reglas de Firestore con sus pruebas, la a
 - Al recibir el pedido el rider califica al comercio: primeras reseñas reales.
 - No depende de las fases 1 y 2.
 
-### Fase 4 · Taller ↔ rider
+### Fase 4 · Taller ↔ rider (hecha, salvo la verificación de talleres)
 
 - En un S.O.S., el rider ve al taller acercándose en el mapa, con tiempo estimado y chat del caso. Al terminar, lo califica.
 - La ubicación del taller solo la ve ese rider, y solo mientras va en camino.

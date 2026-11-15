@@ -87,7 +87,10 @@ Cada paso dice quién lo hace y qué debe pasar. Marca la casilla si salió bien
 
 - [ ] **Rider 1:** Taller → "Pedir taller móvil" → tipo de emergencia → ubicación (la primera vez aparece el aviso de ubicación; también se puede escribir dónde está) → "Enviar S.O.S.". → Queda "Buscando taller".
 - [ ] **Taller:** ve el S.O.S. disponible si está dentro de su radio y atiende ese tipo → "Aceptar · llego en … min". → El rider ve "Taller asignado".
-- [ ] **Taller:** "Voy en camino" → "Llegué, empezar atención" → "Marcar resuelto". → El rider ve cada paso y al final "Resuelto".
+- [ ] **Taller:** "Voy en camino" (la primera vez pide el aviso y el permiso de ubicación). → Queda activo "Mostrarle al rider dónde voy".
+- [ ] **Rider 1:** en su S.O.S. ve el mapa con el taller acercándose, la distancia y "llega en unos … min".
+- [ ] **Taller:** "Llegué, empezar atención" → "Marcar resuelto". → El rider ve cada paso y al final "Resuelto"; el taller sale del mapa al llegar.
+- [ ] **Rider 1:** "Calificar al taller" → estrellas y comentario. → La reseña aparece en el taller (Comercios → Gasolina & Talleres) y en su resumen.
 - [ ] **Los dos:** "Chat con el taller". → Funciona en los dos sentidos.
 - [ ] **Rider 2:** enviar un S.O.S. y cancelarlo antes de que lo atiendan. → Queda "Cancelado".
 - [ ] **Rider 2:** enviar dos S.O.S. seguidos. → El segundo no sale hasta que pasa un minuto.
