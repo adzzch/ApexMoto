@@ -53,6 +53,12 @@ fun ReviewSheet(title: String, onDismiss: () -> Unit, onSend: (stars: Int, comme
 @Composable
 fun ReviewsList(vm: AppViewModel, targetType: String, targetId: String, max: Int = 3) {
     val list by remember(targetType, targetId) { vm.repo.reviewsOf(targetType, targetId) }.collectAsState(initial = emptyList<Review>())
+    ReviewItems(list, max)
+}
+
+/** Lista de reseñas ya cargadas, de la más reciente a la más antigua. */
+@Composable
+fun ReviewItems(list: List<Review>, max: Int = 3) {
     val shown = list.sortedByDescending { it.createdAt }.take(max)
     if (shown.isEmpty()) { Sub("Todavía no hay reseñas."); return }
     shown.forEach { r ->

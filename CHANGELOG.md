@@ -5,6 +5,7 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y 
 ## [Sin publicar]
 
 ### Agregado
+- **Renta segura** (fase 5): perfil de conductor privado (categoría y vencimiento de la licencia, año desde el que maneja, cilindraje máximo y contacto de emergencia opcional), que se copia en la solicitud y solo ve el dueño de esa moto. Cada moto tiene requisitos (años mínimos manejando) y un acuerdo de daños (depósito y tope) que el rider acepta al pedirla. La reserva inmediata queda para riders con una renta terminada. En la entrega, el dueño revisa la licencia física, puede hacer una prueba de manejo y llena el acta de entrega; la renta empieza cuando el rider la confirma y termina con el acta de devolución confirmada (con los daños, sin pasar del tope). El dueño puede cancelar en la entrega diciendo el motivo. Calificación mutua: el rider califica la moto y el dueño al rider (esa solo la ven los dueños y ese rider). Un S.O.S. con una moto rentada también lo ve su dueño. El contacto de emergencia se borra de la solicitud al terminar, rechazar o cancelar.
 - **Taller ↔ rider** (fase 4): el taller acepta con su propio taller y, al ir en camino, le muestra al rider dónde va (solo a ese rider, con la app abierta). El rider lo ve acercarse en un mapa con la distancia y una estimación de llegada; la ubicación del taller se borra al llegar, terminar o liberar. Después del S.O.S., el rider califica al taller.
 - **Pedidos en ruta con hora y reseñas** (fase 3): durante el guiado se ven la distancia, el tiempo y la hora de llegada a cada parada, con un botón para pedir; el menú propone la hora de llegada y no deja pedir para antes. El comercio ordena los pedidos por esa hora. Reseñas reales (1 a 5 estrellas y comentario) de quien recibió el pedido, una vez, con el promedio validado por las reglas; "Nuevo" para comercios sin reseñas y reseñas de ejemplo en el ambiente de pruebas.
 - **Rodadas con líder y mapa del grupo** (fase 2): rodadas públicas o solo de amigos, con aprobación, invitación rápida a amigos, ruta guardada con sus paradas, líder (bandera) y quien cierra el grupo, y un mapa en vivo con la moto de cada miembro, que se pone en rojo si alguien abre un S.O.S. La ubicación es opcional, solo con la app abierta y se borra al terminar. Aviso de ubicación 1.1.0.
@@ -22,8 +23,10 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y 
 - `google-services.json` ya no va en `app/`, sino en `app/src/<ambiente>/`.
 - Gradle 9.7.1 con resolver de toolchains Foojay (`settings.gradle.kts`).
 - `docs/seguridad.md` actualizado a los requisitos de Java vigentes.
+- Textos legales de la renta segura: Términos y Privacidad 1.1.0, Cancelaciones y reembolsos 1.1.0 (depósito, actas, cancelación en la entrega) y Condiciones para dueños 1.1.0 (licencia física, actas, acuerdo de daños, datos del rider). Los dueños aceptan de nuevo sus condiciones.
 
 ### Quitado
+- Planes de "protección" de la renta (Básica, Estándar, Premium): nadie los respaldaba y podían confundirse con un seguro. Los reemplaza el acuerdo de daños de cada moto.
 - Rol **Guía de rutas**: registro, pantallas, perfiles (`drivers`), solicitudes de guía, calificación de guías y su declaración legal. ApexMoto no ofrece guías pagados ni transporte de pasajeros. Las cuentas que tenían el rol pasan solas a rider; las reglas solo permiten ese cambio (44 pruebas).
 
 ## [1.1] — 2026-11

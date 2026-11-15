@@ -55,7 +55,7 @@ service cloud.firestore {
         'privacidad': ['1.0.0', '1.1.0'],
         'ubicacion': ['1.0.0', '1.1.0'],
         'declaracion-guia': ['1.0.0'],
-        'declaracion-propietario': ['1.0.0']
+        'declaracion-propietario': ['1.0.0', '1.1.0']
       };
       return docId is string && version is string && docId in valid && version in valid[docId];
     }
@@ -257,6 +257,10 @@ service cloud.firestore {
     function bikeShape(d) {
       return text(d, 'name', 80) && d.pricePerDay is int && d.pricePerDay > 0 && d.pricePerDay <= 5000000
         && d.cc is int && d.cc >= 0 && d.cc <= 2500 && str(d, 'city', 60) && d.specs is list && d.specs.size() <= 10
+        // Requisitos y acuerdo de daños (fase 5). En las motos publicadas antes no existen y cuentan como cero.
+        && d.get('minYears', 0) is int && d.get('minYears', 0) >= 0 && d.get('minYears', 0) <= 30
+        && d.get('deposit', 0) is int && d.get('deposit', 0) >= 0 && d.get('deposit', 0) <= 20000000
+        && d.get('damageCap', 0) is int && d.get('damageCap', 0) >= 0 && d.get('damageCap', 0) <= 200000000
         // Una moto solo se publica como disponible con SOAT y revisión técnico-mecánica declarados.
         && (d.available != true || (isDate(d.soatUntil) && isDate(d.rtmUntil)));
     }
@@ -276,12 +280,61 @@ service cloud.firestore {
     match /bikes/{id} {
       allow read: if signedIn();
       allow create: if isAdmin() || (signedIn() && request.resource.data.ownerId == uid() && role() == 'o'
-        && bikeShape(request.resource.data) && request.resource.data.booked.size() == 0 && request.resource.data.trips == 0);
+        && bikeShape(request.resource.data) && request.resource.data.booked.size() == 0 && request.resource.data.trips == 0
+        && request.resource.data.get('reviews', 0) == 0);
       allow update: if isAdmin() || (signedIn() && (
+        // El dueño edita su moto, pero no su calificación.
         (resource.data.ownerId == uid() && request.resource.data.ownerId == uid() && bikeShape(request.resource.data)
-          && request.resource.data.rating == resource.data.rating && request.resource.data.trips == resource.data.trips)
-        || bookingOk(id)));
+          && request.resource.data.rating == resource.data.rating && request.resource.data.trips == resource.data.trips
+          && request.resource.data.get('reviews', 0) == resource.data.get('reviews', 0)
+          && request.resource.data.get('lastReview', '') == resource.data.get('lastReview', ''))
+        || bookingOk(id)
+        // Quien la rentó y publica su reseña mueve el promedio, con la cuenta exacta.
+        || ratingOk(id, 'bike')));
       allow delete: if isAdmin() || (signedIn() && resource.data.ownerId == uid());
+    }
+
+    // ───────── Perfil de conductor (renta segura) ─────────
+    // Privado: solo lo lee y lo escribe su titular. Al pedir una moto se copia en la solicitud, que solo ve el dueño de esa
+    // moto. No hay foto ni número de la licencia: el dueño la ve en físico al entregar (acta de entrega).
+    function riderProfileShape(d) {
+      return d.keys().hasOnly(['licenseCat', 'licenseUntil', 'since', 'maxCc', 'emergencyName', 'emergencyPhone', 'updatedAt'])
+        && d.licenseCat in ['A1', 'A2'] && isDate(d.licenseUntil)
+        && d.since is int && d.since >= 1950 && d.since <= request.time.year()
+        && d.maxCc is int && d.maxCc >= 0 && d.maxCc <= 2500
+        && str(d, 'emergencyName', 60) && str(d, 'emergencyPhone', 20) && d.updatedAt is int;
+    }
+    match /rider_profiles/{id} {
+      allow get: if signedIn() && uid() == id;
+      allow create, update: if signedIn() && uid() == id && role() == 'm' && riderProfileShape(request.resource.data);
+      allow delete: if signedIn() && uid() == id;
+    }
+
+    // ───────── Actas de entrega y devolución ─────────
+    // Las llena el dueño de la moto y las confirma el rider. Confirmadas no cambian ni se borran: son la prueba de cómo se
+    // entregó y se devolvió la moto. Mientras no estén confirmadas, el dueño puede borrarlas para corregirlas.
+    function actaShape(d) {
+      return d.keys().hasOnly(['reqId', 'kind', 'ownerId', 'riderId', 'bikeId', 'bikeName', 'km', 'fuel', 'condition', 'items',
+          'licenseChecked', 'testRide', 'damages', 'damageAmount', 'confirmed', 'createdAt', 'confirmedAt'])
+        && d.km is int && d.km >= 0 && d.km <= 2000000 && d.fuel is int && d.fuel >= 0 && d.fuel <= 4
+        && str(d, 'bikeName', 80) && str(d, 'condition', 500) && str(d, 'damages', 500) && d.items is list && d.items.size() <= 12
+        && d.licenseChecked is bool && d.testRide is bool && d.damageAmount is int && d.damageAmount >= 0;
+    }
+    function actaNew(id, d) {
+      let r = get(path('requests', d.reqId)).data;
+      return id == d.reqId + '_' + d.kind && d.ownerId == uid() && r.toId == uid() && d.riderId == r.fromId && d.bikeId == r.itemId
+        && d.confirmed == false && d.confirmedAt == null && d.createdAt == request.time
+        // Entrega: con la renta aceptada y la licencia física revisada. Devolución: con la renta en curso; lo que se cobra
+        // por daños no pasa del tope pactado.
+        && ((d.kind == 'entrega' && r.status == 'ok' && d.licenseChecked == true && d.damageAmount == 0 && d.damages == '')
+          || (d.kind == 'devolucion' && r.status == 'ride' && (r.get('damageCap', 0) == 0 || d.damageAmount <= r.damageCap)));
+    }
+    match /actas/{id} {
+      allow read: if signedIn() && (resource.data.ownerId == uid() || resource.data.riderId == uid());
+      allow create: if signedIn() && actaShape(request.resource.data) && actaNew(id, request.resource.data);
+      allow update: if signedIn() && resource.data.riderId == uid() && resource.data.confirmed == false
+        && onlyChanges(['confirmed', 'confirmedAt']) && request.resource.data.confirmed == true && request.resource.data.confirmedAt == request.time;
+      allow delete: if signedIn() && resource.data.ownerId == uid() && resource.data.confirmed == false;
     }
 
     // Los perfiles de guía (colección drivers) se retiraron el 2026-11-15: quedan cerrados como cualquier colección no declarada.
@@ -398,14 +451,34 @@ service cloud.firestore {
     }
 
     // ───────── Solicitudes de renta ─────────
+    // El rider pide con su perfil de conductor (copiado tal cual) y acepta el acuerdo de daños que publicó el dueño.
     function rentOk(d) {
       let b = get(path('bikes', d.itemId)).data;
+      let p = get(path('rider_profiles', uid())).data;
       return d.toId == b.ownerId && b.available == true
-        && (d.status == 'p' || (d.status == 'ok' && b.instant == true))
+        && (d.status == 'p' || (d.status == 'ok' && b.instant == true && historyOk(d)))
         && isDate(d.dateFrom) && isDate(d.dateTo) && d.dateFrom <= d.dateTo
-        // SOAT y revisión vigentes hasta el último día, y declaración de licencia del rider.
+        // SOAT y revisión vigentes hasta el último día.
         && isDate(b.soatUntil) && isDate(b.rtmUntil) && b.soatUntil >= d.dateTo && b.rtmUntil >= d.dateTo
-        && d.licenseDeclared == true && d.licenseCat in ['A1', 'A2'];
+        // Licencia: la del perfil, vigente hasta el último día y de la categoría que pide la moto (la A2 sirve para todas).
+        && d.licenseDeclared == true && d.licenseCat == p.licenseCat && d.licenseUntil == p.licenseUntil && d.licenseUntil >= d.dateTo
+        && (d.licenseCat == 'A2' || (b.cc >= 1 && b.cc <= 125))
+        // Experiencia mínima que pide el dueño, y el resto del perfil sin cambios.
+        && d.riderSince == p.since && d.riderMaxCc == p.maxCc && request.time.year() - p.since >= b.get('minYears', 0)
+        && d.emergencyName == p.emergencyName && d.emergencyPhone == p.emergencyPhone
+        // Acuerdo de daños: exactamente el que está publicado en la moto.
+        && d.damageAccepted == true && d.deposit == b.get('deposit', 0) && d.damageCap == b.get('damageCap', 0)
+        && d.ownerCancel == '';
+    }
+    // Reserva inmediata solo con historial: el rider muestra una renta suya ya terminada.
+    function historyOk(d) {
+      let prev = get(path('requests', d.prevReq)).data;
+      return prev.fromId == uid() && prev.status == 'fin' && prev.type == 'rent';
+    }
+    // Al cerrar una solicitud se borra el contacto de emergencia (las solicitudes de antes de la fase 5 no lo tienen).
+    function closes(keys) {
+      return onlyChanges(keys.concat(['emergencyName', 'emergencyPhone']))
+        && request.resource.data.get('emergencyName', '') == '' && request.resource.data.get('emergencyPhone', '') == '';
     }
     match /requests/{id} {
       allow read: if signedIn() && (resource.data.fromId == uid() || resource.data.toId == uid());
@@ -416,13 +489,18 @@ service cloud.firestore {
         && request.resource.data.type == 'rent' && rentOk(request.resource.data)
         && stamped('request');
       allow update: if signedIn() && (
-        // El dueño avanza el estado paso a paso.
-        (resource.data.toId == uid() && onlyChanges(['status']) && (
-          (resource.data.status == 'p' && request.resource.data.status in ['ok', 'no'])
-          || (resource.data.status == 'ok' && request.resource.data.status == 'ride')
-          || (resource.data.status == 'ride' && request.resource.data.status == 'fin')))
+        // El dueño acepta una solicitud pendiente (las fechas se apartan en el mismo lote).
+        (resource.data.toId == uid() && onlyChanges(['status']) && resource.data.status == 'p' && request.resource.data.status == 'ok')
+        // El dueño la rechaza, o cancela en la entrega (antes de que empiece la renta) diciendo por qué.
+        || (resource.data.toId == uid() && resource.data.status in ['p', 'ok'] && request.resource.data.status == 'no'
+          && closes(['status', 'ownerCancel']) && request.resource.data.ownerCancel in ['', 'licencia', 'prueba', 'otro'])
+        // La renta empieza con el acta de entrega confirmada por el rider, y termina con la de devolución confirmada.
+        || ((resource.data.toId == uid() || resource.data.fromId == uid()) && resource.data.status == 'ok' && request.resource.data.status == 'ride'
+          && onlyChanges(['status']) && getAfter(path('actas', id + '_entrega')).data.confirmed == true)
+        || ((resource.data.toId == uid() || resource.data.fromId == uid()) && resource.data.status == 'ride' && request.resource.data.status == 'fin'
+          && closes(['status']) && getAfter(path('actas', id + '_devolucion')).data.confirmed == true)
         // Quien solicitó cancela o ejerce el retracto antes de que el servicio empiece.
-        || (resource.data.fromId == uid() && onlyChanges(['status', 'cancelKind', 'cancelledAt'])
+        || (resource.data.fromId == uid() && closes(['status', 'cancelKind', 'cancelledAt'])
           && resource.data.status in ['p', 'ok'] && request.resource.data.status == 'can'
           && request.resource.data.cancelKind in ['retracto', 'cancelacion'] && request.resource.data.cancelledAt is int));
     }
@@ -439,7 +517,12 @@ service cloud.firestore {
       return (d.kind == 'order' && d.targetType == 'venue' && get(path('orders', d.serviceId)).data.fromId == uid()
           && get(path('orders', d.serviceId)).data.status == 'done' && get(path('orders', d.serviceId)).data.venueId == d.targetId)
         || (d.kind == 'sos' && d.targetType == 'venue' && get(path('sos', d.serviceId)).data.fromId == uid()
-          && get(path('sos', d.serviceId)).data.status == 'fin' && get(path('sos', d.serviceId)).data.providerVenueId == d.targetId);
+          && get(path('sos', d.serviceId)).data.status == 'fin' && get(path('sos', d.serviceId)).data.providerVenueId == d.targetId)
+        // Renta terminada: el rider califica la moto y el dueño califica al rider (calificación mutua).
+        || (d.kind == 'rent' && d.targetType == 'bike' && get(path('requests', d.serviceId)).data.fromId == uid()
+          && get(path('requests', d.serviceId)).data.status == 'fin' && get(path('requests', d.serviceId)).data.itemId == d.targetId)
+        || (d.kind == 'renter' && d.targetType == 'rider' && get(path('requests', d.serviceId)).data.toId == uid()
+          && get(path('requests', d.serviceId)).data.status == 'fin' && get(path('requests', d.serviceId)).data.fromId == d.targetId);
     }
     // El promedio (rating, reviews) de un comercio, taller o moto solo cambia junto con una reseña nueva de ese destino.
     function ratingOk(id, type) {
@@ -474,14 +557,21 @@ service cloud.firestore {
     // Las coordenadas del rider solo las ven: él mismo, los talleres mientras el S.O.S. busca taller y, después,
     // el taller que lo aceptó. Al terminar o cancelar, las coordenadas se borran (deben quedar en cero).
     function provGone(d) { return zero(d.get('providerLat', 0)) && zero(d.get('providerLng', 0)); }
+    // S.O.S. en una moto rentada: solo con una renta en curso del mismo rider. Lo ve también el dueño de esa moto.
+    function rentalSosOk(d) {
+      return (d.get('rentalReq', '') == '' && d.get('rentalOwnerId', '') == '')
+        || (get(path('requests', d.rentalReq)).data.fromId == uid() && get(path('requests', d.rentalReq)).data.status == 'ride'
+          && get(path('requests', d.rentalReq)).data.toId == d.rentalOwnerId);
+    }
     match /sos/{id} {
       allow read: if signedIn() && (resource.data.fromId == uid() || resource.data.providerId == uid()
-        || (resource.data.status == 'new' && role() == 't'));
+        || (resource.data.status == 'new' && role() == 't') || resource.data.rentalOwnerId == uid());
       allow create: if signedIn() && request.resource.data.fromId == uid() && request.resource.data.status == 'new'
         && request.resource.data.providerId == '' && request.resource.data.providerName == ''
         && request.resource.data.kind in ['flat', 'battery', 'fuel', 'tow', 'mech']
         && request.resource.data.price is int && request.resource.data.price >= 0 && coords(request.resource.data)
         && text(request.resource.data, 'locationText', 200) && str(request.resource.data, 'note', 300) && text(request.resource.data, 'fromName', 60)
+        && rentalSosOk(request.resource.data)
         && stamped('sos');
       allow update: if signedIn() && (
         // El rider cancela mientras no lo estén atendiendo (se borran sus coordenadas y las del taller).

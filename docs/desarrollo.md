@@ -91,7 +91,7 @@ Copia `legal.properties.example` a `legal.properties` en la raíz y llena cada v
 
 ## 4. Pruebas
 
-Hoy la única suite automatizada es la de las **reglas de Firestore** (59 pruebas contra el emulador):
+Hoy la única suite automatizada es la de las **reglas de Firestore** (66 pruebas contra el emulador):
 
 ```bash
 cd firestore-tests

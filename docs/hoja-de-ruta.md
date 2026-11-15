@@ -59,14 +59,14 @@ En **todas** las fases se incluyen las reglas de Firestore con sus pruebas, la a
 - La ubicación del taller solo la ve ese rider, y solo mientras va en camino.
 - Verificación de talleres antes de que vean S.O.S. (también está en "Antes de abrir al público").
 
-### Fase 5 · Renta segura
+### Fase 5 · Renta segura (hecha)
 
-- Perfil de conductor: categoría y vencimiento de la licencia, años manejando, cilindraje más alto que ha manejado, contacto de emergencia.
-- Requisitos del dueño por moto (experiencia, edad, depósito, historial) y aprobación con historial. Reserva instantánea solo para quien ya tenga historial.
-- En la entrega: licencia física (consulta opcional en RUNT y SIMIT), prueba de manejo corta y acta de entrega confirmada por los dos e inmutable. Al devolver: acta de devolución y calificación mutua.
-- Un S.O.S. durante la renta también le llega al dueño.
-- Acuerdo de daños (tope y depósito) en lugar de los planes de "protección" de `core/Constants.kt`, que no son un seguro.
-- Si se van a rentar motos de verdad en la prueba cerrada, esta fase se adelanta.
+- Perfil de conductor privado: categoría y vencimiento de la licencia, año desde el que maneja, cilindraje más alto y contacto de emergencia opcional. Se copia en la solicitud y las reglas comprueban que coincida.
+- Requisitos del dueño por moto: años mínimos manejando. El dueño ve el perfil y las calificaciones que le dieron otros dueños al rider. Reserva inmediata solo para quien ya tenga una renta terminada (las reglas lo comprueban con esa renta).
+- En la entrega: licencia física, prueba de manejo corta (recomendada) y acta de entrega que el rider confirma; confirmada, no cambia. Al devolver: acta de devolución con los daños (sin pasar del tope) y calificación mutua.
+- Un S.O.S. durante la renta también lo ve el dueño.
+- Acuerdo de daños (depósito y tope) en lugar de los planes de "protección", que no eran un seguro.
+- **Quedó por fuera:** el requisito de edad (pediría la fecha de nacimiento; se dejó por minimización de datos), la consulta en RUNT y SIMIT (se hace a mano, no hay una API gratuita) y un trámite de disputas dentro de la app (hoy: no confirmar el acta, hablar por el chat y presentar una PQR).
 
 ### Fase 6 · Más adelante
 

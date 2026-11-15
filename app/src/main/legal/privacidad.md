@@ -27,8 +27,9 @@ Solo pedimos los datos necesarios para cada función.
 
 - Pedidos (con la hora a la que quieres tenerlos listos), solicitudes de renta, cupones y rutas guardadas.
 - **Reseñas** que publicas: estrellas, comentario y tu nombre.
-- Declaración de que tienes licencia de conducción vigente y su categoría. No pedimos foto ni número de la licencia.
-- En un S.O.S.: el tipo de emergencia, la descripción del lugar y, si la compartes, tu ubicación en ese momento.
+- **Perfil de conductor**, si quieres rentar una moto: categoría y fecha de vencimiento de tu licencia, año desde el que manejas moto, cilindraje más alto que has manejado y, si lo agregas, un contacto de emergencia (nombre y celular de otra persona, a quien debes pedirle permiso antes). No pedimos foto ni número de la licencia.
+- En cada renta: el acuerdo de daños que aceptaste (depósito y tope), las **actas de entrega y devolución** que confirmas (kilometraje, gasolina, estado de la moto, accesorios, daños nuevos y su valor) y las **calificaciones que te dan los dueños**.
+- En un S.O.S.: el tipo de emergencia, la descripción del lugar, si la compartes tu ubicación en ese momento y, si vas en una moto rentada, la renta a la que corresponde.
 - Mensajes de chat con el aliado de cada servicio.
 - **Perfil público**, si lo creas para usar Amigos: tu @usuario, el nombre que elijas mostrar y tu avatar (una silueta de moto y un color; no hay fotos).
 - **Amigos:** las solicitudes que envías y recibes, tus amistades y las personas que bloqueas.
@@ -42,8 +43,9 @@ Solo pedimos los datos necesarios para cada función.
 
 **Dueño de moto**
 
-- Datos de cada moto que se publican: modelo, cilindraje, ciudad, precio y fechas de vencimiento del SOAT y de la revisión técnico-mecánica.
+- Datos de cada moto que se publican: modelo, cilindraje, ciudad, precio, fechas de vencimiento del SOAT y de la revisión técnico-mecánica, requisitos (años mínimos manejando) y acuerdo de daños (depósito y tope).
 - Declaración de propiedad o autorización, y datos de identificación del oferente (no se publican).
+- Las actas de entrega y devolución que llenas y las calificaciones que das a los riders.
 
 **Datos que no pedimos**
 
@@ -53,7 +55,7 @@ En esta versión no pedimos ni guardamos fotos de documentos, selfis de verifica
 
 - La aplicación pide el permiso de ubicación solo cuando usas una función que la necesita, y antes te explica para qué.
 - **Guiado:** tu ubicación se usa en tu teléfono para seguir la ruta. Para calcularla, se envían el punto de partida y el destino al servicio de rutas (OpenRouteService). No guardamos tu recorrido.
-- **S.O.S.:** si tocas "Usar mi ubicación", guardamos el punto donde estás en ese momento. Lo ven los talleres aliados mientras tu S.O.S. busca taller, y después solo el taller que lo aceptó. Las coordenadas se borran cuando el S.O.S. termina o se cancela.
+- **S.O.S.:** si tocas "Usar mi ubicación", guardamos el punto donde estás en ese momento. Lo ven los talleres aliados mientras tu S.O.S. busca taller, y después solo el taller que lo aceptó. Si vas en una moto rentada, también lo ve el dueño de esa moto. Las coordenadas se borran cuando el S.O.S. termina o se cancela.
 - **Negocios:** el comercio o taller puede fijar la ubicación de su local con el GPS.
 - **Mapa de comercios:** tu ubicación se usa en tu teléfono para mostrarte en el mapa. No se guarda.
 - **Mapa del grupo:** si lo activas en una rodada en curso, tu posición (y si tienes un S.O.S. abierto) la ven solo los miembros de esa rodada, como mucho cada 12 segundos. Se borra al dejar de compartir, salir de la rodada o terminarla.
@@ -79,8 +81,8 @@ No usamos tus datos para publicidad de terceros ni los vendemos. Si queremos env
 
 ## 6. Con quién compartimos datos
 
-- **Con la otra parte de cada servicio:** el comercio ve tu nombre y tu pedido; el dueño de la moto ve tu nombre y los datos de la solicitud; el taller ve tu nombre, el tipo de emergencia y el lugar. Tú ves el nombre público del aliado.
-- **Con otros usuarios:** tu perfil público (nombre, @usuario y avatar) lo puede ver cualquier usuario con sesión iniciada que busque tu @usuario exacto; no publicamos listados de personas. Tu estado solo lo ven tus amigos. Tus reseñas, con tu nombre, las ven todos los usuarios. Nadie ve tu correo ni tu celular.
+- **Con la otra parte de cada servicio:** el comercio ve tu nombre y tu pedido; el dueño de la moto ve tu nombre, los datos de la solicitud, tu perfil de conductor (el contacto de emergencia, mientras la renta está activa), las actas y, si pides un S.O.S. mientras tienes su moto, ese S.O.S.; el taller ve tu nombre, el tipo de emergencia y el lugar. Tú ves el nombre público del aliado. El dueño de la moto usa esos datos solo para esa renta.
+- **Con otros usuarios:** tu perfil público (nombre, @usuario y avatar) lo puede ver cualquier usuario con sesión iniciada que busque tu @usuario exacto; no publicamos listados de personas. Tu estado solo lo ven tus amigos. Tus reseñas, con tu nombre, las ven todos los usuarios, salvo las que un dueño hace de un rider: esas las ven solo los dueños de moto y ese rider. Nadie ve tu correo ni tu celular.
 - **Con proveedores que tratan datos por encargo nuestro:** Google (Firebase Authentication y Cloud Firestore) para las cuentas y la base de datos; OpenRouteService (HeiGIT gGmbH, Alemania) para calcular rutas; los servidores de mapas de OpenStreetMap y OpenTopoMap, que reciben tu dirección IP y las zonas del mapa que consultas.
 - **Con autoridades**, cuando lo exija una norma o una orden.
 - **Con un consumidor que lo pida para reclamar**, entregamos los datos de identificación del oferente con el que contrató, como lo exige la ley.
@@ -100,7 +102,9 @@ Los servidores de Google y de los proveedores de mapas y rutas pueden estar fuer
 - **Ubicación del taller en camino:** hasta que llega, termina o libera el S.O.S.
 - **Rodadas:** las que creaste se borran al eliminar la cuenta; de las demás sales automáticamente.
 - **Reseñas:** hasta que elimines la cuenta, cuando se borran.
-- **Pedidos, rentas y atenciones:** hasta 5 años después del servicio, para atender reclamos y obligaciones legales.
+- **Perfil de conductor:** hasta que lo cambies o elimines la cuenta.
+- **Contacto de emergencia copiado en una solicitud de renta:** hasta que la renta termina, se rechaza o se cancela.
+- **Pedidos, rentas (con sus actas y las calificaciones que dan los dueños a los riders) y atenciones:** hasta 5 años después del servicio, para atender reclamos y obligaciones legales.
 - **Mensajes de chat:** hasta 1 año después del servicio.
 - **Registro de aceptaciones y solicitudes de privacidad:** hasta 10 años después del cierre de la cuenta, como prueba de la autorización.
 - **Datos de identificación del oferente:** mientras tenga cuenta y hasta 5 años después, para reclamos de consumidores.

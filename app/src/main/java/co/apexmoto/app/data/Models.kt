@@ -48,6 +48,49 @@ data class Bike(
     var soatUntil: String = "", var rtmUntil: String = "",
     /** Última solicitud que reservó o liberó fechas. Las reglas de Firestore la usan para validar el cambio de `booked`. */
     var lastReq: String = "",
+    // Requisitos y acuerdo de daños del dueño (fase 5). Reemplazan los antiguos planes de "protección", que no eran un seguro.
+    /** Años mínimos manejando moto (0 = sin mínimo). */
+    var minYears: Int = 0,
+    /** Depósito que el rider deja al recibir la moto y que se le devuelve al entregarla sin daños nuevos (0 = sin depósito). */
+    var deposit: Long = 0,
+    /** Lo máximo que el rider paga por daños (0 = sin tope pactado: responde según la ley). */
+    var damageCap: Long = 0,
+    /** Reseñas reales de quienes la rentaron, y la última que movió el promedio (las reglas la usan para validar la cuenta). */
+    var reviews: Int = 0, var lastReview: String = "",
+)
+
+/**
+ * Perfil de conductor del rider (rider_profiles/{uid}). Privado: solo lo lee su titular. Al pedir una moto se copia en la
+ * solicitud, y así lo ve únicamente el dueño de esa moto. No se guarda foto ni número de la licencia.
+ */
+data class RiderProfile(
+    @DocumentId var id: String = "", var licenseCat: String = "A2", var licenseUntil: String = "",
+    /** Año desde el que maneja moto. */
+    var since: Int = 0,
+    /** Cilindraje más alto que ha manejado. */
+    var maxCc: Int = 0,
+    /** Contacto de emergencia (opcional). En la solicitud se borra cuando la renta termina o se cancela. */
+    var emergencyName: String = "", var emergencyPhone: String = "",
+    var updatedAt: Long = 0,
+)
+
+/**
+ * Acta de entrega o de devolución de una moto rentada (actas/{solicitud}_{entrega|devolucion}). La llena el dueño y la
+ * confirma el rider; confirmada no se puede cambiar ni borrar. Sin el acta de entrega confirmada la renta no empieza, y
+ * sin la de devolución no termina. fuel: cuartos de tanque (0 = reserva … 4 = lleno).
+ */
+data class Acta(
+    @DocumentId var id: String = "", var reqId: String = "", var kind: String = "entrega", var ownerId: String = "", var riderId: String = "",
+    var bikeId: String = "", var bikeName: String = "", var km: Int = 0, var fuel: Int = 4, var condition: String = "",
+    var items: List<String> = emptyList(),
+    /** Entrega: el dueño vio la licencia física del rider, de la categoría y vigencia que declaró. Obligatorio. */
+    var licenseChecked: Boolean = false,
+    /** Entrega: hicieron una prueba de manejo corta. */
+    var testRide: Boolean = false,
+    /** Devolución: daños nuevos y lo que se descuenta por ellos (no más que el tope pactado). */
+    var damages: String = "", var damageAmount: Long = 0,
+    var confirmed: Boolean = false,
+    @ServerTimestamp var createdAt: Date? = null, var confirmedAt: Date? = null,
 )
 
 data class RodadaStop(var name: String = "", var lat: Double = 0.0, var lng: Double = 0.0)
@@ -78,16 +121,31 @@ data class LivePos(
     @ServerTimestamp var updatedAt: Date? = null,
 )
 
-/** Solicitud de renta de una moto (type = "rent", el único tipo que existe). */
+/**
+ * Solicitud de renta de una moto (type = "rent", el único tipo que existe).
+ * status: "p" (pendiente) → "ok" (aceptada) → "ride" (con el acta de entrega confirmada) → "fin" (con el acta de devolución
+ * confirmada). También "no" (el dueño la rechazó o canceló la entrega) y "can" (el rider canceló o se retractó).
+ */
 data class ServiceRequest(
     @DocumentId var id: String = "", var type: String = "rent", var fromId: String = "", var fromName: String = "", var toId: String = "",
     var itemId: String = "", var itemName: String = "", var days: Int = 1, var amount: Long = 0, var total: Long = 0,
+    /** plan: solo en solicitudes de antes de la fase 5 (los planes de "protección" se retiraron). */
     var dateFrom: String = "", var dateTo: String = "", var plan: String = "", var extras: List<String> = emptyList(),
     var delivery: Boolean = false, var status: String = "p", var rated: Int = 0, var createdAt: Long = 0,
     /** Renta: el rider declaró tener licencia vigente de esta categoría (A1 o A2). No se guarda foto ni número. */
     var licenseDeclared: Boolean = false, var licenseCat: String = "",
     // Cancelación por el rider. cancelKind: "retracto" (art. 47 Ley 1480) o "cancelacion".
     var cancelKind: String = "", var cancelledAt: Long = 0,
+    // Copia del perfil de conductor al pedir la moto (las reglas comprueban que coincida con el perfil).
+    var licenseUntil: String = "", var riderSince: Int = 0, var riderMaxCc: Int = 0,
+    /** Contacto de emergencia: solo mientras la renta está activa; se borra al terminar, rechazar o cancelar. */
+    var emergencyName: String = "", var emergencyPhone: String = "",
+    // Acuerdo de daños que el rider aceptó: copia exacta del que publicó el dueño en la moto.
+    var deposit: Long = 0, var damageCap: Long = 0, var damageAccepted: Boolean = false,
+    /** Reserva inmediata: una renta terminada del mismo rider que demuestra su historial. */
+    var prevReq: String = "",
+    /** Por qué el dueño canceló en la entrega: "licencia", "prueba", "otro". */
+    var ownerCancel: String = "",
 )
 
 data class OrderItem(var name: String = "", var qty: Int = 1, var price: Long = 0)
@@ -123,6 +181,8 @@ data class Sos(
     var providerVenueId: String = "",
     /** Dónde va el taller mientras va en camino (solo lo ve el rider). Vuelve a cero al llegar, terminar o liberar. */
     var providerLat: Double = 0.0, var providerLng: Double = 0.0, var providerAt: Date? = null,
+    /** S.O.S. en una moto rentada: la renta en curso y su dueño, que también lo ve. */
+    var rentalReq: String = "", var rentalOwnerId: String = "",
 )
 
 data class ChatMessage(

@@ -94,6 +94,15 @@ class AppViewModel(val container: AppContainer) : ViewModel() {
     val sos = byUser { if (it.role == Role.WORKSHOP) repo.sosForWorkshop(it.id) else repo.sosMine(it.id) }
     val savedRoutes = byUser { repo.routesOf(it.id) }
 
+    // Renta segura (fase 5)
+    /** Perfil de conductor del rider; null mientras no lo haya llenado. */
+    val riderProfile: StateFlow<RiderProfile?> = user.flatMapLatest { u -> if (u == null || u.role != Role.RIDER) flowOf(null) else repo.riderProfile(u.id) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    /** Actas de entrega y devolución: las que llenó el dueño o las que confirma el rider. */
+    val actas = byUser { when (it.role) { Role.OWNER -> repo.actasOf(it.id, owner = true); Role.RIDER -> repo.actasOf(it.id, owner = false); else -> flowOf(emptyList()) } }
+    /** S.O.S. de riders que van en una moto de este dueño. */
+    val ownerSos = byUser { if (it.role == Role.OWNER) repo.sosForOwner(it.id) else flowOf(emptyList()) }
+
     // Amigos
     /** Perfil público propio; null mientras no lo haya creado. */
     val myProfile: StateFlow<Profile?> = user.flatMapLatest { u -> if (u == null) flowOf(null) else repo.profile(u.id) }

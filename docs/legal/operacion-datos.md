@@ -19,7 +19,10 @@ Revisión de cada formulario de la app. "Se queda" significa que el dato es nece
 
 | Rol | Dato | Decisión | Justificación |
 |---|---|---|---|
-| Rider | Declaración de licencia y categoría | Agregado | Requisito para conducir (Ley 769). Se guarda un sí y la categoría, sin foto ni número |
+| Rider | Perfil de conductor: categoría y vencimiento de la licencia, año desde el que maneja, cilindraje máximo | Agregado (fase 5) | Requisito para conducir (Ley 769) y para que el dueño decida. Privado; se copia en cada solicitud y solo lo ve ese dueño. Sin foto ni número de la licencia |
+| Rider | Contacto de emergencia (nombre y celular de otra persona) | Agregado, opcional | Para avisar si pasa algo con la moto. El rider declara tener su permiso. En la solicitud se borra al terminar, rechazar o cancelar la renta |
+| Rider | Actas de entrega y devolución; calificaciones que le dan los dueños | Agregado | Prueba del estado de la moto y reputación para los dueños. Las calificaciones solo las ven los dueños y el rider. Se conservan con la renta |
+| Rider | S.O.S. con una moto rentada | Agregado | Lo ve también el dueño de la moto mientras la renta está en curso |
 | Rider | Ubicación en el S.O.S. | Se queda, opcional | Para que el taller llegue. Se borra al terminar |
 | Rider | Nota del pedido y del S.O.S. | Se queda, opcional | Texto libre con límite de tamaño |
 | Rider | Hora a la que quiere el pedido listo | Agregado | Para que el comercio lo prepare a tiempo |
@@ -31,6 +34,7 @@ Revisión de cada formulario de la app. "Se queda" significa que el dato es nece
 | Rider | Posición en vivo en una rodada activa (y si tiene un S.O.S. abierto) | Agregado, opcional | Solo si la activa; la ven solo los miembros; se borra al dejar de compartir, salir o terminar la rodada |
 | Dueño | Modelo, cilindraje, ciudad, precio | Se queda | Oferta |
 | Dueño | Vencimiento de SOAT y de revisión | Agregado | Sin ellos la moto no puede circular; el rider debe saberlo |
+| Dueño | Requisitos y acuerdo de daños por moto (años mínimos, depósito, tope) | Agregado (fase 5) | Condiciones que el rider acepta; se copian en la solicitud. Reemplazan los planes de "protección" |
 | Dueño | Placa, tarjeta de propiedad | No se piden | La colección de motos es visible para todos los usuarios; se verifican al entregar |
 | Guía | Todo el perfil (moto, zona, tarifa, presentación, servicios) | Eliminado con el rol (2026-11-15) | ApexMoto no ofrece guías ni transporte de pasajeros (ver revision-abogado.md, A.2) |
 | Aliados | Nombre o razón social, documento, dirección, teléfono | Agregado, privado | Obligación del art. 53 de la Ley 1480. Solo lo ven el titular y el administrador |
@@ -53,7 +57,9 @@ La app no los recoge. Si más adelante se necesita verificar identidad (foto de 
 | Perfil | Mientras exista la cuenta | Se borra al eliminar la cuenta (automático) |
 | Coordenadas del S.O.S. | Hasta que termina o se cancela | Automático; las reglas lo exigen |
 | Rutas guardadas, negocio, motos, identificación del oferente | Hasta eliminar la cuenta | Automático |
-| Pedidos, rentas, S.O.S. | 5 años | **Manual** |
+| Perfil de conductor | Hasta que lo cambie o elimine la cuenta | Automático |
+| Contacto de emergencia en una solicitud de renta | Hasta que la renta termina, se rechaza o se cancela | Automático; las reglas lo exigen |
+| Pedidos, rentas (con sus actas y las calificaciones de riders), S.O.S. | 5 años | **Manual** |
 | Chats | 1 año | **Manual** |
 | Aceptaciones y solicitudes de privacidad | 10 años tras el cierre | **Manual** |
 

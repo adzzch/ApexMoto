@@ -41,11 +41,8 @@ import co.apexmoto.app.ui.theme.*
 @Composable
 fun ProfileScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
     val orders by vm.myOrders.collectAsState()
-    val reqs by vm.reqFrom.collectAsState()
     var confirmReset by remember { mutableStateOf(false) }
     var confirmClear by remember { mutableStateOf(false) }
-    var cancel by remember { mutableStateOf<ServiceRequest?>(null) }
-    cancel?.let { r -> CancelRequestDialog(vm, r) { cancel = null } }
     val myReviews by vm.myReviews.collectAsState()
     var reviewOrder by remember { mutableStateOf<Order?>(null) }
     reviewOrder?.let { o ->
@@ -93,6 +90,7 @@ fun ProfileScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
                 Btn("Mis amigos", Modifier.fillMaxWidth(), Icons.Filled.People, kind = BK.Ghost) { vm.communityTab = "amigos"; nav.navigate("grp") }
             }
         }
+        if (u.role == Role.RIDER) RiderProfileCard(vm, u)
         if (orders.isNotEmpty()) {
             H("Mis pedidos")
             val reviewed = myReviews.map { it.id }.toSet()
@@ -106,21 +104,7 @@ fun ProfileScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
                 }
             }
         }
-        val rent = reqs.filter { it.type == "rent" }
-        if (rent.isNotEmpty()) {
-            H("Mis rentas")
-            rent.sortedByDescending { it.createdAt }.take(6).forEach { r ->
-                Card2 {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) { Text(r.itemName, fontWeight = FontWeight.Bold); Sub("${prettyDate(r.dateFrom)} → ${prettyDate(r.dateTo)}") }
-                        StatusPill(REQ_ST[r.status] ?: r.status, r.status)
-                    }
-                    if (r.cancelKind == "retracto") Sub("Retracto ejercido: la devolución es total.")
-                    if (r.status !in listOf("no", "can") && r.toId.isNotBlank()) Btn("Chat con el dueño", Modifier.fillMaxWidth(), Icons.Filled.Chat, kind = BK.Ghost) { nav.chat("req_${r.id}", r.itemName, r.toId) }
-                    if (canCancel(r)) Btn("Cancelar renta", Modifier.fillMaxWidth(), Icons.Filled.Close, kind = BK.Danger, small = true) { cancel = r }
-                }
-            }
-        }
+        MyRentals(vm, nav, u)
         Btn("Legal y privacidad", Modifier.fillMaxWidth(), Icons.Filled.Gavel, kind = BK.Ghost) { nav.navigate("legal") }
         Btn("Configuración", Modifier.fillMaxWidth(), Icons.Filled.Settings, kind = BK.Ghost) { nav.navigate("settings") }
         // Los datos demo solo existen en la versión de pruebas, y las reglas solo se los permiten a un administrador.

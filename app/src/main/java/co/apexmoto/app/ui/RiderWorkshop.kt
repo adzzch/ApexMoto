@@ -75,6 +75,9 @@ fun rememberLocationRequest(vm: AppViewModel, onResult: (Double, Double) -> Unit
 @Composable
 fun WorkshopScreen(vm: AppViewModel, nav: androidx.navigation.NavController, u: AppUser) {
     val all by vm.sos.collectAsState()
+    val reqs by vm.reqFrom.collectAsState()
+    // Si va en una moto rentada, el S.O.S. lleva la renta y el dueño también lo ve (las reglas lo comprueban).
+    val rental = reqs.firstOrNull { it.type == "rent" && it.status == "ride" }
     val mine = all.filter { it.fromId == u.id }.sortedByDescending { it.createdAt }
     val current = mine.firstOrNull { it.status in listOf("new", "ok", "go", "site") }
     var asking by rememberSaveable { mutableStateOf(false) }
@@ -136,13 +139,15 @@ fun WorkshopScreen(vm: AppViewModel, nav: androidx.navigation.NavController, u: 
                         Field("¿Dónde estás?", place, { place = it }, hint = "Km 12 vía al mar, junto a la gasolinera")
                         Btn(if (lat != 0.0) "Ubicación fijada" else "Usar mi ubicación", Modifier.fillMaxWidth(), if (lat != 0.0) Icons.Filled.CheckCircle else Icons.Filled.MyLocation, kind = BK.Ghost) { getLoc() }
                         if (lat != 0.0) Lbl("Los talleres aliados verán este punto hasta que termine el S.O.S.; después se borra.")
+                        if (rental != null) Lbl("Vas en una moto rentada (${rental.itemName}): el dueño también verá este S.O.S.", CyanDeep)
                         Lbl("Si hay heridos o peligro, llama primero al 123.", Red)
                         Field("Detalle (opcional)", note, { note = it }, lines = 2, hint = "Ej: llanta trasera, tengo repuesto")
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Btn("Cancelar", Modifier.weight(0.7f), kind = BK.Ghost) { asking = false }
                             Btn("Enviar S.O.S.", Modifier.weight(1f), Icons.Filled.Warning, kind = BK.Sos, enabled = place.isNotBlank()) {
                                 val k = C.SOS_KINDS.first { it.key == kind }
-                                vm.act("S.O.S. enviado") { vm.repo.createSos(Sos(fromId = u.id, fromName = u.name, kind = k.key, kindName = k.name, locationText = place, lat = lat, lng = lng, note = note, price = k.price)) }
+                                vm.act("S.O.S. enviado") { vm.repo.createSos(Sos(fromId = u.id, fromName = u.name, kind = k.key, kindName = k.name, locationText = place, lat = lat, lng = lng, note = note, price = k.price,
+                                    rentalReq = rental?.id.orEmpty(), rentalOwnerId = rental?.toId.orEmpty())) }
                                 place = ""; note = ""; lat = 0.0; lng = 0.0; asking = false
                             }
                         }

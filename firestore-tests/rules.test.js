@@ -35,7 +35,10 @@ const venue = (ownerId, extra = {}) => ({ ownerId, name: 'Parrilla', desc: '', p
 const bike = (ownerId, extra = {}) => ({ ownerId, name: 'XRE 300', cc: 300, pricePerDay: 160000, city: 'Cali', specs: [], rating: 5.0, trips: 0, instant: false, delivery: false, available: true, booked: [], soatUntil: '2099-01-01', rtmUntil: '2099-01-01', lastReq: '', ...extra });
 const sos = (fromId, extra = {}) => ({ fromId, fromName: 'Rider', kind: 'flat', kindName: 'Pinchazo', locationText: 'Km 12 vía al mar', lat: 3.5, lng: -76.6, note: '', price: 35000, status: 'new', providerId: '', providerName: '', eta: 0, createdAt: 1, acceptedAt: 0, doneAt: 0, ...extra });
 const order = (fromId, ownerId, extra = {}) => ({ venueId: 'v1', venueName: 'Parrilla', ownerId, fromId, fromName: 'Rider', items: [{ name: 'Churrasco', qty: 1, price: 42000 }], total: 42000, eta: '30 min', note: '', status: 'new', createdAt: 1, readyAt: 0, ...extra });
-const rent = (fromId, extra = {}) => ({ type: 'rent', fromId, fromName: 'Rider', toId: O, itemId: 'b1', itemName: 'XRE 300', days: 2, amount: 320000, total: 320000, dateFrom: '2030-01-10', dateTo: '2030-01-11', plan: 'Básica', extras: [], delivery: false, status: 'p', rated: 0, createdAt: 1, licenseDeclared: true, licenseCat: 'A2', cancelKind: '', cancelledAt: 0, ...extra });
+const rent = (fromId, extra = {}) => ({ type: 'rent', fromId, fromName: 'Rider', toId: O, itemId: 'b1', itemName: 'XRE 300', days: 2, amount: 320000, total: 320000, dateFrom: '2030-01-10', dateTo: '2030-01-11', plan: '', extras: [], delivery: false, status: 'p', rated: 0, createdAt: 1, licenseDeclared: true, licenseCat: 'A2', cancelKind: '', cancelledAt: 0,
+  // Fase 5: copia del perfil de conductor y acuerdo de daños de la moto.
+  licenseUntil: '2099-01-01', riderSince: 2015, riderMaxCc: 650, emergencyName: '', emergencyPhone: '', deposit: 0, damageCap: 0, damageAccepted: true, prevReq: '', ownerCancel: '', ...extra });
+const riderProfile = (extra = {}) => ({ licenseCat: 'A2', licenseUntil: '2099-01-01', since: 2015, maxCc: 650, emergencyName: '', emergencyPhone: '', updatedAt: 1, ...extra });
 
 /** Escribe la acción y su sello de límite de uso en un lote, igual que la app. */
 function stamped(uid, kind, fill) {
@@ -70,6 +73,8 @@ beforeEach(async () => {
     await setDoc(doc(d, 'venues', 'v1'), venue(S));
     await setDoc(doc(d, 'bikes', 'b1'), bike(O));
     await setDoc(doc(d, 'bikes', 'b2'), bike(O, { instant: true }));
+    await setDoc(doc(d, 'rider_profiles', R), riderProfile());
+    await setDoc(doc(d, 'rider_profiles', X), riderProfile());
     await setDoc(doc(d, 'drivers', G), { ownerId: G, name: 'Guía', rating: 5.0, reviews: 0 });   // perfil viejo que quedó en la base
   });
 });
@@ -296,14 +301,20 @@ test('renta: exige declaración de licencia, SOAT y revisión vigentes, y el due
   await env.withSecurityRulesDisabled((c) => updateDoc(doc(c.firestore(), 'bikes', 'b1'), { soatUntil: '2099-01-01' }));
   await assertSucceeds(newReq(R, 'q5', rent(R)));
 });
-test('reserva inmediata: la solicitud y las fechas apartadas van en un lote; nadie más toca las fechas', async () => {
+test('reserva inmediata: solo con historial; la solicitud y las fechas apartadas van en un lote; nadie más toca las fechas', async () => {
   await assertFails(updateDoc(doc(db(R), 'bikes', 'b2'), { booked: arrayUnion('2030-01-01|2030-12-31') }));
   await assertFails(updateDoc(doc(db(R), 'bikes', 'b2'), { pricePerDay: 1 }));
-  const r = rent(R, { itemId: 'b2', status: 'ok' });
-  await assertSucceeds(stamped(R, 'request', (b, d) => {
-    b.set(doc(d, 'requests', 'q1'), r);
-    b.update(doc(d, 'bikes', 'b2'), { booked: arrayUnion('2030-01-10|2030-01-11'), lastReq: 'q1' });
-  }));
+  await env.withSecurityRulesDisabled(async (c) => {
+    await setDoc(doc(c.firestore(), 'requests', 'q0'), rent(R, { status: 'fin' }));        // una renta suya ya terminada
+    await setDoc(doc(c.firestore(), 'requests', 'x0'), rent(X, { status: 'fin' }));        // una de otra persona
+  });
+  const book = (id, extra) => stamped(R, 'request', (b, d) => {
+    b.set(doc(d, 'requests', id), rent(R, { itemId: 'b2', status: 'ok', ...extra }));
+    b.update(doc(d, 'bikes', 'b2'), { booked: arrayUnion('2030-01-10|2030-01-11'), lastReq: id });
+  });
+  await assertFails(book('n1', {}));                                                             // sin historial
+  await assertFails(book('n2', { prevReq: 'x0' }));                                              // el historial de otro
+  await assertSucceeds(book('q1', { prevReq: 'q0' }));
   // Con una solicitud vieja no se puede apartar otra vez ni otras fechas.
   await assertFails(updateDoc(doc(db(R), 'bikes', 'b2'), { booked: arrayUnion('2031-01-01|2031-01-02'), lastReq: 'q1' }));
 });
@@ -320,14 +331,14 @@ test('retracto o cancelación: el rider cancela antes de empezar y se liberan su
   await assertFails(updateDoc(doc(d, 'requests', 'q2'), { status: 'can', cancelKind: 'retracto', cancelledAt: 5 }));   // ya empezó
   await assertFails(updateDoc(doc(db(X), 'bikes', 'b2'), { booked: arrayRemove('2030-02-01|2030-02-02'), lastReq: 'q1' }));
 });
-test('solicitudes: el aliado avanza paso a paso; un tercero no las ve', async () => {
+test('solicitudes: el aliado avanza paso a paso; sin acta de entrega no empieza; un tercero no las ve', async () => {
   await env.withSecurityRulesDisabled((c) => setDoc(doc(c.firestore(), 'requests', 'q1'), rent(R)));
   await assertFails(getDoc(doc(db(X), 'requests', 'q1')));
   await assertFails(updateDoc(doc(db(O), 'requests', 'q1'), { status: 'fin' }));
   await assertFails(updateDoc(doc(db(O), 'requests', 'q1'), { status: 'ok', total: 1 }));
   await assertFails(updateDoc(doc(db(R), 'requests', 'q1'), { status: 'ok' }));
   await assertSucceeds(updateDoc(doc(db(O), 'requests', 'q1'), { status: 'ok' }));
-  await assertSucceeds(updateDoc(doc(db(O), 'requests', 'q1'), { status: 'ride' }));
+  await assertFails(updateDoc(doc(db(O), 'requests', 'q1'), { status: 'ride' }));               // falta el acta de entrega
 });
 test('guía (rol retirado): sin perfiles, sin solicitudes, sin calificaciones y sin datos de oferente', async () => {
   await assertFails(getDoc(doc(db(R), 'drivers', G)));                                         // el perfil viejo ya no se lee
@@ -571,4 +582,106 @@ test('reseñas: el rider califica al taller que lo atendió, una vez y con el S.
   await assertFails(rateSos(R, 'sg'));                                                           // todavía no se resuelve
   await assertFails(rateSos(X, 'sf'));                                                           // no era su S.O.S.
   await assertSucceeds(rateSos(R, 'sf'));
+});
+
+// ───────── Renta segura (fase 5) ─────────
+const acta = (kind, extra = {}) => ({ reqId: 'q1', kind, ownerId: O, riderId: R, bikeId: 'b1', bikeName: 'XRE 300', km: 12000, fuel: 4,
+  condition: 'Rayón pequeño en el tanque', items: ['Llaves', 'Casco'], licenseChecked: kind === 'entrega', testRide: true, damages: '', damageAmount: 0,
+  confirmed: false, createdAt: serverTimestamp(), confirmedAt: null, ...extra });
+const confirm = (uid, kind, reqChange) => { const d = db(uid); const b = writeBatch(d);
+  b.update(doc(d, 'actas', `q1_${kind}`), { confirmed: true, confirmedAt: serverTimestamp() });
+  b.update(doc(d, 'requests', 'q1'), reqChange); return b.commit(); };
+
+test('perfil de conductor: privado, solo de riders y con datos válidos', async () => {
+  await assertSucceeds(getDoc(doc(db(R), 'rider_profiles', R)));
+  await assertFails(getDoc(doc(db(X), 'rider_profiles', R)));                                    // ni otro rider
+  await assertFails(getDoc(doc(db(O), 'rider_profiles', R)));                                    // ni un dueño: lo ve en la solicitud
+  await assertFails(setDoc(doc(db(O), 'rider_profiles', O), riderProfile()));                    // un dueño no tiene perfil de conductor
+  await assertFails(setDoc(doc(db(R), 'rider_profiles', R), riderProfile({ licenseCat: 'B1' })));
+  await assertFails(setDoc(doc(db(R), 'rider_profiles', R), riderProfile({ since: 2999 })));
+  await assertFails(setDoc(doc(db(R), 'rider_profiles', R), riderProfile({ licenseNumber: '123' })));   // sin número de licencia
+  await assertSucceeds(setDoc(doc(db(R), 'rider_profiles', R), riderProfile({ emergencyName: 'Mamá', emergencyPhone: '300 123 4567' })));
+});
+test('renta: copia el perfil, cumple la experiencia y la categoría, y acepta el acuerdo de daños publicado', async () => {
+  await env.withSecurityRulesDisabled(async (c) => {
+    await setDoc(doc(c.firestore(), 'bikes', 'b3'), bike(O, { minYears: 20, deposit: 500000, damageCap: 2000000 }));
+    await setDoc(doc(c.firestore(), 'rider_profiles', X), riderProfile({ licenseCat: 'A1', licenseUntil: '2030-01-10' }));
+  });
+  const ok = { itemId: 'b3', deposit: 500000, damageCap: 2000000 };
+  await assertFails(newReq(R, 'r1', rent(R, ok)));                                                // pide 20 años; maneja desde 2015
+  await env.withSecurityRulesDisabled((c) => updateDoc(doc(c.firestore(), 'bikes', 'b3'), { minYears: 5 }));
+  await assertFails(newReq(R, 'r2', rent(R, { ...ok, deposit: 0 })));                             // no es el depósito publicado
+  await assertFails(newReq(R, 'r3', rent(R, { ...ok, damageAccepted: false })));
+  await assertFails(newReq(R, 'r4', rent(R, { ...ok, riderSince: 1990 })));                       // no coincide con su perfil
+  await assertFails(newReq(R, 'r5', rent(R, { ...ok, ownerCancel: 'licencia' })));
+  await assertFails(newReq(X, 'r6', rent(X, { ...ok, licenseCat: 'A1', licenseUntil: '2030-01-10', dateTo: '2030-01-10' })));   // A1 en una moto de 300 c. c.
+  await assertSucceeds(newReq(R, 'r7', rent(R, ok)));
+});
+test('renta: sin perfil de conductor, o con la licencia vencida antes de devolver, no se puede pedir', async () => {
+  await env.withSecurityRulesDisabled(async (c) => {
+    await deleteDoc(doc(c.firestore(), 'rider_profiles', R));
+    await setDoc(doc(c.firestore(), 'bikes', 'b4'), bike(O, { cc: 110 }));
+    await setDoc(doc(c.firestore(), 'rider_profiles', X), riderProfile({ licenseCat: 'A1', licenseUntil: '2030-01-10' }));
+  });
+  await assertFails(newReq(R, 'r1', rent(R)));
+  await assertFails(newReq(X, 'r2', rent(X, { itemId: 'b4', licenseCat: 'A1', licenseUntil: '2030-01-10' })));            // vence antes del 11
+  await assertSucceeds(newReq(X, 'r3', rent(X, { itemId: 'b4', licenseCat: 'A1', licenseUntil: '2030-01-10', dateTo: '2030-01-10' })));
+});
+test('actas: el dueño las llena, el rider las confirma, y sin acta confirmada la renta no empieza ni termina', async () => {
+  await env.withSecurityRulesDisabled((c) => setDoc(doc(c.firestore(), 'requests', 'q1'),
+    rent(R, { status: 'ok', damageCap: 1000000, emergencyName: 'Mamá', emergencyPhone: '3001234567' })));
+  await assertFails(setDoc(doc(db(R), 'actas', 'q1_entrega'), acta('entrega', { ownerId: R })));          // el rider no la llena
+  await assertFails(setDoc(doc(db(O), 'actas', 'q1_entrega'), acta('entrega', { licenseChecked: false })));   // sin revisar la licencia
+  await assertFails(setDoc(doc(db(O), 'actas', 'q1_devolucion'), acta('devolucion')));                   // todavía no la entrega
+  await assertSucceeds(setDoc(doc(db(O), 'actas', 'q1_entrega'), acta('entrega')));
+  await assertFails(updateDoc(doc(db(O), 'actas', 'q1_entrega'), { km: 1 }));                            // no se edita…
+  await assertSucceeds(deleteDoc(doc(db(O), 'actas', 'q1_entrega')));                                    // …se borra y se vuelve a llenar
+  await assertSucceeds(setDoc(doc(db(O), 'actas', 'q1_entrega'), acta('entrega')));
+  await assertFails(getDoc(doc(db(X), 'actas', 'q1_entrega')));
+  await assertFails(confirm(X, 'entrega', { status: 'ride' }));
+  await assertSucceeds(confirm(R, 'entrega', { status: 'ride' }));
+  await assertFails(deleteDoc(doc(db(O), 'actas', 'q1_entrega')));                                       // confirmada: ya no se borra
+  await assertFails(updateDoc(doc(db(R), 'actas', 'q1_entrega'), { confirmed: false }));
+  await assertFails(updateDoc(doc(db(O), 'requests', 'q1'), { status: 'fin', emergencyName: '', emergencyPhone: '' }));   // sin acta de devolución
+  await assertFails(setDoc(doc(db(O), 'actas', 'q1_devolucion'), acta('devolucion', { damages: 'Espejo roto', damageAmount: 2000000 })));   // pasa el tope
+  await assertSucceeds(setDoc(doc(db(O), 'actas', 'q1_devolucion'), acta('devolucion', { damages: 'Espejo roto', damageAmount: 300000 })));
+  await assertFails(confirm(R, 'devolucion', { status: 'fin' }));                                         // debe borrar el contacto de emergencia
+  await assertSucceeds(confirm(R, 'devolucion', { status: 'fin', emergencyName: '', emergencyPhone: '' }));
+});
+test('renta: el dueño cancela en la entrega con un motivo, y se borra el contacto de emergencia', async () => {
+  await env.withSecurityRulesDisabled((c) => setDoc(doc(c.firestore(), 'requests', 'q2'), rent(R, { status: 'ok', emergencyName: 'Mamá', emergencyPhone: '3001234567' })));
+  await assertFails(updateDoc(doc(db(O), 'requests', 'q2'), { status: 'no', ownerCancel: 'licencia' }));
+  await assertFails(updateDoc(doc(db(O), 'requests', 'q2'), { status: 'no', ownerCancel: 'me caes mal', emergencyName: '', emergencyPhone: '' }));
+  await assertFails(updateDoc(doc(db(R), 'requests', 'q2'), { status: 'no', ownerCancel: 'licencia', emergencyName: '', emergencyPhone: '' }));
+  await assertSucceeds(updateDoc(doc(db(O), 'requests', 'q2'), { status: 'no', ownerCancel: 'licencia', emergencyName: '', emergencyPhone: '' }));
+});
+test('reseñas mutuas: el rider califica la moto y el dueño al rider; las de riders solo las ven los dueños y él', async () => {
+  await env.withSecurityRulesDisabled((c) => setDoc(doc(c.firestore(), 'requests', 'q1'), rent(R, { status: 'fin' })));
+  const rateBike = (uid, rating, reviews) => { const d = db(uid); const b = writeBatch(d);
+    b.set(doc(d, 'reviews', 'rent_q1'), review(uid, 'q1', { kind: 'rent', targetType: 'bike', targetId: 'b1', stars: 4 }));
+    b.update(doc(d, 'bikes', 'b1'), { rating, reviews, lastReview: 'rent_q1' }); return b.commit(); };
+  await assertFails(rateBike(X, 4, 1));                                                            // no la rentó
+  await assertFails(rateBike(R, 5, 1));                                                            // promedio mal calculado
+  await assertSucceeds(rateBike(R, 4, 1));
+  await assertFails(updateDoc(doc(db(O), 'bikes', 'b1'), { reviews: 99 }));                         // el dueño no toca su calificación
+  const renter = (uid, extra = {}) => review(uid, 'q1', { kind: 'renter', targetType: 'rider', targetId: R, authorName: 'Dueño', stars: 5, comment: 'Cuidó la moto', ...extra });
+  await assertFails(setDoc(doc(db(X), 'reviews', 'renter_q1'), renter(X)));
+  await assertFails(setDoc(doc(db(O), 'reviews', 'renter_q1'), renter(O, { targetId: X })));
+  await assertSucceeds(setDoc(doc(db(O), 'reviews', 'renter_q1'), renter(O)));
+  await assertSucceeds(getDoc(doc(db(R), 'reviews', 'renter_q1')));                                 // el rider ve lo que dicen de él
+  await assertFails(getDoc(doc(db(X), 'reviews', 'renter_q1')));                                    // otro rider no
+});
+test('S.O.S. en una moto rentada: solo con una renta en curso, y el dueño de la moto lo ve', async () => {
+  await env.withSecurityRulesDisabled(async (c) => {
+    await setDoc(doc(c.firestore(), 'requests', 'q1'), rent(R, { status: 'ride' }));
+    await setDoc(doc(c.firestore(), 'requests', 'q2'), rent(R, { status: 'ok' }));
+  });
+  const send = (id, extra) => stamped(R, 'sos', (b, d) => b.set(doc(d, 'sos', id), sos(R, extra)));
+  await assertFails(send('s1', { rentalReq: 'q2', rentalOwnerId: O }));                           // la renta no ha empezado
+  await assertFails(send('s2', { rentalReq: 'q1', rentalOwnerId: X }));                           // ese no es el dueño
+  await assertSucceeds(send('s3', { rentalReq: 'q1', rentalOwnerId: O }));
+  await assertSucceeds(getDoc(doc(db(O), 'sos', 's3')));
+  await assertSucceeds(getDocs(query(collection(db(O), 'sos'), where('rentalOwnerId', '==', O))));
+  await assertFails(getDoc(doc(db(X), 'sos', 's3')));
+  await assertFails(updateDoc(doc(db(O), 'sos', 's3'), { rentalOwnerId: '' }));                    // el dueño solo lo ve
 });

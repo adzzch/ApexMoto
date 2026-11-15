@@ -37,19 +37,20 @@ Ruta base: `app/src/main/java/co/apexmoto/app/`
 |---|---|
 | `ApexApp.kt`, `MainActivity.kt` | Aplicación, contenedor de dependencias (`AppContainer`), preferencias, punto de entrada |
 | `auth/SignIn.kt` | Google Sign-In (Credential Manager) y verificación por SMS |
-| `data/Models.kt` | Modelos: `AppUser`, `Venue`, `Bike`, `Rodada`, `ServiceRequest` (renta), `Order`, `Coupon`, `Sos`, `ChatMessage`, `SavedRoute`; amigos: `Profile`, `FriendRequest`, `Friendship`, `Block`, `Presence`; rodadas: `RodadaStop`, `LivePos`; `Review`; y roles (`Role`) |
+| `data/Models.kt` | Modelos: `AppUser`, `Venue`, `Bike`, `Rodada`, `ServiceRequest` (renta), `Order`, `Coupon`, `Sos`, `ChatMessage`, `SavedRoute`; amigos: `Profile`, `FriendRequest`, `Friendship`, `Block`, `Presence`; rodadas: `RodadaStop`, `LivePos`; renta segura: `RiderProfile` (perfil de conductor) y `Acta` (entrega y devolución); `Review`; y roles (`Role`) |
 | `data/Repo.kt` | Acceso a Firestore y Auth: perfiles, comercios, motos, pedidos, S.O.S., chat, aceptaciones, datos demo |
 | `legal/Legal.kt` | Catálogo versionado de documentos (`Legal.DOCS`), registro de aceptaciones, solicitudes de privacidad, `ConsentRecorder` |
 | `maps/Maps.kt` | `RoutesClient` (OpenRouteService) y `LocationHelper` |
 | `maps/OsmMap.kt` | Mapa OpenStreetMap integrado en Compose, marcadores |
 | `maps/RoutePlanner.kt` | Ruta IA: arma paradas y presupuesto a partir de filtros del rider |
-| `core/Constants.kt` | Corredores, planes de protección, extras, tipos de S.O.S. (`C`) |
+| `core/Constants.kt` | Corredores, extras de la renta, gasolina y accesorios de las actas, motivos de cancelación del dueño, tipos de S.O.S. (`C`) |
 | `core/BusinessDays.kt` | Días hábiles colombianos (festivos) para plazos legales y retracto |
 | `core/Util.kt` | Utilidades (formato de COP, etc.) |
 | `ui/Root.kt` | Navegación, barra por rol (`tabsFor`), pantalla de ingreso y elección de rol |
 | `ui/Rider*.kt` | Rutas, comercios y mapa, renta y comunidad, taller S.O.S. del rider |
 | `ui/Commerce.kt`, `ui/Taller.kt`, `ui/Owner.kt` | Espacios de comercio, taller mecánico y dueño de moto |
 | `ui/Reviews.kt` | Reseñas: calificar un servicio (`ReviewSheet`), lista de reseñas y promedio (`RatingLine`); hora corta (`hhmm`) |
+| `ui/Rentals.kt` | Renta segura: perfil de conductor (`RiderProfileSheet`), Mis rentas con las actas por confirmar, actas del dueño (`ActaSheet`), datos y reputación del rider (`RenterInfo`), cancelación en la entrega y S.O.S. en motos rentadas |
 | `ui/Rodadas.kt` | Rodadas: lista, creación (pública o de amigos, aprobación, ruta), detalle con miembros, líder y cierre, invitaciones y mapa del grupo en vivo. El envío de la posición vive en `MainScaffold` (`ui/Root.kt`), solo en primer plano |
 | `ui/Friends.kt` | Amigos: avatares de moto (`Avatars`, `MotoAvatar`), perfil público, búsqueda por @usuario, solicitudes, bloqueos y estado |
 | `ui/NavigationScreen.kt` | Guiado giro a giro: ubicación, voz es-CO, recálculo a más de 150 m |
@@ -94,9 +95,9 @@ El prototipo original era `apexmoto.html`. Correspondencia:
 | Login (correo, Google, teléfono) y elección de rol | `ui/Root.kt` (`AuthScreen`, `RoleSelectScreen`), `auth/SignIn.kt`, `data/Repo.kt` |
 | Rutas: Ruta IA y presupuesto | `ui/RiderRoutes.kt`, `maps/RoutePlanner.kt` |
 | Comercios, menú, pedidos, cupones | `ui/RiderVenues.kt`, `ui/Commerce.kt` |
-| Comunidad (rodadas) y renta | `ui/RiderRent.kt`, `ui/Owner.kt` |
+| Comunidad (rodadas) y renta | `ui/RiderRent.kt`, `ui/Rentals.kt`, `ui/Owner.kt` |
 | Taller móvil S.O.S. | `ui/RiderWorkshop.kt`, `ui/Taller.kt` |
-| Dueño de moto: flota, solicitudes, ingresos | `ui/Owner.kt` |
+| Dueño de moto: flota, solicitudes, actas, ingresos | `ui/Owner.kt`, `ui/Rentals.kt` |
 | Chat, perfil, configuración | `ui/Misc.kt` |
 | Legal y privacidad | `legal/Legal.kt`, `ui/Legal.kt`, `core/BusinessDays.kt`, `src/main/legal/*.md` |
 | Mapas, rutas y guiado | `maps/*.kt`, `ui/NavigationScreen.kt` |

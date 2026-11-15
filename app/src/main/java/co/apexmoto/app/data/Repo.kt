@@ -183,6 +183,9 @@ class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth, private val consen
         out.put("motos", many("bikes", "ownerId"))
         out.put("pedidos", many("orders", "fromId"))
         out.put("rentas", many("requests", "fromId"))
+        out.put("perfil_de_conductor", one("rider_profiles"))
+        out.put("actas_como_rider", many("actas", "riderId"))
+        out.put("actas_como_dueno", many("actas", "ownerId"))
         out.put("cupones", many("coupons", "userId"))
         out.put("sos", many("sos", "fromId"))
         out.put("rutas_guardadas", many("routes", "userId"))
@@ -219,6 +222,7 @@ class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth, private val consen
             }
         }
         runCatching { col("providers").document(u.id).delete().await() }
+        runCatching { col("rider_profiles").document(u.id).delete().await() }
         runCatching { deleteSocial(u.id) }
         col("users").document(u.id).delete().await()
         fu.delete().await()
@@ -437,9 +441,44 @@ class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth, private val consen
     fun bikes() = col("bikes").live<Bike>()
     suspend fun saveBike(b: Bike) { if (b.id.isBlank()) col("bikes").add(b).await() else col("bikes").document(b.id).set(b).await() }
     suspend fun deleteBike(id: String) { col("bikes").document(id).delete().await() }
-    suspend fun addBooking(bikeId: String, from: String, to: String) {
-        col("bikes").document(bikeId).update("booked", FieldValue.arrayUnion("$from|$to")).await()
+
+    // ───────── Renta segura (fase 5) ─────────
+    /** Perfil de conductor. Privado: las reglas solo se lo dejan leer a su titular. */
+    fun riderProfile(uid: String) = col("rider_profiles").document(uid).liveDoc<RiderProfile>()
+    suspend fun saveRiderProfile(uid: String, p: RiderProfile) {
+        col("rider_profiles").document(uid).set(mapOf(
+            "licenseCat" to p.licenseCat, "licenseUntil" to p.licenseUntil, "since" to p.since, "maxCc" to p.maxCc,
+            "emergencyName" to p.emergencyName.trim().take(60),
+            "emergencyPhone" to p.emergencyPhone.filter { it.isDigit() || it == '+' || it == ' ' }.trim().take(20),
+            "updatedAt" to now())).await()
     }
+
+    /** Actas en las que participa la persona: como dueño (las que llenó) o como rider (las que confirma). */
+    fun actasOf(uid: String, owner: Boolean) = col("actas").whereEqualTo(if (owner) "ownerId" else "riderId", uid).live<Acta>()
+
+    /** El dueño llena el acta. ID fijo: una de entrega y una de devolución por renta. */
+    suspend fun createActa(a: Acta) {
+        col("actas").document("${a.reqId}_${a.kind}").set(a.copy(id = "", bikeName = a.bikeName.take(80), condition = a.condition.trim().take(500),
+            damages = a.damages.trim().take(500), items = a.items.take(12), confirmed = false, createdAt = null, confirmedAt = null)).await()
+    }
+    /** Solo mientras el rider no la haya confirmado (para corregirla). */
+    suspend fun deleteActa(id: String) { col("actas").document(id).delete().await() }
+
+    /**
+     * El rider confirma el acta y, en el mismo lote, la renta avanza: con la de entrega empieza; con la de devolución
+     * termina y se borra el contacto de emergencia de la solicitud. Las reglas no dejan avanzar sin el acta confirmada.
+     */
+    suspend fun confirmActa(a: Acta) {
+        val b = db.batch()
+        b.update(col("actas").document(a.id), mapOf("confirmed" to true, "confirmedAt" to FieldValue.serverTimestamp()))
+        val req = col("requests").document(a.reqId)
+        if (a.kind == "entrega") b.update(req, "status", "ride")
+        else b.update(req, mapOf("status" to "fin", "emergencyName" to "", "emergencyPhone" to ""))
+        b.commit().await()
+    }
+
+    /** S.O.S. de riders que van en una moto de este dueño. */
+    fun sosForOwner(uid: String) = col("sos").whereEqualTo("rentalOwnerId", uid).live<Sos>()
 
     // ───────── Rodadas (fase 2) ─────────
     /** Lo que cada quien puede ver: las públicas, aquellas a las que lo invitaron y en las que ya está. */
@@ -535,7 +574,25 @@ class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth, private val consen
         b.stamp(r.fromId, "request")
         b.commit().await()
     }
-    suspend fun setRequestStatus(id: String, st: String) { col("requests").document(id).update("status", st).await() }
+
+    /** El dueño acepta: la solicitud y el apartado de las fechas en la moto van en un solo lote. */
+    suspend fun acceptRequest(r: ServiceRequest) {
+        val b = db.batch()
+        b.update(col("requests").document(r.id), "status", "ok")
+        b.update(col("bikes").document(r.itemId), "booked", FieldValue.arrayUnion("${r.dateFrom}|${r.dateTo}"))
+        b.commit().await()
+    }
+
+    /**
+     * El dueño rechaza una solicitud pendiente o cancela en la entrega (reason: clave de C.OWNER_CANCEL). Se borra el
+     * contacto de emergencia y, si ya estaba aceptada, se liberan las fechas de la moto. El rider recibe el reembolso total.
+     */
+    suspend fun rejectRequest(r: ServiceRequest, reason: String = "") {
+        val b = db.batch()
+        b.update(col("requests").document(r.id), mapOf("status" to "no", "ownerCancel" to reason, "emergencyName" to "", "emergencyPhone" to ""))
+        if (r.status == "ok") b.update(col("bikes").document(r.itemId), "booked", FieldValue.arrayRemove("${r.dateFrom}|${r.dateTo}"))
+        b.commit().await()
+    }
 
     /**
      * Cancelación por el rider antes de que empiece el servicio. kind = "retracto" (dentro de los 5 días hábiles,
@@ -543,7 +600,7 @@ class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth, private val consen
      */
     suspend fun cancelRequest(r: ServiceRequest, kind: String) {
         val b = db.batch()
-        b.update(col("requests").document(r.id), mapOf("status" to "can", "cancelKind" to kind, "cancelledAt" to now()))
+        b.update(col("requests").document(r.id), mapOf("status" to "can", "cancelKind" to kind, "cancelledAt" to now(), "emergencyName" to "", "emergencyPhone" to ""))
         if (r.type == "rent" && r.status == "ok")
             b.update(col("bikes").document(r.itemId), mapOf("booked" to FieldValue.arrayRemove("${r.dateFrom}|${r.dateTo}"), "lastReq" to r.id))
         b.commit().await()
@@ -696,11 +753,16 @@ class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth, private val consen
                 promo = s.promo, desc = s.desc, tags = s.tags, cuisines = s.cu, menu = s.menu,
                 lat = if (s.lat != 0.0) s.lat else c.lat + ((i % 3) - 1) * 0.012, lng = if (s.lng != 0.0) s.lng else c.lng + (i % 2) * 0.015)).await()
         }
+        // Con requisitos y acuerdo de daños distintos, para mostrar cada caso en una presentación.
         listOf(
-            Bike(name = "Yamaha MT-07", cc = 689, category = "Deportiva", pricePerDay = 280000, city = "Cali", specs = listOf("73 hp", "ABS"), rating = 4.9, trips = 31, instant = true),
-            Bike(name = "Honda XRE 300", cc = 300, category = "Aventura", pricePerDay = 160000, city = "Cali", specs = listOf("Doble propósito"), rating = 4.8, trips = 54, delivery = true),
-            Bike(name = "Suzuki V-Strom 650", cc = 645, category = "Aventura", pricePerDay = 320000, city = "Medellín", specs = listOf("Maletas incluidas"), rating = 4.9, trips = 22),
-            Bike(name = "Royal Enfield Himalayan", cc = 411, category = "Aventura", pricePerDay = 200000, city = "Bogotá", specs = listOf("Ideal para trocha"), rating = 4.7, trips = 40, instant = true),
+            Bike(name = "Yamaha MT-07", cc = 689, category = "Deportiva", pricePerDay = 280000, city = "Cali", specs = listOf("73 hp", "ABS"), rating = 4.9, trips = 31, instant = true,
+                minYears = 3, deposit = 800000, damageCap = 3000000, reviews = 31),
+            Bike(name = "Honda XRE 300", cc = 300, category = "Aventura", pricePerDay = 160000, city = "Cali", specs = listOf("Doble propósito"), rating = 4.8, trips = 54, delivery = true,
+                minYears = 1, deposit = 400000, damageCap = 1500000, reviews = 54),
+            Bike(name = "Suzuki V-Strom 650", cc = 645, category = "Aventura", pricePerDay = 320000, city = "Medellín", specs = listOf("Maletas incluidas"), rating = 4.9, trips = 22,
+                minYears = 2, deposit = 1000000, damageCap = 0, reviews = 22),
+            Bike(name = "Royal Enfield Himalayan", cc = 411, category = "Aventura", pricePerDay = 200000, city = "Bogotá", specs = listOf("Ideal para trocha"), rating = 4.7, trips = 40, instant = true,
+                reviews = 40),
         ).forEachIndexed { i, b -> col("bikes").document("demo_b${i + 1}").set(b.copy(soatUntil = addDays(today(), 300), rtmUntil = addDays(today(), 300))).await() }
         listOf(
             // Públicas y sin aprobación para que cualquiera pueda unirse en una presentación. No tienen creador: no se pueden iniciar.
@@ -720,6 +782,17 @@ class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth, private val consen
             demoReviews.forEachIndexed { k, (who, stars, text) ->
                 col("reviews").document("demo_dv${v}_$k").set(Review(kind = "demo", serviceId = "dv${v}_$k", targetType = "venue", targetId = "demo_v$v",
                     authorId = "", authorName = who, stars = stars, comment = text, createdAt = now() - (k + 1) * 86_400_000L)).await()
+            }
+        }
+        // Y en las dos primeras motos.
+        val bikeReviews = listOf(
+            Triple("Mateo G.", 5, "La moto impecable. En la entrega revisamos juntos el acta y la licencia; fueron cinco minutos."),
+            Triple("Daniela S.", 5, "La devolví con el tanque lleno y me reintegraron el depósito ahí mismo."),
+        )
+        (1..2).forEach { v ->
+            bikeReviews.forEachIndexed { k, (who, stars, text) ->
+                col("reviews").document("demo_db${v}_$k").set(Review(kind = "demo", serviceId = "db${v}_$k", targetType = "bike", targetId = "demo_b$v",
+                    authorId = "", authorName = who, stars = stars, comment = text, createdAt = now() - (k + 2) * 86_400_000L)).await()
             }
         }
         marker.set(mapOf("at" to now())).await()

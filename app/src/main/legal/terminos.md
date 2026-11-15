@@ -73,15 +73,20 @@ Podemos suspender o cerrar una cuenta que incumpla estas reglas. Antes de cerrar
 
 ## 8. Renta de motos
 
-- El contrato de arrendamiento se celebra entre el dueño y el rider. ApexMoto solo facilita el contacto y el registro de la reserva.
+- El contrato de arrendamiento se celebra entre el dueño y el rider. ApexMoto solo facilita el contacto y el registro de la reserva, de las actas y de las calificaciones.
 - **El dueño declara** que es propietario de la moto o tiene autorización escrita del propietario para arrendarla, que la moto tiene SOAT y revisión técnico-mecánica vigentes, y que está en condiciones seguras de uso.
-- **El rider declara** que tiene licencia de conducción vigente de la categoría que exige la moto (A1 para motos de hasta 125 c. c.; A2 para motos de más de 125 c. c.), y se obliga a presentarla al recibir la moto. El dueño debe verificarla antes de entregar.
-- Al entregar y al devolver la moto, las partes deben revisar juntas su estado y dejar constancia (fotos o acta).
-- **Daños:** el rider responde ante el dueño por los daños que sufra la moto mientras la tenga, salvo el desgaste normal. Las partes pueden pactar un depósito.
+- **Perfil de conductor:** para pedir una moto, el rider declara en su perfil la categoría y el vencimiento de su licencia, desde qué año maneja moto y el cilindraje más alto que ha manejado, y puede agregar un contacto de emergencia. Esa información se copia en la solicitud y la ve solo el dueño de esa moto. Declarar datos falsos es causa de suspensión de la cuenta.
+- **Licencia:** el rider debe tener licencia de conducción vigente durante toda la renta y de la categoría que exige la moto (A1 para motos de hasta 125 c. c.; A2 para motos de más de 125 c. c., que también sirve para las de A1), y se obliga a presentarla en físico al recibir la moto. **El dueño debe verificarla antes de entregar**; si no la ve, no entrega la moto.
+- **Requisitos del dueño:** cada moto puede exigir unos años mínimos manejando. La aplicación no deja pedirla a quien no los declare, y el dueño puede pedir una prueba de manejo corta antes de entregar. Si el rider no presenta la licencia o no pasa la prueba, el dueño puede cancelar la entrega; en ese caso devuelve todo lo que haya recibido.
+- **Reserva inmediata:** solo para riders con al menos una renta terminada en ApexMoto. Para los demás, el dueño aprueba cada solicitud.
+- **Acuerdo de daños:** cada moto publica un depósito y un tope por daños, que el rider acepta al pedirla y que quedan copiados en su solicitud. El depósito se entrega al recibir la moto y se devuelve al entregarla, menos los daños anotados en el acta de devolución. El tope es lo máximo que el rider paga por daños; si la moto no tiene tope, responde según la ley. El desgaste normal no es un daño. **El acuerdo de daños no es un seguro**, ni está respaldado por una aseguradora, y ApexMoto no lo garantiza.
+- **Actas de entrega y devolución:** al entregar y al devolver la moto, el dueño llena un acta en la aplicación (kilometraje, gasolina, estado, accesorios y, en la devolución, los daños nuevos y su valor) y el rider la revisa y la confirma. Sin el acta de entrega confirmada la renta no empieza, y sin la de devolución no termina. Una vez confirmada, el acta no se puede cambiar. Si el rider no está de acuerdo, no la confirma y lo resuelve con el dueño; si no se ponen de acuerdo, puede presentar un reclamo por los canales del punto 17.
+- **Daños:** el rider responde ante el dueño por los daños que sufra la moto mientras la tenga, salvo el desgaste normal, en los términos del acuerdo de daños.
+- **Calificaciones:** al terminar la renta, el rider califica la moto y el dueño califica al rider. Las calificaciones de los riders solo las ven los dueños de moto y el propio rider.
+- **S.O.S. con una moto rentada:** si el rider pide asistencia mientras tiene la moto, el dueño también ve ese S.O.S. (tipo, lugar y estado).
 - **Hurto o pérdida:** el rider debe avisar de inmediato al dueño y a las autoridades. La responsabilidad se define según lo pactado entre las partes y la ley.
 - **Multas y comparendos:** las infracciones cometidas durante la renta son responsabilidad de quien conducía. El rider se obliga a pagarlas o a reembolsarlas al dueño, incluidas las que se notifiquen después.
 - **Accidentes:** las lesiones a personas se atienden con cargo al SOAT de la moto, en los términos de la ley. Los demás daños se rigen por lo pactado entre las partes y por las pólizas que tenga el dueño.
-- **Planes de protección:** los planes Básica, Estándar y Premium que aparecen al reservar son condiciones de responsabilidad que el dueño ofrece al rider. **No son un seguro** ni están respaldados por una aseguradora, y ApexMoto no los garantiza. Pide al dueño el detalle de lo que cubren antes de aceptar.
 - Está prohibido subarrendar la moto, usarla para transporte de pasajeros o de carga, para competencias, o sacarla del país.
 
 ## 9. Asistencia en carretera (S.O.S.)
@@ -108,7 +113,7 @@ Podemos suspender o cerrar una cuenta que incumpla estas reglas. Antes de cerrar
 
 ## 12. Calificaciones y contenidos
 
-- Las calificaciones deben reflejar experiencias reales. Solo puede reseñar quien usó el servicio, una vez, con 1 a 5 estrellas y un comentario opcional; tu nombre aparece junto a la reseña.
+- Las calificaciones deben reflejar experiencias reales. Solo puede reseñar quien usó el servicio, una vez, con 1 a 5 estrellas y un comentario opcional; tu nombre aparece junto a la reseña. En una renta terminada, el rider califica la moto y el dueño califica al rider (ver punto 8).
 - En las reseñas no se permiten comentarios ofensivos, datos personales de otras personas, publicidad ni reseñas a cambio de beneficios.
 - Conservas los derechos sobre lo que publicas y nos autorizas a mostrarlo dentro de la aplicación mientras tu cuenta exista.
 - Podemos retirar contenido que incumpla estos términos o la ley.
