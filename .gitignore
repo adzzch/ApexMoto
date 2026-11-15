@@ -11,3 +11,20 @@
 /firestore-tests/node_modules/
 *-debug.log
 .firebase/
+
+# Herramientas de agentes de IA y skills de terceros (no son parte del producto)
+/.agents/
+/.claude/
+/.grok/
+/skills-lock.json
+
+# Kotlin, capturas y firma
+/.kotlin/
+/captures/
+*.jks
+*.keystore
+*.hprof
+/keystore.properties
+
+# Notas internas del propietario (no se publican)
+/HANDOFF.md
