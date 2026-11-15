@@ -85,7 +85,7 @@ class AppViewModel(val container: AppContainer) : ViewModel() {
 
     val venues = byUser { repo.venues() }
     val bikes = byUser { repo.bikes() }
-    val rodadas = byUser { repo.rodadas() }
+    val rodadas = byUser { if (it.role == Role.RIDER) repo.rodadas(it.id) else flowOf(emptyList()) }
     val myOrders = byUser { repo.ordersFrom(it.id) }
     val shopOrders = byUser { repo.ordersOfOwner(it.id) }
     val reqFrom = byUser { repo.requestsFrom(it.id) }
@@ -93,6 +93,59 @@ class AppViewModel(val container: AppContainer) : ViewModel() {
     val shopCoupons = byUser { repo.couponsOfOwner(it.id) }
     val sos = byUser { if (it.role == Role.WORKSHOP) repo.sosForWorkshop(it.id) else repo.sosMine(it.id) }
     val savedRoutes = byUser { repo.routesOf(it.id) }
+
+    // Renta segura (fase 5)
+    /** Perfil de conductor del rider; null mientras no lo haya llenado. */
+    val riderProfile: StateFlow<RiderProfile?> = user.flatMapLatest { u -> if (u == null || u.role != Role.RIDER) flowOf(null) else repo.riderProfile(u.id) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    /** Actas de entrega y devolución: las que llenó el dueño o las que confirma el rider. */
+    val actas = byUser { when (it.role) { Role.OWNER -> repo.actasOf(it.id, owner = true); Role.RIDER -> repo.actasOf(it.id, owner = false); else -> flowOf(emptyList()) } }
+    /** S.O.S. de riders que van en una moto de este dueño. */
+    val ownerSos = byUser { if (it.role == Role.OWNER) repo.sosForOwner(it.id) else flowOf(emptyList()) }
+
+    // Amigos
+    /** Perfil público propio; null mientras no lo haya creado. */
+    val myProfile: StateFlow<Profile?> = user.flatMapLatest { u -> if (u == null) flowOf(null) else repo.profile(u.id) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    val friendships = byUser { repo.friendships(it.id) }
+    val friendReqIn = byUser { repo.friendRequestsTo(it.id) }
+    val friendReqOut = byUser { repo.friendRequestsFrom(it.id) }
+    val blocks = byUser { repo.blocks(it.id) }
+    /** Perfiles públicos de los amigos. */
+    val friendProfiles: StateFlow<List<Profile>> = combine(user, friendships) { u, f -> u to f }
+        .flatMapLatest { (u, f) -> if (u == null) flowOf(emptyList()) else repo.profiles(f.mapNotNull { fr -> fr.members.firstOrNull { it != u.id } }) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    /** Reseñas escritas por la persona: sirven para saber qué servicios ya calificó. */
+    val myReviews = byUser { repo.myReviews(it.id) }
+    /** Hora estimada de llegada (epoch ms) a cada comercio de la ruta que se está guiando, por id del comercio. */
+    val arrivals = androidx.compose.runtime.mutableStateMapOf<String, Long>()
+    /** Pestaña abierta en Comunidad: "rodadas" o "amigos". */
+    var communityTab by mutableStateOf("rodadas")
+    /** Nombre de la rodada activa en la que participa la persona ("" si ninguna): va en su estado para los amigos. */
+    var ridingName by mutableStateOf("")
+    /** Rodada en la que la persona comparte su ubicación ahora mismo. Solo funciona con la app en primer plano (MainScaffold). */
+    var sharingRodada by mutableStateOf<String?>(null); private set
+
+    fun startSharing(rodadaId: String) {
+        if (container.location.hasPermission() && locationConsented) { sharingRodada = rodadaId; toast("Tu grupo ya te ve en el mapa") }
+        else toast("Activa la ubicación para compartirla con el grupo.")
+    }
+
+    /** S.O.S. en el que el taller le muestra al rider dónde va (solo con la app abierta, ver MainScaffold). */
+    var sharingSos by mutableStateOf<String?>(null); private set
+
+    fun startSosSharing(id: String) {
+        if (container.location.hasPermission() && locationConsented) { sharingSos = id; toast("El rider ya ve que vas en camino") }
+        else toast("Activa la ubicación para mostrarle al rider dónde vas.")
+    }
+    fun stopSosSharing() { sharingSos = null }
+
+    /** Deja de compartir y borra la posición publicada: nadie del grupo la sigue viendo. */
+    fun stopSharing(uid: String) {
+        val rid = sharingRodada ?: return
+        sharingRodada = null
+        viewModelScope.launch { repo.stopLive(rid, uid) }
+    }
 
     // Sesión
     private suspend fun afterAuth() {

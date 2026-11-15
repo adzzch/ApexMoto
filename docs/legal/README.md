@@ -19,7 +19,7 @@ Estos puntos no estaban claros en el proyecto y se asumieron. Si alguno no es ci
 1. **Los datos del responsable no se guardan en el repositorio.** Los documentos tienen marcadores `[COMPLETAR: …]` para fecha, razón social o nombre, NIT o cédula, dirección, correos y teléfono, que se llenan al compilar desde `legal.properties`. La versión real (`prod`) y cualquier compilación de publicación fallan si falta alguno.
 2. **La app no procesa pagos.** Todo se paga directamente al aliado. Si se agregan pagos, cambian los términos, la política de reembolsos (reversión del pago, art. 51 Ley 1480) y el formulario de Google Play.
 3. **Solo planes gratuitos de Firebase.** Por eso no hay Cloud Functions, Storage, Messaging, Analytics ni Crashlytics, aunque el encargo los mencionaba. Las consecuencias están en el punto 4.
-4. **No se recogen documentos ni biometría.** La app no pide foto de cédula, selfi, antecedentes ni foto de la licencia. Se usan declaraciones.
+4. **No se recogen documentos ni biometría.** La app no pide foto de cédula, selfi, antecedentes ni foto de la licencia. Se usan declaraciones, y en la renta el dueño ve la licencia en físico y lo deja en el acta de entrega.
 5. **No hay guías ni transporte de pasajeros** (decisión del 2026-11-15). El rol de guía se retiró y en las rodadas no se cobra por participar ni por guiar. Ver [revision-abogado.md](revision-abogado.md), A.2.
 
 ## 2. Mapa de normas
@@ -38,9 +38,9 @@ Estos puntos no estaban claros en el proyecto y se asumieron. Si alguno no es ci
 | Portal de contacto | Ley 1480 de 2011, art. 53 | Colección `providers` con la identificación de cada oferente |
 | Retracto | Ley 1480 de 2011, art. 47 | Botón "Cancelar" en rentas y salidas; se registra como retracto si aplica |
 | Reversión del pago | Ley 1480 de 2011, art. 51; Decreto 587 de 2016 | No aplica todavía (sin pagos); previsto en `reembolsos.md` |
-| Publicidad engañosa | Ley 1480 de 2011, arts. 29 y 30 | Los planes de "protección" se aclaran como "no son un seguro"; los datos demo solo existen en la versión de pruebas, marcada con una franja |
+| Publicidad engañosa | Ley 1480 de 2011, arts. 29 y 30 | En la renta ya no hay planes de "protección": el acuerdo de daños (depósito y tope) dice que no es un seguro; los datos demo solo existen en la versión de pruebas, marcada con una franja |
 | Validez del consentimiento electrónico | Ley 527 de 1999, arts. 5, 10 y 14 | Aceptación por mensaje de datos, con registro |
-| Licencia, SOAT y revisión técnico-mecánica | Ley 769 de 2002, arts. 17 a 19, 42 y 50 a 52; Resolución 1500 de 2005 | Declaraciones del rider y del dueño; fechas de SOAT y revisión obligatorias para publicar una moto |
+| Licencia, SOAT y revisión técnico-mecánica | Ley 769 de 2002, arts. 17 a 19, 42 y 50 a 52; Resolución 1500 de 2005 | Perfil de conductor del rider (categoría y vencimiento de la licencia, comprobados contra la moto y las fechas) y declaración del dueño; licencia física revisada en el acta de entrega; fechas de SOAT y revisión obligatorias para publicar una moto |
 | Transporte público | Ley 105 de 1993; Ley 336 de 1996, arts. 5, 9 y 16 | La app no ofrece transporte ni guías; prohibido en los términos |
 | Ubicación y permisos | Política de datos de usuario de Google Play | Aviso previo al permiso; solo primer plano |
 

@@ -30,6 +30,12 @@ fun bikeDocsOk(soatUntil: String, rtmUntil: String, until: String): Boolean =
 /** Categoría de licencia que exige la moto (Resolución 1500 de 2005): A1 hasta 125 c. c., A2 para más. */
 fun licenseFor(cc: Int): String = if (cc in 1..125) "A1" else "A2"
 
+/** La licencia A2 sirve también para motos de hasta 125 c. c.; la A1, solo para esas. Las reglas exigen lo mismo. */
+fun licenseCovers(have: String, cc: Int): Boolean = have == "A2" || (have == "A1" && licenseFor(cc) == "A1")
+
+/** Años manejando moto, contados desde el año que declaró el rider. */
+fun yearsRiding(since: Int): Int = if (since <= 0) 0 else (LocalDate.now().year - since).coerceAtLeast(0)
+
 /** booked: lista de "desde|hasta" (ambos inclusive). */
 fun overlaps(booked: List<String>, from: String, to: String): Boolean =
     booked.any { val p = it.split("|"); p.size == 2 && !(to < p[0] || from > p[1]) }

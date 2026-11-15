@@ -40,8 +40,8 @@ service cloud.firestore {
     match /rate_limits/{id} {
       allow get: if signedIn() && uid() == id;
       allow create, update: if signedIn() && uid() == id
-        && request.resource.data.keys().hasOnly(['sos', 'order', 'request'])
-        && stampOk('sos', 60) && stampOk('order', 15) && stampOk('request', 15);
+        && request.resource.data.keys().hasOnly(['sos', 'order', 'request', 'friend'])
+        && stampOk('sos', 60) && stampOk('order', 15) && stampOk('request', 15) && stampOk('friend', 10);
     }
 
     // ───────── Documentos legales y aceptación trazable ─────────
@@ -51,11 +51,11 @@ service cloud.firestore {
     // los perfiles de prueba que la aceptaron no queden inválidos.
     function versionOk(docId, version) {
       let valid = {
-        'terminos': ['1.0.0'],
-        'privacidad': ['1.0.0'],
-        'ubicacion': ['1.0.0'],
+        'terminos': ['1.0.0', '1.1.0'],
+        'privacidad': ['1.0.0', '1.1.0'],
+        'ubicacion': ['1.0.0', '1.1.0'],
         'declaracion-guia': ['1.0.0'],
-        'declaracion-propietario': ['1.0.0']
+        'declaracion-propietario': ['1.0.0', '1.1.0']
       };
       return docId is string && version is string && docId in valid && version in valid[docId];
     }
@@ -142,6 +142,97 @@ service cloud.firestore {
       allow delete: if signedIn() && uid() == id;
     }
 
+    // ───────── Perfil público y amigos ─────────
+    // El perfil público (profiles) es lo único que un rider muestra a los demás: @usuario, nombre y avatar.
+    // El @usuario es único: usernames/{usuario} apunta a su dueño y solo existe mientras su perfil lo use.
+    function usernameOk(u) { return u is string && u.matches('^[a-z0-9_.]{3,20}$'); }
+    function profileShape(d) {
+      return d.keys().hasOnly(['username', 'name', 'moto', 'color', 'showStatus']) && d.keys().hasAll(['username', 'name', 'moto', 'color', 'showStatus'])
+        && usernameOk(d.username) && text(d, 'name', 60) && d.showStatus is bool
+        && d.moto in ['deportiva', 'naked', 'scooter', 'electrica', 'casco']
+        && d.color in ['orange', 'cyan', 'green', 'red', 'ink', 'amber'];
+    }
+    function friends(a, b) { return exists(path('friendships', a + '_' + b)) || exists(path('friendships', b + '_' + a)); }
+    function blockedBetween(a, b) { return exists(path('blocks', a + '_' + b)) || exists(path('blocks', b + '_' + a)); }
+
+    match /profiles/{id} {
+      allow read: if signedIn();
+      allow create: if signedIn() && uid() == id && role() == 'm' && profileShape(request.resource.data)
+        && getAfter(path('usernames', request.resource.data.username)).data.uid == uid();
+      // Cambiar de @usuario exige reservar el nuevo y liberar el anterior en el mismo lote.
+      allow update: if signedIn() && uid() == id && profileShape(request.resource.data)
+        && (request.resource.data.username == resource.data.username
+            || (getAfter(path('usernames', request.resource.data.username)).data.uid == uid()
+                && !existsAfter(path('usernames', resource.data.username))));
+      allow delete: if signedIn() && uid() == id;
+    }
+    match /usernames/{u} {
+      allow get: if signedIn();
+      allow create: if signedIn() && usernameOk(u) && request.resource.data.keys().hasOnly(['uid']) && request.resource.data.uid == uid()
+        && getAfter(path('profiles', uid())).data.username == u;
+      allow delete: if signedIn() && resource.data.uid == uid()
+        && (!existsAfter(path('profiles', uid())) || getAfter(path('profiles', uid())).data.username != u);
+    }
+
+    // Solicitud de amistad: ID "{de}_{para}". Con los datos reales de los dos perfiles, sin repetir ni invertir una
+    // pendiente, nunca entre amigos ni con bloqueos de por medio, y con límite de frecuencia.
+    match /friend_requests/{id} {
+      allow read: if signedIn() && (resource.data.from == uid() || resource.data.to == uid());
+      allow create: if signedIn()
+        && request.resource.data.from == uid() && request.resource.data.to != uid()
+        && id == uid() + '_' + request.resource.data.to
+        && request.resource.data.keys().hasOnly(['from', 'to', 'fromName', 'fromUsername', 'fromMoto', 'fromColor', 'toName', 'toUsername', 'createdAt'])
+        && request.resource.data.fromUsername == get(path('profiles', uid())).data.username
+        && request.resource.data.toUsername == get(path('profiles', request.resource.data.to)).data.username
+        && text(request.resource.data, 'fromName', 60) && str(request.resource.data, 'toName', 60)
+        && str(request.resource.data, 'fromMoto', 20) && str(request.resource.data, 'fromColor', 20) && request.resource.data.createdAt is int
+        && !friends(uid(), request.resource.data.to)
+        && !blockedBetween(uid(), request.resource.data.to)
+        && !exists(path('friend_requests', request.resource.data.to + '_' + uid()))
+        && stamped('friend');
+      // La rechaza quien la recibe o la cancela quien la envía. Aceptarla también la borra (ver friendships).
+      allow delete: if signedIn() && (resource.data.from == uid() || resource.data.to == uid());
+    }
+
+    // Amistad: ID "{a}_{b}" con a < b. Solo la crea quien recibió la solicitud, borrándola en el mismo lote.
+    function acceptOk(m) {
+      return (m[0] == uid() && exists(path('friend_requests', m[1] + '_' + uid())) && !existsAfter(path('friend_requests', m[1] + '_' + uid())))
+        || (m[1] == uid() && exists(path('friend_requests', m[0] + '_' + uid())) && !existsAfter(path('friend_requests', m[0] + '_' + uid())));
+    }
+    match /friendships/{id} {
+      allow read: if signedIn() && uid() in resource.data.members;
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['members', 'since']) && request.resource.data.since is int
+        && request.resource.data.members is list && request.resource.data.members.size() == 2
+        && request.resource.data.members[0] < request.resource.data.members[1]
+        && id == request.resource.data.members[0] + '_' + request.resource.data.members[1]
+        && acceptOk(request.resource.data.members);
+      allow delete: if signedIn() && uid() in resource.data.members;
+    }
+
+    // Bloqueo: privado de quien bloquea.
+    match /blocks/{id} {
+      allow read: if signedIn() && resource.data.blocker == uid();
+      allow create: if signedIn() && request.resource.data.blocker == uid() && request.resource.data.blocked != uid()
+        && id == uid() + '_' + request.resource.data.blocked
+        && request.resource.data.keys().hasOnly(['blocker', 'blocked', 'blockedName', 'blockedUsername', 'createdAt'])
+        && str(request.resource.data, 'blockedName', 60) && str(request.resource.data, 'blockedUsername', 20) && request.resource.data.createdAt is int;
+      allow delete: if signedIn() && resource.data.blocker == uid();
+    }
+
+    // Estado (en línea / en rodada): solo lo leen los amigos. Hora del servidor y como máximo un latido cada 30 s,
+    // salvo que cambie el estado.
+    match /status/{id} {
+      allow get: if signedIn() && (uid() == id || friends(uid(), id));
+      allow create, update: if signedIn() && uid() == id
+        && request.resource.data.keys().hasOnly(['state', 'rodada', 'updatedAt'])
+        && request.resource.data.state in ['online', 'riding'] && str(request.resource.data, 'rodada', 80)
+        && request.resource.data.updatedAt == request.time
+        && (resource == null || request.time > resource.data.updatedAt + duration.value(30, 's')
+            || request.resource.data.state != resource.data.state || request.resource.data.rodada != resource.data.rodada);
+      allow delete: if signedIn() && uid() == id;
+    }
+
     // ───────── Comercios y talleres ─────────
     function venueShape(d) {
       return text(d, 'name', 80) && str(d, 'desc', 500) && str(d, 'promo', 160)
@@ -156,7 +247,9 @@ service cloud.firestore {
         (resource.data.ownerId == uid() && request.resource.data.ownerId == uid() && venueShape(request.resource.data)
           && request.resource.data.rating == resource.data.rating && request.resource.data.reviews == resource.data.reviews)
         // Cualquier usuario suma una visita, de a una.
-        || (onlyChanges(['visits']) && request.resource.data.visits == resource.data.visits + 1)));
+        || (onlyChanges(['visits']) && request.resource.data.visits == resource.data.visits + 1)
+        // Quien publica una reseña nueva mueve el promedio, con la cuenta exacta.
+        || ratingOk(id, 'venue')));
       allow delete: if isAdmin() || (signedIn() && resource.data.ownerId == uid());
     }
 
@@ -164,6 +257,10 @@ service cloud.firestore {
     function bikeShape(d) {
       return text(d, 'name', 80) && d.pricePerDay is int && d.pricePerDay > 0 && d.pricePerDay <= 5000000
         && d.cc is int && d.cc >= 0 && d.cc <= 2500 && str(d, 'city', 60) && d.specs is list && d.specs.size() <= 10
+        // Requisitos y acuerdo de daños (fase 5). En las motos publicadas antes no existen y cuentan como cero.
+        && d.get('minYears', 0) is int && d.get('minYears', 0) >= 0 && d.get('minYears', 0) <= 30
+        && d.get('deposit', 0) is int && d.get('deposit', 0) >= 0 && d.get('deposit', 0) <= 20000000
+        && d.get('damageCap', 0) is int && d.get('damageCap', 0) >= 0 && d.get('damageCap', 0) <= 200000000
         // Una moto solo se publica como disponible con SOAT y revisión técnico-mecánica declarados.
         && (d.available != true || (isDate(d.soatUntil) && isDate(d.rtmUntil)));
     }
@@ -183,36 +280,149 @@ service cloud.firestore {
     match /bikes/{id} {
       allow read: if signedIn();
       allow create: if isAdmin() || (signedIn() && request.resource.data.ownerId == uid() && role() == 'o'
-        && bikeShape(request.resource.data) && request.resource.data.booked.size() == 0 && request.resource.data.trips == 0);
+        && bikeShape(request.resource.data) && request.resource.data.booked.size() == 0 && request.resource.data.trips == 0
+        && request.resource.data.get('reviews', 0) == 0);
       allow update: if isAdmin() || (signedIn() && (
+        // El dueño edita su moto, pero no su calificación.
         (resource.data.ownerId == uid() && request.resource.data.ownerId == uid() && bikeShape(request.resource.data)
-          && request.resource.data.rating == resource.data.rating && request.resource.data.trips == resource.data.trips)
-        || bookingOk(id)));
+          && request.resource.data.rating == resource.data.rating && request.resource.data.trips == resource.data.trips
+          && request.resource.data.get('reviews', 0) == resource.data.get('reviews', 0)
+          && request.resource.data.get('lastReview', '') == resource.data.get('lastReview', ''))
+        || bookingOk(id)
+        // Quien la rentó y publica su reseña mueve el promedio, con la cuenta exacta.
+        || ratingOk(id, 'bike')));
       allow delete: if isAdmin() || (signedIn() && resource.data.ownerId == uid());
+    }
+
+    // ───────── Perfil de conductor (renta segura) ─────────
+    // Privado: solo lo lee y lo escribe su titular. Al pedir una moto se copia en la solicitud, que solo ve el dueño de esa
+    // moto. No hay foto ni número de la licencia: el dueño la ve en físico al entregar (acta de entrega).
+    function riderProfileShape(d) {
+      return d.keys().hasOnly(['licenseCat', 'licenseUntil', 'since', 'maxCc', 'emergencyName', 'emergencyPhone', 'updatedAt'])
+        && d.licenseCat in ['A1', 'A2'] && isDate(d.licenseUntil)
+        && d.since is int && d.since >= 1950 && d.since <= request.time.year()
+        && d.maxCc is int && d.maxCc >= 0 && d.maxCc <= 2500
+        && str(d, 'emergencyName', 60) && str(d, 'emergencyPhone', 20) && d.updatedAt is int;
+    }
+    match /rider_profiles/{id} {
+      allow get: if signedIn() && uid() == id;
+      allow create, update: if signedIn() && uid() == id && role() == 'm' && riderProfileShape(request.resource.data);
+      allow delete: if signedIn() && uid() == id;
+    }
+
+    // ───────── Actas de entrega y devolución ─────────
+    // Las llena el dueño de la moto y las confirma el rider. Confirmadas no cambian ni se borran: son la prueba de cómo se
+    // entregó y se devolvió la moto. Mientras no estén confirmadas, el dueño puede borrarlas para corregirlas.
+    function actaShape(d) {
+      return d.keys().hasOnly(['reqId', 'kind', 'ownerId', 'riderId', 'bikeId', 'bikeName', 'km', 'fuel', 'condition', 'items',
+          'licenseChecked', 'testRide', 'damages', 'damageAmount', 'confirmed', 'createdAt', 'confirmedAt'])
+        && d.km is int && d.km >= 0 && d.km <= 2000000 && d.fuel is int && d.fuel >= 0 && d.fuel <= 4
+        && str(d, 'bikeName', 80) && str(d, 'condition', 500) && str(d, 'damages', 500) && d.items is list && d.items.size() <= 12
+        && d.licenseChecked is bool && d.testRide is bool && d.damageAmount is int && d.damageAmount >= 0;
+    }
+    function actaNew(id, d) {
+      let r = get(path('requests', d.reqId)).data;
+      return id == d.reqId + '_' + d.kind && d.ownerId == uid() && r.toId == uid() && d.riderId == r.fromId && d.bikeId == r.itemId
+        && d.confirmed == false && d.confirmedAt == null && d.createdAt == request.time
+        // Entrega: con la renta aceptada y la licencia física revisada. Devolución: con la renta en curso; lo que se cobra
+        // por daños no pasa del tope pactado.
+        && ((d.kind == 'entrega' && r.status == 'ok' && d.licenseChecked == true && d.damageAmount == 0 && d.damages == '')
+          || (d.kind == 'devolucion' && r.status == 'ride' && (r.get('damageCap', 0) == 0 || d.damageAmount <= r.damageCap)));
+    }
+    match /actas/{id} {
+      allow read: if signedIn() && (resource.data.ownerId == uid() || resource.data.riderId == uid());
+      allow create: if signedIn() && actaShape(request.resource.data) && actaNew(id, request.resource.data);
+      allow update: if signedIn() && resource.data.riderId == uid() && resource.data.confirmed == false
+        && onlyChanges(['confirmed', 'confirmedAt']) && request.resource.data.confirmed == true && request.resource.data.confirmedAt == request.time;
+      allow delete: if signedIn() && resource.data.ownerId == uid() && resource.data.confirmed == false;
     }
 
     // Los perfiles de guía (colección drivers) se retiraron el 2026-11-15: quedan cerrados como cualquier colección no declarada.
 
     // ───────── Rodadas ─────────
-    // Unirse o salir: solo cambia la propia presencia en `joined`, y no se pasa de los cupos.
-    function joinOk() {
-      let a = request.resource.data.joined.toSet();
-      let b = resource.data.joined.toSet();
-      return onlyChanges(['joined'])
-        && ((a.difference(b) == [uid()].toSet() && b.difference(a).size() == 0 && request.resource.data.joined.size() <= resource.data.seats)
-          || (b.difference(a) == [uid()].toSet() && a.difference(b).size() == 0));
-    }
+    // Cada quien va en su moto; seats = máximo de motos. Una rodada "friends" solo la ven sus invitados y miembros.
+    // El creador aprueba solicitudes, invita amigos (de a uno), quita miembros y elige al líder y a quien cierra el grupo.
     function rodadaShape(d) {
       return text(d, 'name', 80) && text(d, 'meet', 160) && str(d, 'whenLabel', 40) && str(d, 'captain', 40) && str(d, 'style', 20)
-        && d.seats is int && d.seats >= 2 && d.seats <= 40 && d.joined is list && d.joined.size() <= d.seats;
+        && d.seats is int && d.seats >= 2 && d.seats <= 40
+        && d.joined is list && d.joined.size() <= d.seats && d.pending is list && d.pending.size() <= 40
+        && d.invited is list && d.invited.size() <= 100 && str(d, 'lastInvited', 128)
+        && d.visibility in ['public', 'friends'] && d.approval is bool
+        && d.status in ['planned', 'active', 'done'] && str(d, 'routeName', 160) && d.stops is list && d.stops.size() <= 30
+        && str(d, 'leaderId', 128) && str(d, 'sweeperId', 128)
+        && (d.leaderId == '' || d.leaderId in d.joined) && (d.sweeperId == '' || d.sweeperId in d.joined)
+        && (d.startedAt == null || d.startedAt is timestamp) && (d.endedAt == null || d.endedAt is timestamp);
+    }
+    function canSee(d) { return d.visibility == 'public' || uid() in d.joined || uid() in d.invited || uid() in d.pending || d.creatorId == uid(); }
+    function addsMe(after, before) { return after.toSet().difference(before.toSet()) == [uid()].toSet() && before.toSet().difference(after.toSet()).size() == 0; }
+    function removesMe(after, before) { return before.toSet().difference(after.toSet()) == [uid()].toSet() && after.toSet().difference(before.toSet()).size() == 0; }
+    function addsOne(after, before) { return after.toSet().difference(before.toSet()).size() == 1 && before.toSet().difference(after.toSet()).size() == 0; }
+    function removesOne(after, before) { return before.toSet().difference(after.toSet()).size() == 1 && after.toSet().difference(before.toSet()).size() == 0; }
+    // planned → active (hora del servidor) → done; también se puede cancelar una planeada.
+    function rodadaStatusOk(d, o) {
+      return (d.status == o.status && d.startedAt == o.startedAt && d.endedAt == o.endedAt)
+        || (o.status == 'planned' && d.status == 'active' && d.startedAt == request.time && d.endedAt == o.endedAt)
+        || (o.status in ['planned', 'active'] && d.status == 'done' && d.endedAt == request.time && d.startedAt == o.startedAt);
+    }
+    function rodadaMembersOk(d, o) {
+      let j = d.joined.toSet(); let jo = o.joined.toSet();
+      let p = d.pending.toSet(); let po = o.pending.toSet();
+      let i = d.invited.toSet(); let io = o.invited.toSet();
+      return o.creatorId in d.joined && (
+        (j == jo && p == po && i == io)
+        // Aprobar: alguien pasa de pendiente a miembro.
+        || (addsOne(d.joined, o.joined) && removesOne(d.pending, o.pending) && po.difference(p) == j.difference(jo) && i == io)
+        // Rechazar una solicitud.
+        || (j == jo && removesOne(d.pending, o.pending) && i == io)
+        // Quitar a un miembro (nunca al creador, que queda en joined).
+        || (removesOne(d.joined, o.joined) && p == po && i == io)
+        // Invitar a un amigo, de a uno.
+        || (j == jo && p == po && i.difference(io) == [d.lastInvited].toSet() && io.difference(i).size() == 0 && friends(uid(), d.lastInvited)));
+    }
+    function rodadaCreatorEdit() {
+      let d = request.resource.data; let o = resource.data;
+      return o.creatorId == uid() && d.creatorId == uid() && rodadaShape(d) && rodadaStatusOk(d, o) && rodadaMembersOk(d, o);
+    }
+    function rodadaMemberAction() {
+      let d = request.resource.data; let o = resource.data;
+      return o.creatorId != uid() && o.status != 'done' && (
+        // Unirse directo: rodada sin aprobación, o con invitación.
+        (onlyChanges(['joined', 'pending']) && canSee(o) && (o.approval == false || uid() in o.invited)
+          && addsMe(d.joined, o.joined) && d.joined.size() <= o.seats && d.pending.toSet() == o.pending.toSet().difference([uid()].toSet()))
+        // Pedir unirse.
+        || (onlyChanges(['pending']) && canSee(o) && o.approval == true && !(uid() in o.joined) && addsMe(d.pending, o.pending) && d.pending.size() <= 40)
+        // Retirar la solicitud o rechazar la invitación.
+        || (onlyChanges(['pending']) && removesMe(d.pending, o.pending))
+        || (onlyChanges(['invited']) && removesMe(d.invited, o.invited))
+        // Salir. Si era el líder, el liderazgo vuelve al creador; si cerraba el grupo, el puesto queda libre.
+        || (onlyChanges(['joined', 'leaderId', 'sweeperId']) && removesMe(d.joined, o.joined)
+          && (d.leaderId == o.leaderId || (o.leaderId == uid() && d.leaderId == o.creatorId))
+          && (d.sweeperId == o.sweeperId || (o.sweeperId == uid() && d.sweeperId == '')))
+      );
     }
     match /rodadas/{id} {
-      allow read: if signedIn();
+      allow read: if signedIn() && canSee(resource.data);
       allow create: if isAdmin() || (signedIn() && request.resource.data.creatorId == uid() && rodadaShape(request.resource.data)
-        && request.resource.data.joined == [uid()]);
-      allow update: if isAdmin() || (signedIn() && (
-        (resource.data.creatorId == uid() && request.resource.data.creatorId == uid() && rodadaShape(request.resource.data)) || joinOk()));
+        && request.resource.data.joined == [uid()] && request.resource.data.pending.size() == 0 && request.resource.data.invited.size() == 0
+        && request.resource.data.leaderId == uid() && request.resource.data.sweeperId == '' && request.resource.data.status == 'planned'
+        && request.resource.data.startedAt == null && request.resource.data.endedAt == null);
+      allow update: if isAdmin() || (signedIn() && (rodadaCreatorEdit() || rodadaMemberAction()));
       allow delete: if isAdmin() || (signedIn() && resource.data.creatorId == uid());
+    }
+
+    // Mapa del grupo: posición en vivo de cada miembro mientras la rodada está activa (y como mucho 12 h desde que empezó).
+    // La leen solo los miembros. Hora del servidor y como mucho una escritura cada 8 s. El creador borra todas al terminar.
+    function liveRodada(rid) { return get(path('rodadas', rid)).data; }
+    match /rodadas/{rid}/live/{member} {
+      allow read: if signedIn() && uid() in liveRodada(rid).joined && liveRodada(rid).status == 'active';
+      allow create, update: if signedIn() && uid() == member && uid() in liveRodada(rid).joined && liveRodada(rid).status == 'active'
+        && request.time < liveRodada(rid).startedAt + duration.value(12, 'h')
+        && request.resource.data.keys().hasOnly(['lat', 'lng', 'heading', 'name', 'moto', 'color', 'sos', 'updatedAt'])
+        && coords(request.resource.data) && request.resource.data.heading is number && request.resource.data.sos is bool
+        && text(request.resource.data, 'name', 60) && str(request.resource.data, 'moto', 20) && str(request.resource.data, 'color', 20)
+        && request.resource.data.updatedAt == request.time
+        && (resource == null || request.time > resource.data.updatedAt + duration.value(8, 's'));
+      allow delete: if signedIn() && (uid() == member || liveRodada(rid).creatorId == uid());
     }
 
     // ───────── Pedidos ─────────
@@ -225,6 +435,10 @@ service cloud.firestore {
         && request.resource.data.total is int && request.resource.data.total >= 0
         && str(request.resource.data, 'note', 300) && str(request.resource.data, 'eta', 20)
         && text(request.resource.data, 'fromName', 60) && str(request.resource.data, 'venueName', 80)
+        // Hora a la que el rider lo quiere listo: entre ahora y 12 horas (0 = sin hora).
+        && request.resource.data.readyAt is int
+        && (request.resource.data.readyAt == 0 || (request.resource.data.readyAt >= request.time.toMillis() - 300000
+            && request.resource.data.readyAt <= request.time.toMillis() + 43200000))
         && stamped('order');
       allow update: if signedIn() && onlyChanges(['status']) && (
         // El comercio avanza el pedido paso a paso.
@@ -237,14 +451,34 @@ service cloud.firestore {
     }
 
     // ───────── Solicitudes de renta ─────────
+    // El rider pide con su perfil de conductor (copiado tal cual) y acepta el acuerdo de daños que publicó el dueño.
     function rentOk(d) {
       let b = get(path('bikes', d.itemId)).data;
+      let p = get(path('rider_profiles', uid())).data;
       return d.toId == b.ownerId && b.available == true
-        && (d.status == 'p' || (d.status == 'ok' && b.instant == true))
+        && (d.status == 'p' || (d.status == 'ok' && b.instant == true && historyOk(d)))
         && isDate(d.dateFrom) && isDate(d.dateTo) && d.dateFrom <= d.dateTo
-        // SOAT y revisión vigentes hasta el último día, y declaración de licencia del rider.
+        // SOAT y revisión vigentes hasta el último día.
         && isDate(b.soatUntil) && isDate(b.rtmUntil) && b.soatUntil >= d.dateTo && b.rtmUntil >= d.dateTo
-        && d.licenseDeclared == true && d.licenseCat in ['A1', 'A2'];
+        // Licencia: la del perfil, vigente hasta el último día y de la categoría que pide la moto (la A2 sirve para todas).
+        && d.licenseDeclared == true && d.licenseCat == p.licenseCat && d.licenseUntil == p.licenseUntil && d.licenseUntil >= d.dateTo
+        && (d.licenseCat == 'A2' || (b.cc >= 1 && b.cc <= 125))
+        // Experiencia mínima que pide el dueño, y el resto del perfil sin cambios.
+        && d.riderSince == p.since && d.riderMaxCc == p.maxCc && request.time.year() - p.since >= b.get('minYears', 0)
+        && d.emergencyName == p.emergencyName && d.emergencyPhone == p.emergencyPhone
+        // Acuerdo de daños: exactamente el que está publicado en la moto.
+        && d.damageAccepted == true && d.deposit == b.get('deposit', 0) && d.damageCap == b.get('damageCap', 0)
+        && d.ownerCancel == '';
+    }
+    // Reserva inmediata solo con historial: el rider muestra una renta suya ya terminada.
+    function historyOk(d) {
+      let prev = get(path('requests', d.prevReq)).data;
+      return prev.fromId == uid() && prev.status == 'fin' && prev.type == 'rent';
+    }
+    // Al cerrar una solicitud se borra el contacto de emergencia (las solicitudes de antes de la fase 5 no lo tienen).
+    function closes(keys) {
+      return onlyChanges(keys.concat(['emergencyName', 'emergencyPhone']))
+        && request.resource.data.get('emergencyName', '') == '' && request.resource.data.get('emergencyPhone', '') == '';
     }
     match /requests/{id} {
       allow read: if signedIn() && (resource.data.fromId == uid() || resource.data.toId == uid());
@@ -255,15 +489,57 @@ service cloud.firestore {
         && request.resource.data.type == 'rent' && rentOk(request.resource.data)
         && stamped('request');
       allow update: if signedIn() && (
-        // El dueño avanza el estado paso a paso.
-        (resource.data.toId == uid() && onlyChanges(['status']) && (
-          (resource.data.status == 'p' && request.resource.data.status in ['ok', 'no'])
-          || (resource.data.status == 'ok' && request.resource.data.status == 'ride')
-          || (resource.data.status == 'ride' && request.resource.data.status == 'fin')))
+        // El dueño acepta una solicitud pendiente (las fechas se apartan en el mismo lote).
+        (resource.data.toId == uid() && onlyChanges(['status']) && resource.data.status == 'p' && request.resource.data.status == 'ok')
+        // El dueño la rechaza, o cancela en la entrega (antes de que empiece la renta) diciendo por qué.
+        || (resource.data.toId == uid() && resource.data.status in ['p', 'ok'] && request.resource.data.status == 'no'
+          && closes(['status', 'ownerCancel']) && request.resource.data.ownerCancel in ['', 'licencia', 'prueba', 'otro'])
+        // La renta empieza con el acta de entrega confirmada por el rider, y termina con la de devolución confirmada.
+        || ((resource.data.toId == uid() || resource.data.fromId == uid()) && resource.data.status == 'ok' && request.resource.data.status == 'ride'
+          && onlyChanges(['status']) && getAfter(path('actas', id + '_entrega')).data.confirmed == true)
+        || ((resource.data.toId == uid() || resource.data.fromId == uid()) && resource.data.status == 'ride' && request.resource.data.status == 'fin'
+          && closes(['status']) && getAfter(path('actas', id + '_devolucion')).data.confirmed == true)
         // Quien solicitó cancela o ejerce el retracto antes de que el servicio empiece.
-        || (resource.data.fromId == uid() && onlyChanges(['status', 'cancelKind', 'cancelledAt'])
+        || (resource.data.fromId == uid() && closes(['status', 'cancelKind', 'cancelledAt'])
           && resource.data.status in ['p', 'ok'] && request.resource.data.status == 'can'
           && request.resource.data.cancelKind in ['retracto', 'cancelacion'] && request.resource.data.cancelledAt is int));
+    }
+
+    // ───────── Reseñas ─────────
+    // Una por servicio terminado (ID "{tipo}_{servicio}"), escrita por quien lo usó: estrellas de 1 a 5 y comentario opcional
+    // de 200 caracteres. Son públicas, salvo las que los dueños hacen de un rider (las ven los dueños y el propio rider).
+    function reviewShape(d) {
+      return d.keys().hasOnly(['kind', 'serviceId', 'targetType', 'targetId', 'authorId', 'authorName', 'stars', 'comment', 'createdAt'])
+        && d.authorId == uid() && text(d, 'authorName', 60) && d.stars is int && d.stars >= 1 && d.stars <= 5
+        && str(d, 'comment', 200) && d.createdAt is int && text(d, 'serviceId', 128) && text(d, 'targetId', 128);
+    }
+    function reviewOk(d) {
+      return (d.kind == 'order' && d.targetType == 'venue' && get(path('orders', d.serviceId)).data.fromId == uid()
+          && get(path('orders', d.serviceId)).data.status == 'done' && get(path('orders', d.serviceId)).data.venueId == d.targetId)
+        || (d.kind == 'sos' && d.targetType == 'venue' && get(path('sos', d.serviceId)).data.fromId == uid()
+          && get(path('sos', d.serviceId)).data.status == 'fin' && get(path('sos', d.serviceId)).data.providerVenueId == d.targetId)
+        // Renta terminada: el rider califica la moto y el dueño califica al rider (calificación mutua).
+        || (d.kind == 'rent' && d.targetType == 'bike' && get(path('requests', d.serviceId)).data.fromId == uid()
+          && get(path('requests', d.serviceId)).data.status == 'fin' && get(path('requests', d.serviceId)).data.itemId == d.targetId)
+        || (d.kind == 'renter' && d.targetType == 'rider' && get(path('requests', d.serviceId)).data.toId == uid()
+          && get(path('requests', d.serviceId)).data.status == 'fin' && get(path('requests', d.serviceId)).data.fromId == d.targetId);
+    }
+    // El promedio (rating, reviews) de un comercio, taller o moto solo cambia junto con una reseña nueva de ese destino.
+    function ratingOk(id, type) {
+      let rid = request.resource.data.lastReview;
+      let r = getAfter(path('reviews', rid)).data;
+      let n = request.resource.data.reviews;
+      return onlyChanges(['rating', 'reviews', 'lastReview']) && !exists(path('reviews', rid))
+        && r.authorId == uid() && r.targetType == type && r.targetId == id
+        && n == resource.data.get('reviews', 0) + 1
+        && math.abs(request.resource.data.rating * n - resource.data.get('rating', 5.0) * (n - 1) - r.stars) < 0.01;
+    }
+    match /reviews/{id} {
+      allow read: if signedIn() && (resource.data.targetType != 'rider' || resource.data.targetId == uid() || resource.data.authorId == uid() || role() == 'o');
+      allow create: if isAdmin() || (signedIn() && reviewShape(request.resource.data)
+        && id == request.resource.data.kind + '_' + request.resource.data.serviceId && reviewOk(request.resource.data));
+      // Al eliminar su cuenta, la persona borra sus reseñas (llevan su nombre).
+      allow delete: if isAdmin() || (signedIn() && resource.data.authorId == uid());
     }
 
     // ───────── Cupones ─────────
@@ -280,31 +556,48 @@ service cloud.firestore {
     // ───────── S.O.S. ─────────
     // Las coordenadas del rider solo las ven: él mismo, los talleres mientras el S.O.S. busca taller y, después,
     // el taller que lo aceptó. Al terminar o cancelar, las coordenadas se borran (deben quedar en cero).
+    function provGone(d) { return zero(d.get('providerLat', 0)) && zero(d.get('providerLng', 0)); }
+    // S.O.S. en una moto rentada: solo con una renta en curso del mismo rider. Lo ve también el dueño de esa moto.
+    function rentalSosOk(d) {
+      return (d.get('rentalReq', '') == '' && d.get('rentalOwnerId', '') == '')
+        || (get(path('requests', d.rentalReq)).data.fromId == uid() && get(path('requests', d.rentalReq)).data.status == 'ride'
+          && get(path('requests', d.rentalReq)).data.toId == d.rentalOwnerId);
+    }
     match /sos/{id} {
       allow read: if signedIn() && (resource.data.fromId == uid() || resource.data.providerId == uid()
-        || (resource.data.status == 'new' && role() == 't'));
+        || (resource.data.status == 'new' && role() == 't') || resource.data.rentalOwnerId == uid());
       allow create: if signedIn() && request.resource.data.fromId == uid() && request.resource.data.status == 'new'
         && request.resource.data.providerId == '' && request.resource.data.providerName == ''
         && request.resource.data.kind in ['flat', 'battery', 'fuel', 'tow', 'mech']
         && request.resource.data.price is int && request.resource.data.price >= 0 && coords(request.resource.data)
         && text(request.resource.data, 'locationText', 200) && str(request.resource.data, 'note', 300) && text(request.resource.data, 'fromName', 60)
+        && rentalSosOk(request.resource.data)
         && stamped('sos');
       allow update: if signedIn() && (
-        // El rider cancela mientras no lo estén atendiendo.
-        (resource.data.fromId == uid() && onlyChanges(['status', 'lat', 'lng', 'doneAt'])
+        // El rider cancela mientras no lo estén atendiendo (se borran sus coordenadas y las del taller).
+        (resource.data.fromId == uid() && onlyChanges(['status', 'lat', 'lng', 'doneAt', 'providerLat', 'providerLng'])
           && resource.data.status in ['new', 'ok', 'go'] && request.resource.data.status == 'no'
-          && zero(request.resource.data.lat) && zero(request.resource.data.lng))
-        // Un taller (nunca el mismo rider) lo acepta a su nombre.
+          && zero(request.resource.data.lat) && zero(request.resource.data.lng) && provGone(request.resource.data))
+        // Un taller (nunca el mismo rider) lo acepta a su nombre y con su propio taller.
         || (resource.data.status == 'new' && request.resource.data.status == 'ok' && resource.data.fromId != uid() && role() == 't'
-          && request.resource.data.providerId == uid() && onlyChanges(['status', 'providerId', 'providerName', 'eta', 'acceptedAt']))
-        // El taller asignado avanza, termina (borrando coordenadas) o lo libera.
+          && request.resource.data.providerId == uid() && onlyChanges(['status', 'providerId', 'providerName', 'eta', 'acceptedAt', 'providerVenueId'])
+          && get(path('venues', request.resource.data.providerVenueId)).data.ownerId == uid())
+        // El taller asignado muestra dónde va mientras va en camino: solo él, con la hora del servidor y como mucho cada 8 s.
+        || (resource.data.providerId == uid() && resource.data.status in ['ok', 'go'] && onlyChanges(['providerLat', 'providerLng', 'providerAt'])
+          && request.resource.data.providerLat is number && request.resource.data.providerLat >= -90 && request.resource.data.providerLat <= 90
+          && request.resource.data.providerLng is number && request.resource.data.providerLng >= -180 && request.resource.data.providerLng <= 180
+          && request.resource.data.providerAt == request.time
+          && (resource.data.get('providerAt', null) == null || request.time > resource.data.providerAt + duration.value(8, 's')))
+        // El taller asignado avanza, llega (borrando su ubicación), termina (borrando todas las coordenadas) o lo libera.
         || (resource.data.providerId == uid() && (
-          (onlyChanges(['status']) && ((resource.data.status == 'ok' && request.resource.data.status == 'go')
-            || (resource.data.status == 'go' && request.resource.data.status == 'site')))
-          || (onlyChanges(['status', 'doneAt', 'lat', 'lng']) && resource.data.status == 'site' && request.resource.data.status == 'fin'
-            && zero(request.resource.data.lat) && zero(request.resource.data.lng))
-          || (onlyChanges(['status', 'providerId', 'providerName', 'eta']) && resource.data.status == 'ok' && request.resource.data.status == 'new'
-            && request.resource.data.providerId == ''))));
+          (onlyChanges(['status']) && resource.data.status == 'ok' && request.resource.data.status == 'go')
+          || (onlyChanges(['status', 'providerLat', 'providerLng']) && resource.data.status == 'go' && request.resource.data.status == 'site'
+            && provGone(request.resource.data))
+          || (onlyChanges(['status', 'doneAt', 'lat', 'lng', 'providerLat', 'providerLng']) && resource.data.status == 'site' && request.resource.data.status == 'fin'
+            && zero(request.resource.data.lat) && zero(request.resource.data.lng) && provGone(request.resource.data))
+          || (onlyChanges(['status', 'providerId', 'providerName', 'eta', 'providerVenueId', 'providerLat', 'providerLng']) && resource.data.status == 'ok'
+            && request.resource.data.status == 'new' && request.resource.data.providerId == '' && request.resource.data.get('providerVenueId', '') == ''
+            && provGone(request.resource.data)))));
     }
 
     // ───────── Chat ─────────

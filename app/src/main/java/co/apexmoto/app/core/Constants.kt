@@ -1,7 +1,6 @@
 package co.apexmoto.app.core
 
 data class Corridor(val key: String, val name: String, val lat: Double, val lng: Double)
-data class Plan(val key: String, val name: String, val perDay: Long, val desc: String)
 data class Extra(val key: String, val name: String, val price: Long)
 data class SosKind(val key: String, val name: String, val price: Long)
 
@@ -39,11 +38,15 @@ object C {
     val CHEAP = setOf("barato", "economico", "ahorrar", "economica")
 
     val MENU_CATS = listOf("Entradas", "Platos fuertes", "Bebidas", "Postres", "Servicios")
-    val PLANS = listOf(
-        Plan("b", "Básica", 0, "Cobertura obligatoria"),
-        Plan("s", "Estándar", 30000, "Reduce responsabilidad por daños"),
-        Plan("p", "Premium", 55000, "Cero responsabilidad"),
-    )
+    // Los planes de "protección" (Básica, Estándar, Premium) se retiraron en la fase 5: no los respaldaba ninguna
+    // aseguradora. En su lugar cada moto tiene un acuerdo de daños (depósito y tope) que fija el dueño.
+
+    /** Nivel de gasolina en las actas, en cuartos de tanque. */
+    val FUEL = listOf("Reserva", "1/4", "1/2", "3/4", "Lleno")
+    /** Lo que se puede entregar con la moto (acta de entrega y de devolución). */
+    val ACTA_ITEMS = listOf("Llaves", "Casco", "Copia de SOAT y revisión", "Copia de la tarjeta de propiedad", "Maletas", "Kit de carretera")
+    /** Por qué el dueño cancela en la entrega. */
+    val OWNER_CANCEL = listOf("licencia" to "No presentó la licencia, o no es de la categoría o está vencida", "prueba" to "No pasó la prueba de manejo", "otro" to "Otro motivo (lo explico en el chat)")
     val EXTRAS = listOf(Extra("casco", "Casco extra", 12000), Extra("maletas", "Maletas laterales", 25000), Extra("gps", "Soporte GPS", 8000), Extra("intercom", "Intercom", 20000))
     val SOS_KINDS = listOf(SosKind("flat", "Pinchazo", 35000), SosKind("battery", "Batería", 45000), SosKind("fuel", "Sin gasolina", 25000), SosKind("tow", "Remolque", 120000), SosKind("mech", "Falla mecánica", 60000))
     // Todos los precios de la app están en pesos colombianos (COP).

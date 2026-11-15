@@ -58,7 +58,7 @@ import co.apexmoto.app.ui.theme.*
 /** Inicia el guiado dentro de la app hacia uno o varios comercios. */
 fun startGuide(vm: AppViewModel, nav: NavController, title: String, vs: List<Venue>) {
     vs.forEach { v -> vm.act { vm.repo.addVisit(v.id) } }
-    vm.navSession = NavSession(title, vs.map { NavStop(it.name, it.lat, it.lng) })
+    vm.navSession = NavSession(title, vs.map { NavStop(it.name, it.lat, it.lng, it.id) })
     nav.navigate("navigate")
 }
 
@@ -148,7 +148,7 @@ fun VenuesScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
                                     Text(v.name, style = MaterialTheme.typography.titleMedium.copy(fontSize = 17.sp, fontWeight = FontWeight.ExtraBold), maxLines = 1, overflow = TextOverflow.Ellipsis)
                                     Lbl("${v.kind} · Km ${v.km}", CyanDeep)
                                 }
-                                Box(Modifier.align(Alignment.BottomEnd).padding(end = 14.dp, bottom = 12.dp)) { Stars(v.rating) }
+                                Box(Modifier.align(Alignment.BottomEnd).padding(end = 14.dp, bottom = 12.dp)) { if (v.reviews > 0) Stars(v.rating) else Pill("Nuevo", CyanSoft, CyanDeep) }
                             }
                             Column(Modifier.padding(start = 14.dp, end = 14.dp, bottom = 14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                                 if (v.promo.isNotBlank()) IconLine(Icons.Filled.LocalOffer, v.promo)
@@ -172,7 +172,7 @@ fun VenuesScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
         Sheet({ detail = null }) {
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { Pill(v.badge, venueBadge(v), Color.White); if (!v.open) Pill("Cerrado", RedSoft, Red) }
             Text(v.name, fontFamily = Chivo, fontWeight = FontWeight.Black, fontSize = 24.sp, lineHeight = 28.sp)
-            Row(verticalAlignment = Alignment.CenterVertically) { Stars(v.rating); Spacer(Modifier.width(10.dp)); Lbl("${v.reviews} reseñas · ${v.kind} · Km ${v.km}") }
+            Row(verticalAlignment = Alignment.CenterVertically) { RatingLine(v.rating, v.reviews); Spacer(Modifier.width(10.dp)); Lbl("${v.kind} · Km ${v.km}") }
             if (v.desc.isNotBlank()) Text(v.desc, style = MaterialTheme.typography.bodyLarge)
             if (v.promo.isNotBlank()) IconLine(Icons.Filled.LocalOffer, v.promo)
             val preview = v.menu.filter { it.on }.take(5)
@@ -180,6 +180,8 @@ fun VenuesScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
                 Lbl(if ("moto" in v.types) "Servicios" else "Del menú")
                 preview.forEach { m -> Row(verticalAlignment = Alignment.CenterVertically) { Text(m.name, Modifier.weight(1f)); Num(cop(m.price), OrangeDark, 14) } }
             }
+            H("Reseñas", Icons.Filled.Star)
+            ReviewsList(vm, "venue", v.id)
             Btn("Guiar en la app", Modifier.fillMaxWidth(), Icons.Filled.Navigation, enabled = v.lat != 0.0) { detail = null; startGuide(vm, nav, v.name, listOf(v)) }
             GoogleMapsButton(Modifier.fillMaxWidth(), enabled = v.lat != 0.0) { openInGoogleMaps(ctx, v.lat, v.lng) }
             if (canOrder) Btn("Ver menú y pedir", Modifier.fillMaxWidth(), Icons.Filled.RestaurantMenu, kind = BK.Ghost) { detail = null; nav.navigate("menu/${v.id}") }
@@ -202,8 +204,13 @@ fun MenuScreen(vm: AppViewModel, nav: NavController, u: AppUser, venueId: String
     val venues by vm.venues.collectAsState()
     val v = venues.firstOrNull { it.id == venueId }
     val cart: SnapshotStateMap<String, Int> = remember { mutableStateMapOf() }
-    var eta by remember { mutableStateOf("30 min") }
     var note by remember { mutableStateOf("") }
+    val ctx = LocalContext.current
+    // Hora a la que el rider quiere el pedido listo. Si viene del guiado, nunca antes de su hora estimada de llegada.
+    val now0 = remember { System.currentTimeMillis() }
+    val arrival = vm.arrivals[venueId]
+    val minReady = maxOf(now0 + 10 * 60_000L, arrival ?: 0L)
+    var readyAt by remember { mutableLongStateOf(if (arrival != null) minReady else now0 + 30 * 60_000L) }
     if (v == null) { Screen { Empty("Cargando menú…") }; return }
     val items = v.menu.filter { it.on && it.cat != "Servicios" }
     val lines = items.filter { (cart[it.id] ?: 0) > 0 }.map { OrderItem(it.name, cart[it.id]!!, it.price) }
@@ -240,10 +247,29 @@ fun MenuScreen(vm: AppViewModel, nav: NavController, u: AppUser, venueId: String
                 }
                 if (items.isEmpty()) Empty("Este comercio aún no publica su menú.", Icons.Filled.RestaurantMenu)
                 Card2 {
-                    Lbl("¿En cuánto llegas?")
+                    Lbl("¿Para qué hora lo quieres listo?")
+                    if (arrival != null) IconLine(Icons.Filled.Navigation, "Según tu ruta llegas a eso de las ${hhmm(arrival)}", CyanDeep, bold = false)
                     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        listOf("15 min", "30 min", "45 min", "1 h", "2 h").forEach { t -> Chip(t, eta == t, accent = Cyan) { eta = t } }
+                        if (arrival != null) Chip("Cuando llegue", kotlin.math.abs(readyAt - minReady) < 60_000, accent = Cyan) { readyAt = minReady }
+                        listOf(15 to "15 min", 30 to "30 min", 45 to "45 min", 60 to "1 h", 90 to "1 h 30", 120 to "2 h").forEach { (m, label) ->
+                            val t = now0 + m * 60_000L
+                            if (t >= minReady) Chip(label, kotlin.math.abs(readyAt - t) < 60_000, accent = Cyan) { readyAt = t }
+                        }
+                        Chip("Otra hora", false, Icons.Filled.Schedule, accent = Cyan) {
+                            val cal = java.util.Calendar.getInstance().apply { timeInMillis = readyAt }
+                            android.app.TimePickerDialog(ctx, { _, h, m ->
+                                val c = java.util.Calendar.getInstance().apply { set(java.util.Calendar.HOUR_OF_DAY, h); set(java.util.Calendar.MINUTE, m); set(java.util.Calendar.SECOND, 0) }
+                                var t = c.timeInMillis
+                                if (t < System.currentTimeMillis()) t += 86_400_000L
+                                when {
+                                    t < minReady -> vm.toast("Elige una hora desde las ${hhmm(minReady)}.")
+                                    t > System.currentTimeMillis() + 12 * 3_600_000L -> vm.toast("Elige una hora dentro de las próximas 12 horas.")
+                                    else -> readyAt = t
+                                }
+                            }, cal.get(java.util.Calendar.HOUR_OF_DAY), cal.get(java.util.Calendar.MINUTE), false).show()
+                        }
                     }
+                    Row(verticalAlignment = Alignment.Bottom) { Lbl("Listo a las "); Spacer(Modifier.width(4.dp)); Num(hhmm(readyAt), OrangeDark, 18) }
                     Field("Nota para el comercio (opcional)", note, { note = it }, hint = "Ej: sin cebolla, vamos 3 motos")
                 }
                 Spacer(Modifier.height(4.dp))
@@ -252,7 +278,8 @@ fun MenuScreen(vm: AppViewModel, nav: NavController, u: AppUser, venueId: String
         BottomBar {
             Column(Modifier.weight(1f)) { Lbl("${lines.sumOf { it.qty }} producto(s)"); Num(cop(animatedMoney(total)), Ink, 20) }
             Btn("Enviar pedido", icon = Icons.AutoMirrored.Filled.Send, enabled = lines.isNotEmpty()) {
-                vm.act("¡Pedido enviado! El comercio lo está revisando") { vm.repo.placeOrder(v, u, lines, eta, note) }
+                val t = readyAt.coerceAtLeast(System.currentTimeMillis() + 5 * 60_000L)
+                vm.act("¡Pedido enviado para las ${hhmm(t)}!") { vm.repo.placeOrder(v, u, lines, hhmm(t), t, note) }
                 nav.popBackStack()
             }
         }

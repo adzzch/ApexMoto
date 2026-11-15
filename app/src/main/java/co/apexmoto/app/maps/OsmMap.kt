@@ -23,7 +23,14 @@ import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.Polyline
 import kotlin.math.abs
 
-data class MapMarker(val id: String, val pos: LatLng, val title: String, val snippet: String = "")
+/**
+ * Marcador del mapa. Con color (#RRGGBB) se dibuja como un círculo de ese color con borde (ring, blanco si no se indica):
+ * así se ven los miembros de una rodada y el taller que va en camino. Sin color, usa el pin por defecto.
+ */
+data class MapMarker(
+    val id: String, val pos: LatLng, val title: String, val snippet: String = "",
+    val color: String? = null, val ring: String? = null, val sizePx: Int = 54,
+)
 
 /** Control del mapa desde fuera del composable (mover, ajustar a una ruta, seguir al usuario). */
 class OsmMapState {
@@ -121,7 +128,13 @@ fun OsmMap(
                 v.overlays.add(Marker(v).apply {
                     position = GeoPoint(m.pos.latitude, m.pos.longitude)
                     title = m.title; snippet = m.snippet
-                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                    if (m.color != null) {
+                        icon = GradientDrawable().apply {
+                            shape = GradientDrawable.OVAL; setColor(AColor.parseColor(m.color))
+                            setStroke(if (m.ring != null) 9 else 6, AColor.parseColor(m.ring ?: "#FFFFFF")); setSize(m.sizePx, m.sizePx)
+                        }
+                        setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                    } else setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
                     setOnMarkerClickListener { mk, _ -> if (onMarkerClick != null) onMarkerClick(m.id) else mk.showInfoWindow(); true }
                 })
             }

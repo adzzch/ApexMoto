@@ -103,6 +103,8 @@ fun WorkshopDashboard(vm: AppViewModel, nav: NavController, u: AppUser) {
             StatCard("${done.size}", "Atendidos", Modifier.weight(1f), Green, 3)
             StatCard(cop(done.sumOf { it.price }), "Ingresos S.O.S.", Modifier.weight(1f), OrangeDark, 4)
         }
+        H("Reseñas", Icons.Filled.Star)
+        Card2 { RatingLine(v.rating, v.reviews); ReviewsList(vm, "venue", v.id) }
         active.firstOrNull()?.let { s ->
             H("Atención en curso", Icons.Filled.Build)
             Card2(index = 5, border = CyanSoft, onClick = { nav.navigate("tsos") }) {
@@ -128,6 +130,22 @@ fun WorkshopSosScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
     val v = myShop(vm, u)
     val all by vm.sos.collectAsState()
     var tab by rememberSaveable { mutableStateOf("new") }
+    // Mostrarle al rider dónde va el taller exige el aviso de ubicación aceptado y el permiso de Android.
+    var hasPerm by remember { mutableStateOf(vm.container.location.hasPermission()) }
+    var pendingShare by remember { mutableStateOf<String?>(null) }
+    val perms = arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION, android.Manifest.permission.ACCESS_COARSE_LOCATION)
+    val launcher = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestMultiplePermissions()) {
+        hasPerm = vm.container.location.hasPermission()
+        pendingShare?.let { if (hasPerm && vm.locationConsented) vm.startSosSharing(it) }
+        pendingShare = null
+    }
+    var disclose by remember { mutableStateOf(false) }
+    if (disclose) LocationDisclosure(onAccept = { disclose = false; vm.acceptLocation(); launcher.launch(perms) }, onDismiss = { disclose = false; pendingShare = null })
+    fun shareWith(id: String, on: Boolean) {
+        if (!on) { vm.stopSosSharing(); return }
+        pendingShare = id
+        when { !vm.locationConsented -> disclose = true; !hasPerm -> launcher.launch(perms); else -> { pendingShare = null; vm.startSosSharing(id) } }
+    }
     if (v == null) { Screen { Empty("Cargando tu taller…") }; return }
     val news = if (v.sosOn) available(v, all) else emptyList()
     val mine = all.filter { it.providerId == u.id }
@@ -154,7 +172,7 @@ fun WorkshopSosScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
                                     listOf(15, 30, 45, 60, 90).forEach { m -> Chip(if (m < 60) "$m min" else "${m / 60} h${if (m % 60 > 0) " ${m % 60}" else ""}", eta == m, accent = Cyan) { eta = m } }
                                 }
                                 Btn("Aceptar · llego en $eta min", Modifier.fillMaxWidth(), Icons.Filled.Check, enabled = active.isEmpty()) {
-                                    vm.act("S.O.S. aceptado. El rider ya sabe que vas en camino") { vm.repo.acceptSos(s.id, u.id, v.name, eta) }
+                                    vm.act("S.O.S. aceptado. El rider ya sabe que vas en camino") { vm.repo.acceptSos(s.id, u.id, v.name, eta, v.id) }
                                     tab = "act"
                                 }
                                 if (active.isNotEmpty()) Lbl("Termina la atención en curso para aceptar otra.", Muted)
@@ -168,10 +186,15 @@ fun WorkshopSosScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
                                 SosHeader(s, distKm(v, s))
                                 Steps(4, stepOf(s.status))
                                 Row { listOf("Aceptado", "En camino", "Atendiendo", "Resuelto").forEach { Lbl(it, modifier = Modifier.weight(1f)) } }
+                                if (s.status in listOf("ok", "go")) SwitchRow("Mostrarle al rider dónde voy",
+                                    "Solo lo ve este rider y solo con ApexMoto abierta. Se borra al llegar.", vm.sharingSos == s.id) { shareWith(s.id, it) }
                                 if (s.note.isNotBlank()) Text("“${s.note}”", style = MaterialTheme.typography.bodyMedium)
                                 when (s.status) {
-                                    "ok" -> Btn("Voy en camino", Modifier.fillMaxWidth(), Icons.Filled.TwoWheeler) { vm.act("El rider ve que vas en camino") { vm.repo.setSosStatus(s.id, "go") } }
-                                    "go" -> Btn("Llegué, empezar atención", Modifier.fillMaxWidth(), Icons.Filled.Handyman) { vm.act { vm.repo.setSosStatus(s.id, "site") } }
+                                    "ok" -> Btn("Voy en camino", Modifier.fillMaxWidth(), Icons.Filled.TwoWheeler) {
+                                        vm.act("El rider ve que vas en camino") { vm.repo.setSosStatus(s.id, "go") }
+                                        if (vm.sharingSos != s.id) shareWith(s.id, true)
+                                    }
+                                    "go" -> Btn("Llegué, empezar atención", Modifier.fillMaxWidth(), Icons.Filled.Handyman) { vm.stopSosSharing(); vm.act { vm.repo.arriveSos(s.id) } }
                                     else -> Btn("Marcar resuelto · ${cop(s.price)}", Modifier.fillMaxWidth(), Icons.Filled.CheckCircle) { vm.act("¡Atención resuelta!") { vm.repo.finishSos(s.id) } }
                                 }
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -181,7 +204,7 @@ fun WorkshopSosScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
                                     }
                                 }
                                 if (s.lat != 0.0) GoogleMapsButton(Modifier.fillMaxWidth()) { openInGoogleMaps(ctx, s.lat, s.lng) }
-                                if (s.status == "ok") TextButton({ vm.act("Liberaste el S.O.S.; otro taller puede tomarlo") { vm.repo.releaseSos(s.id) } }, Modifier.align(Alignment.CenterHorizontally)) {
+                                if (s.status == "ok") TextButton({ vm.stopSosSharing(); vm.act("Liberaste el S.O.S.; otro taller puede tomarlo") { vm.repo.releaseSos(s.id) } }, Modifier.align(Alignment.CenterHorizontally)) {
                                     Text("No puedo ir, liberar S.O.S.", color = Red)
                                 }
                             }

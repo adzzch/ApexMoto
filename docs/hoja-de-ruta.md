@@ -7,7 +7,7 @@ Estado al 2026-11-15. Es una lista de trabajo, no un compromiso de fechas. Las t
 - **Sin pasajeros.** ApexMoto no lleva pasajeros de ningún tipo: ni parrillero entre amigos, ni conductores tipo DiDi o Yango. Cobrar por llevar a alguien en una moto particular es transporte informal (Ley 769 de 2002, art. 131, infracción D.12).
 - **Sin guías pagados.** El rol "Guía de rutas" se retiró. En una rodada, quien la crea asigna al **líder**, que va adelante con una bandera: es un participante más, no cobra y no presta un servicio.
 - **Dos ambientes.** *Pruebas* para desarrollo y presentaciones (con datos demo) y *Productivo* para la app real, que arranca vacía. Ver [desarrollo.md](desarrollo.md).
-- **Ubicación en vivo** solo entre los miembros de un grupo activo, cada 10 a 15 segundos, guardada en Realtime Database (plan gratuito; Firestore se quedaría sin cuota de lecturas).
+- **Ubicación en vivo** solo entre los miembros de una rodada activa, como mucho cada 12 segundos y solo con la app abierta, guardada en **Firestore** (decisión del 2026-11-15: sus reglas pueden comprobar miembros y amigos; Realtime Database no). Alcanza para la prueba cerrada: una rodada de 5 personas durante 3 horas gasta cerca de un tercio de las lecturas gratis del día. Si el uso crece, pasarla a Realtime Database.
 - **Avatares sin fotos:** cada usuario escoge la silueta de su moto y un color. No hay almacenamiento de imágenes (Firebase Storage exige tarjeta).
 - **Reseñas:** las de ejemplo solo existen en el ambiente de pruebas. En productivo solo hay reseñas reales, de quien usó el servicio.
 
@@ -31,14 +31,14 @@ En **todas** las fases se incluyen las reglas de Firestore con sus pruebas, la a
 - [ ] Entregarla a los amigos y correr el [plan de pruebas](plan-de-pruebas.md).
 - [ ] Recomendado antes de la prueba cerrada: que un abogado revise los textos ([legal/revision-abogado.md](legal/revision-abogado.md)). Es obligatorio antes de abrir al público.
 
-### Fase 1 · Perfil y amigos, estilo Steam
+### Fase 1 · Perfil y amigos, estilo Steam (hecha)
 
 - @usuario y avatar de moto (silueta y color).
 - Agregar amigos por @usuario o con un enlace que se comparte por WhatsApp. Aceptar, rechazar, eliminar y bloquear.
 - Estado visible solo para los amigos: "en línea" o "En rodada: Rumbo al Calima".
 - De un perfil, los demás solo ven nombre, @usuario y avatar.
 
-### Fase 2 · Rodadas con líder y mapa del grupo
+### Fase 2 · Rodadas con líder y mapa del grupo (hecha)
 
 - La rodada se arma sobre una ruta con paradas, con fecha y punto de encuentro. "Cupos" pasa a llamarse "motos".
 - Invitación rápida desde la lista de amigos. La rodada puede ser abierta o con aprobación, y pública o solo para amigos.
@@ -46,27 +46,27 @@ En **todas** las fases se incluyen las reglas de Firestore con sus pruebas, la a
 - Mapa en vivo con la moto de cada miembro, solo mientras la rodada está activa. Un S.O.S. de cualquiera se ve en rojo para todos.
 - Aviso de ubicación 1.1: con quién se comparte, cada cuánto y cuándo se borra.
 
-### Fase 3 · Pedidos en ruta con hora de entrega
+### Fase 3 · Pedidos en ruta con hora de entrega (hecha)
 
 - Al navegar, cada restaurante de la ruta muestra cuántos km y minutos faltan.
 - Al pedir se escoge "listo a las…", nunca antes de la hora estimada de llegada. El comercio ve los pedidos ordenados por hora.
 - Al recibir el pedido el rider califica al comercio: primeras reseñas reales.
 - No depende de las fases 1 y 2.
 
-### Fase 4 · Taller ↔ rider
+### Fase 4 · Taller ↔ rider (hecha, salvo la verificación de talleres)
 
 - En un S.O.S., el rider ve al taller acercándose en el mapa, con tiempo estimado y chat del caso. Al terminar, lo califica.
 - La ubicación del taller solo la ve ese rider, y solo mientras va en camino.
 - Verificación de talleres antes de que vean S.O.S. (también está en "Antes de abrir al público").
 
-### Fase 5 · Renta segura
+### Fase 5 · Renta segura (hecha)
 
-- Perfil de conductor: categoría y vencimiento de la licencia, años manejando, cilindraje más alto que ha manejado, contacto de emergencia.
-- Requisitos del dueño por moto (experiencia, edad, depósito, historial) y aprobación con historial. Reserva instantánea solo para quien ya tenga historial.
-- En la entrega: licencia física (consulta opcional en RUNT y SIMIT), prueba de manejo corta y acta de entrega confirmada por los dos e inmutable. Al devolver: acta de devolución y calificación mutua.
-- Un S.O.S. durante la renta también le llega al dueño.
-- Acuerdo de daños (tope y depósito) en lugar de los planes de "protección" de `core/Constants.kt`, que no son un seguro.
-- Si se van a rentar motos de verdad en la prueba cerrada, esta fase se adelanta.
+- Perfil de conductor privado: categoría y vencimiento de la licencia, año desde el que maneja, cilindraje más alto y contacto de emergencia opcional. Se copia en la solicitud y las reglas comprueban que coincida.
+- Requisitos del dueño por moto: años mínimos manejando. El dueño ve el perfil y las calificaciones que le dieron otros dueños al rider. Reserva inmediata solo para quien ya tenga una renta terminada (las reglas lo comprueban con esa renta).
+- En la entrega: licencia física, prueba de manejo corta (recomendada) y acta de entrega que el rider confirma; confirmada, no cambia. Al devolver: acta de devolución con los daños (sin pasar del tope) y calificación mutua.
+- Un S.O.S. durante la renta también lo ve el dueño.
+- Acuerdo de daños (depósito y tope) en lugar de los planes de "protección", que no eran un seguro.
+- **Quedó por fuera:** el requisito de edad (pediría la fecha de nacimiento; se dejó por minimización de datos), la consulta en RUNT y SIMIT (se hace a mano, no hay una API gratuita) y un trámite de disputas dentro de la app (hoy: no confirmar el acta, hablar por el chat y presentar una PQR).
 
 ### Fase 6 · Más adelante
 

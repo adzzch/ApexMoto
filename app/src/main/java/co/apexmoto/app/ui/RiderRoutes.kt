@@ -213,7 +213,7 @@ private fun ColumnScope.RouteAI(vm: AppViewModel, nav: NavController, u: AppUser
                 Sub(s.stops.joinToString(" → ") { it.name })
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Btn("Guiar", Modifier.weight(1f), Icons.Filled.Navigation, enabled = s.stops.all { it.lat != 0.0 }) {
-                        vm.navSession = NavSession(s.name, s.stops.map { NavStop(it.name, it.lat, it.lng) }); nav.navigate("navigate")
+                        vm.navSession = NavSession(s.name, s.stops.map { NavStop(it.name, it.lat, it.lng, it.venueId) }); nav.navigate("navigate")
                     }
                     IconBtn(Icons.Filled.Delete, "Borrar ruta", tint = Red, bg = RedSoft) { vm.act("Ruta borrada") { vm.repo.deleteRoute(s.id) } }
                 }

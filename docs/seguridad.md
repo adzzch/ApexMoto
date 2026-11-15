@@ -19,16 +19,26 @@ La app habla directamente con Firestore; no hay servidor propio. Por eso **las r
 | `legal_acceptances` | Las propias | Solo crear, a nombre propio, con hora del servidor. Nunca modificar ni borrar |
 | `privacy_requests` | Las propias | Crear; solo un administrador responde; nadie borra |
 | `providers` | El titular y el administrador | El titular, si es aliado |
-| `venues` | Usuarios con sesión | Comercio o taller dueño (sin tocar su calificación); visitas de a una |
-| `bikes` | Usuarios con sesión | Dueño; quien renta solo aparta o libera sus propias fechas junto con su solicitud |
+| `venues` | Usuarios con sesión | Comercio o taller dueño (sin tocar su calificación); visitas de a una; el promedio solo cambia junto con una reseña nueva y con la cuenta exacta |
+| `reviews` | Usuarios con sesión; las de un rider, solo los dueños de moto y ese rider | Una por servicio terminado (ID `{tipo}_{servicio}`): pedido entregado, S.O.S. resuelto o renta terminada (el rider califica la moto y el dueño al rider), escrita por quien participó; 1 a 5 estrellas y comentario de 200 caracteres; la borra su autor |
+| `bikes` | Usuarios con sesión | Dueño (requisitos y acuerdo de daños con límites, sin tocar su calificación); quien renta solo aparta o libera sus propias fechas junto con su solicitud; el promedio solo cambia junto con la reseña nueva de quien la rentó |
 | `drivers` | Nadie | Nadie. Eran los perfiles del rol de guía, retirado el 2026-11-15 |
-| `orders` | Rider y comercio del pedido | Rider crea y cancela mientras esté "enviado"; comercio avanza paso a paso |
-| `requests` | Las dos partes | Solo de renta. Rider crea y cancela antes de empezar; el dueño avanza paso a paso |
+| `orders` | Rider y comercio del pedido | Rider crea y cancela mientras esté "enviado", con la hora de listo entre ahora y 12 h; comercio avanza paso a paso |
+| `requests` | Las dos partes | Solo de renta. El rider la crea con su perfil de conductor copiado tal cual (licencia vigente hasta el último día y de la categoría de la moto, años mínimos) y con el acuerdo de daños publicado; la reserva inmediata exige una renta suya terminada. El dueño acepta, rechaza o cancela en la entrega con un motivo. Empieza solo con el acta de entrega confirmada y termina con la de devolución. Al cerrarse se borra el contacto de emergencia. El rider cancela antes de empezar |
+| `rider_profiles` | Solo su titular | Solo un rider, el suyo: categoría A1 o A2, vencimiento, año y cilindraje válidos; sin número ni foto de la licencia |
+| `actas` | El dueño y el rider de la renta | Las crea el dueño de la renta: la de entrega con la renta aceptada y la licencia revisada; la de devolución con la renta en curso y los daños sin pasar del tope. Solo el rider las confirma (hora del servidor). Confirmadas no cambian ni se borran; antes, el dueño puede borrarlas para corregirlas |
 | `coupons` | Rider y comercio | Rider crea; comercio canjea una vez |
-| `sos` | El rider; talleres mientras busca taller; luego solo el taller asignado | Rider crea y cancela; taller acepta a su nombre y avanza; coordenadas en cero al terminar |
+| `sos` | El rider; talleres mientras busca taller; luego solo el taller asignado; el dueño de la moto si el rider va en una renta en curso | Rider crea (si es en una moto rentada, se comprueban la renta en curso y su dueño) y cancela; taller acepta a su nombre y con su propio taller, y avanza; mientras va en camino solo él escribe su ubicación (hora del servidor, cada 8 s como mucho); al llegar, terminar o liberar, las coordenadas quedan en cero |
 | `chats` | Los dos participantes | Solo las dos partes reales del pedido, la solicitud o el S.O.S. |
-| `rodadas` | Usuarios con sesión | Creador; los demás solo se unen o salen a sí mismos, sin pasar los cupos |
+| `rodadas` | Las públicas, cualquiera con sesión; las de amigos, solo invitados y miembros | Creador: aprueba, rechaza, quita miembros, invita solo a sus amigos (de a uno), elige líder y cierre entre los miembros, inicia y termina con la hora del servidor. Los demás solo se unen (o piden unirse), salen o rechazan la invitación por sí mismos, sin pasar el máximo de motos |
+| `rodadas/{id}/live` | Los miembros, mientras la rodada está activa | Cada miembro solo su posición, con la hora del servidor, como mucho cada 8 s y hasta 12 h después de iniciar; el creador las borra al terminar |
 | `routes` | El dueño | El dueño |
+| `profiles` | Usuarios con sesión | El rider dueño; el @usuario se reserva en `usernames` en el mismo lote |
+| `usernames` | Usuarios con sesión, de a uno | Solo existe mientras el perfil de su dueño lo use; nadie toma uno ocupado |
+| `friend_requests` | Quien la envía y quien la recibe | Con los datos reales de los dos perfiles, sin duplicar ni invertir, sin bloqueos y con sello cada 10 s |
+| `friendships` | Los dos amigos | La crea quien recibió la solicitud, borrándola en el mismo lote; la borra cualquiera de los dos |
+| `blocks` | Quien bloquea | Quien bloquea |
+| `status` | Solo los amigos, de a uno | El dueño, con la hora del servidor y como máximo un latido cada 30 s |
 | `rate_limits` | El dueño | Solo sellos con la hora del servidor y respetando el tiempo mínimo |
 | `meta`, datos demo | Usuarios con sesión | Solo administrador |
 | `admins` | El propio | Nadie desde la app (se crea en la consola) |
@@ -43,7 +53,7 @@ La app habla directamente con Firestore; no hay servidor propio. Por eso **las r
 | Cualquier usuario leía todos los S.O.S. con coordenadas y podía modificarlos | Ubicación de personas varadas expuesta | Acceso por rol y estado; coordenadas borradas al terminar |
 | Cualquier usuario cambiaba su propio rol a cualquiera | Escalada de privilegios | El rol no cambia (única excepción: guía retirado → rider) |
 | Cualquier usuario modificaba las fechas reservadas de cualquier moto | Bloquear motos ajenas | Solo con una solicitud propia en el mismo lote |
-| Cualquier usuario modificaba calificación y reseñas de cualquier guía | Fraude de reputación | Los perfiles de guía ya no existen. Las reseñas reales (fases 3 y 5 de la hoja de ruta) deben tener la misma garantía: una vez, con el servicio terminado |
+| Cualquier usuario modificaba calificación y reseñas de cualquier guía | Fraude de reputación | Los perfiles de guía ya no existen. Las reseñas reales (pedidos, S.O.S. y rentas) tienen esa garantía: una vez, de quien usó el servicio, con el servicio terminado y el promedio validado |
 | Pedidos y solicitudes con el dueño que dijera el cliente | Desviar pedidos | Se comprueba contra el comercio o la moto |
 | Estados cambiables libremente | Saltarse pasos, marcar pagado o finalizado | Transiciones validadas |
 | `meta` y datos sin dueño editables por cualquiera | Borrar o falsear datos | Solo administrador |
@@ -51,7 +61,7 @@ La app habla directamente con Firestore; no hay servidor propio. Por eso **las r
 
 ## 3. Pruebas de las reglas
 
-`firestore-tests/rules.test.js`: 44 pruebas contra el emulador. Cada una afirma una garantía concreta, tanto lo que debe funcionar como lo que debe rechazarse.
+`firestore-tests/rules.test.js`: 66 pruebas contra el emulador. Cada una afirma una garantía concreta, tanto lo que debe funcionar como lo que debe rechazarse.
 
 ```bash
 cd firestore-tests

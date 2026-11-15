@@ -36,14 +36,14 @@ object Legal {
 
     /** accept = texto de la casilla. Vacío en los documentos que solo se consultan. */
     val DOCS = listOf(
-        LegalDoc(TERMS, "Términos y Condiciones", "1.0.0", "terminos.md", "Soy mayor de 18 años y acepto los Términos y Condiciones."),
-        LegalDoc(PRIVACY, "Política de Privacidad", "1.0.0", "privacidad.md",
+        LegalDoc(TERMS, "Términos y Condiciones", "1.1.0", "terminos.md", "Soy mayor de 18 años y acepto los Términos y Condiciones."),
+        LegalDoc(PRIVACY, "Política de Privacidad", "1.1.0", "privacidad.md",
             "Autorizo de manera previa, expresa e informada el tratamiento de mis datos personales según la Política de Privacidad."),
-        LegalDoc(REFUNDS, "Cancelaciones, retracto y reembolsos", "1.0.0", "reembolsos.md", ""),
+        LegalDoc(REFUNDS, "Cancelaciones, retracto y reembolsos", "1.1.0", "reembolsos.md", ""),
         LegalDoc(TRACKING, "Identificadores, analítica y rastreo", "1.0.0", "rastreo.md", ""),
-        LegalDoc(LOCATION, "Uso de la ubicación", "1.0.0", "ubicacion.md", "Autorizo el uso de mi ubicación para lo que explica este aviso."),
-        LegalDoc(OWNER, "Condiciones para dueños de moto", "1.0.0", "declaracion-propietario.md",
-            "Declaro que cumplo las Condiciones para dueños: soy propietario o estoy autorizado, y la moto tiene SOAT y revisión vigentes."),
+        LegalDoc(LOCATION, "Uso de la ubicación", "1.1.0", "ubicacion.md", "Autorizo el uso de mi ubicación para lo que explica este aviso."),
+        LegalDoc(OWNER, "Condiciones para dueños de moto", "1.1.0", "declaracion-propietario.md",
+            "Declaro que cumplo las Condiciones para dueños: soy propietario o estoy autorizado, la moto tiene SOAT y revisión vigentes, y en cada renta reviso la licencia y lleno las actas."),
         LegalDoc(LICENSES, "Licencias de terceros", "1.0.0", "licencias.md", ""),
     )
 

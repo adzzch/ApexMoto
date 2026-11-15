@@ -13,6 +13,8 @@ import co.apexmoto.app.legal.RequestType
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.AuthCredential
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.DocumentReference
+import com.google.firebase.firestore.FieldPath
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
@@ -22,6 +24,7 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.tasks.await
 import org.json.JSONArray
 import org.json.JSONObject
@@ -45,6 +48,12 @@ class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth, private val consen
 
     private inline fun <reified T : Any> Query.live(): Flow<List<T>> = callbackFlow {
         val reg = addSnapshotListener { s, _ -> if (s != null) trySend(s.toObjects(T::class.java)) }
+        awaitClose { reg.remove() }
+    }
+
+    /** Un documento en vivo. Si no existe o las reglas no dejan leerlo, emite null. */
+    private inline fun <reified T : Any> DocumentReference.liveDoc(): Flow<T?> = callbackFlow {
+        val reg = addSnapshotListener { s, e -> trySend(if (e == null && s != null && s.exists()) s.toObject(T::class.java) else null) }
         awaitClose { reg.remove() }
     }
 
@@ -138,6 +147,8 @@ class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth, private val consen
         val n = name.trim().take(60)
         if (n.isBlank()) error("Escribe tu nombre")
         col("users").document(u.id).update("name", n).await()
+        // El perfil público lleva el mismo nombre (si la persona no tiene perfil, no existe y no pasa nada).
+        runCatching { col("profiles").document(u.id).update("name", n).await() }
         return u.copy(name = n)
     }
 
@@ -172,9 +183,22 @@ class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth, private val consen
         out.put("motos", many("bikes", "ownerId"))
         out.put("pedidos", many("orders", "fromId"))
         out.put("rentas", many("requests", "fromId"))
+        out.put("perfil_de_conductor", one("rider_profiles"))
+        out.put("actas_como_rider", many("actas", "riderId"))
+        out.put("actas_como_dueno", many("actas", "ownerId"))
         out.put("cupones", many("coupons", "userId"))
         out.put("sos", many("sos", "fromId"))
         out.put("rutas_guardadas", many("routes", "userId"))
+        out.put("perfil_publico", one("profiles"))
+        out.put("estado_para_amigos", one("status"))
+        out.put("solicitudes_de_amistad_enviadas", many("friend_requests", "from"))
+        out.put("solicitudes_de_amistad_recibidas", many("friend_requests", "to"))
+        out.put("bloqueos", many("blocks", "blocker"))
+        val friends = runCatching { col("friendships").whereArrayContains("members", uid).get().await().documents }.getOrDefault(emptyList())
+        out.put("amistades", JSONArray().also { a -> friends.forEach { a.put(clean(it.data)) } })
+        out.put("resenas", many("reviews", "authorId"))
+        val rides = runCatching { col("rodadas").whereArrayContains("joined", uid).get().await().documents }.getOrDefault(emptyList())
+        out.put("rodadas", JSONArray().also { a -> rides.forEach { d -> a.put((clean(d.data) as? JSONObject)?.put("_id", d.id) ?: JSONObject.NULL) } })
         val chats = runCatching { col("chats").whereArrayContains("members", uid).get().await().documents }.getOrDefault(emptyList())
         out.put("mensajes_enviados", JSONArray().also { a -> chats.filter { it.getString("fromId") == uid }.forEach { a.put(clean(it.data)) } })
         return out.toString(2)
@@ -198,8 +222,131 @@ class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth, private val consen
             }
         }
         runCatching { col("providers").document(u.id).delete().await() }
+        runCatching { col("rider_profiles").document(u.id).delete().await() }
+        runCatching { deleteSocial(u.id) }
         col("users").document(u.id).delete().await()
         fu.delete().await()
+    }
+
+    /** Borra el perfil público, el @usuario, las amistades, las solicitudes, los bloqueos y el estado de la persona. */
+    private suspend fun deleteSocial(uid: String) {
+        val p = col("profiles").document(uid).get().await()
+        if (p.exists()) {
+            val b = db.batch()
+            b.delete(p.reference)
+            p.getString("username")?.takeIf { it.isNotBlank() }?.let { b.delete(col("usernames").document(it)) }
+            b.commit().await()
+        }
+        for (q in listOf(col("friendships").whereArrayContains("members", uid), col("friend_requests").whereEqualTo("from", uid),
+            col("friend_requests").whereEqualTo("to", uid), col("blocks").whereEqualTo("blocker", uid))) {
+            q.get().await().documents.chunked(400).forEach { ch -> val b = db.batch(); ch.forEach { b.delete(it.reference) }; b.commit().await() }
+        }
+        runCatching { col("status").document(uid).delete().await() }
+        // Rodadas: se borran las que creó (con sus posiciones en vivo); de las demás sale y retira solicitudes e invitaciones.
+        col("rodadas").whereEqualTo("creatorId", uid).get().await().documents.forEach { d ->
+            runCatching {
+                d.reference.collection("live").get().await().documents.forEach { it.reference.delete().await() }
+                d.reference.delete().await()
+            }
+        }
+        col("rodadas").whereArrayContains("joined", uid).get().await().toObjects(Rodada::class.java).filter { it.creatorId != uid }
+            .forEach { runCatching { leaveRodada(it, uid) } }
+        col("rodadas").whereArrayContains("pending", uid).get().await().toObjects(Rodada::class.java).forEach { runCatching { cancelJoinRequest(it, uid) } }
+        col("rodadas").whereArrayContains("invited", uid).get().await().toObjects(Rodada::class.java).forEach { runCatching { declineInvite(it, uid) } }
+        // Reseñas: llevan el nombre de la persona, así que se borran (el promedio del comercio no cambia).
+        col("reviews").whereEqualTo("authorId", uid).get().await().documents.forEach { runCatching { it.reference.delete().await() } }
+    }
+
+    // ───────── Perfil público y amigos ─────────
+    fun profile(uid: String) = col("profiles").document(uid).liveDoc<Profile>()
+
+    /** Perfiles públicos por uid, en grupos de 30 (el límite de whereIn). */
+    fun profiles(ids: List<String>): Flow<List<Profile>> {
+        val unique = ids.distinct()
+        if (unique.isEmpty()) return flowOf(emptyList())
+        val parts = unique.chunked(30).map { c -> col("profiles").whereIn(FieldPath.documentId(), c).live<Profile>() }
+        return combine(parts) { arr -> arr.flatMap { it } }
+    }
+
+    /** Busca un rider por su @usuario exacto. No hay listados: solo se encuentra a quien uno ya conoce. */
+    suspend fun findProfile(username: String): Profile? {
+        val u = username.trim().removePrefix("@").lowercase()
+        if (!USERNAME.matches(u)) return null
+        val uid = col("usernames").document(u).get().await().getString("uid") ?: return null
+        return col("profiles").document(uid).get().await().toObject(Profile::class.java)
+    }
+
+    /** Crea o actualiza el perfil. Si cambia el @usuario, en el mismo lote se reserva el nuevo y se libera el anterior. */
+    suspend fun saveProfile(uid: String, old: Profile?, p: Profile): Profile {
+        val username = p.username.trim().removePrefix("@").lowercase()
+        if (!USERNAME.matches(username)) error("El @usuario debe tener de 3 a 20 caracteres: letras minúsculas sin tilde, números, punto o guion bajo.")
+        val name = p.name.trim().take(60)
+        if (name.isBlank()) error("Escribe tu nombre")
+        val changed = old?.username != username
+        if (changed) {
+            val taken = col("usernames").document(username).get().await()
+            if (taken.exists() && taken.getString("uid") != uid) error("Ese @usuario ya lo tiene otra persona. Prueba otro.")
+        }
+        val b = db.batch()
+        b.set(col("profiles").document(uid), mapOf("username" to username, "name" to name, "moto" to p.moto, "color" to p.color, "showStatus" to p.showStatus))
+        if (changed) {
+            b.set(col("usernames").document(username), mapOf("uid" to uid))
+            if (old != null && old.username.isNotBlank()) b.delete(col("usernames").document(old.username))
+        }
+        b.commit().await()
+        return p.copy(id = uid, username = username, name = name)
+    }
+
+    fun friendships(uid: String) = col("friendships").whereArrayContains("members", uid).live<Friendship>()
+    fun friendRequestsTo(uid: String) = col("friend_requests").whereEqualTo("to", uid).live<FriendRequest>()
+    fun friendRequestsFrom(uid: String) = col("friend_requests").whereEqualTo("from", uid).live<FriendRequest>()
+    fun blocks(uid: String) = col("blocks").whereEqualTo("blocker", uid).live<Block>()
+    /** Estado de un amigo. Si no son amigos (o lo tiene apagado), las reglas no lo dejan leer y llega null. */
+    fun presence(uid: String) = col("status").document(uid).liveDoc<Presence>()
+
+    suspend fun sendFriendRequest(me: Profile, to: Profile) {
+        if (me.id == to.id) error("Ese perfil es el tuyo.")
+        val b = db.batch()
+        b.set(col("friend_requests").document("${me.id}_${to.id}"), mapOf(
+            "from" to me.id, "to" to to.id, "fromName" to me.name, "fromUsername" to me.username, "fromMoto" to me.moto, "fromColor" to me.color,
+            "toName" to to.name, "toUsername" to to.username, "createdAt" to now()))
+        b.stamp(me.id, "friend")
+        b.commit().await()
+    }
+
+    /** Aceptar crea la amistad y borra la solicitud en el mismo lote: las reglas exigen las dos cosas juntas. */
+    suspend fun acceptFriend(r: FriendRequest) {
+        val (a, z) = listOf(r.from, r.to).sorted()
+        val b = db.batch()
+        b.set(col("friendships").document("${a}_$z"), mapOf("members" to listOf(a, z), "since" to now()))
+        b.delete(col("friend_requests").document(r.id))
+        b.commit().await()
+    }
+
+    /** Rechazar (quien la recibió) o cancelar (quien la envió). */
+    suspend fun deleteFriendRequest(r: FriendRequest) { col("friend_requests").document(r.id).delete().await() }
+    suspend fun unfriend(me: String, other: String) { col("friendships").document(pairId(me, other)).delete().await() }
+
+    /** Bloquear: en el mismo lote se borran la amistad y las solicitudes que haya entre los dos. */
+    suspend fun block(me: String, other: Profile, areFriends: Boolean, pending: List<FriendRequest>) {
+        val b = db.batch()
+        b.set(col("blocks").document("${me}_${other.id}"), mapOf("blocker" to me, "blocked" to other.id, "blockedName" to other.name,
+            "blockedUsername" to other.username, "createdAt" to now()))
+        if (areFriends) b.delete(col("friendships").document(pairId(me, other.id)))
+        pending.filter { (it.from == me && it.to == other.id) || (it.from == other.id && it.to == me) }.forEach { b.delete(col("friend_requests").document(it.id)) }
+        b.commit().await()
+    }
+    suspend fun unblock(b: Block) { col("blocks").document(b.id).delete().await() }
+
+    /** Latido del estado para los amigos: "online", o "riding" con el nombre de la rodada activa. */
+    suspend fun heartbeat(uid: String, rodada: String) {
+        col("status").document(uid).set(mapOf("state" to if (rodada.isBlank()) "online" else "riding", "rodada" to rodada.take(80),
+            "updatedAt" to FieldValue.serverTimestamp())).await()
+    }
+
+    suspend fun setShowStatus(p: Profile, on: Boolean) {
+        col("profiles").document(p.id).update("showStatus", on).await()
+        if (!on) runCatching { col("status").document(p.id).delete().await() }
     }
 
     // ───────── Comercios ─────────
@@ -228,10 +375,12 @@ class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth, private val consen
     fun ordersFrom(uid: String) = col("orders").whereEqualTo("fromId", uid).live<Order>()
     fun ordersOfOwner(uid: String) = col("orders").whereEqualTo("ownerId", uid).live<Order>()
 
-    suspend fun placeOrder(v: Venue, u: AppUser, items: List<OrderItem>, eta: String, note: String) {
+    /** readyAt: hora (epoch ms) a la que el rider quiere el pedido listo; eta es la misma hora en texto para mostrar. */
+    suspend fun placeOrder(v: Venue, u: AppUser, items: List<OrderItem>, eta: String, readyAt: Long, note: String) {
         val b = db.batch()
         b.set(col("orders").document(), Order(venueId = v.id, venueName = v.name, ownerId = v.ownerId, fromId = u.id, fromName = u.name,
-            items = items, total = items.sumOf { it.qty * it.price }, eta = eta, note = note.trim().take(300), status = "new", createdAt = now()))
+            items = items, total = items.sumOf { it.qty * it.price }, eta = eta.take(20), note = note.trim().take(300), status = "new", createdAt = now(),
+            readyAt = readyAt))
         b.stamp(u.id, "order")
         b.commit().await()
     }
@@ -239,6 +388,32 @@ class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth, private val consen
     suspend fun setOrderStatus(id: String, st: String) { col("orders").document(id).update("status", st).await() }
     /** El rider cancela sin costo mientras el comercio no haya aceptado el pedido (Política de cancelaciones, punto 3). */
     suspend fun cancelOrder(id: String) { col("orders").document(id).update("status", "can").await() }
+
+    // ───────── Reseñas (fase 3) ─────────
+    /** Reseñas de un comercio, taller o moto. Sin índices compuestos: se ordenan en el teléfono. */
+    fun reviewsOf(targetType: String, targetId: String) = col("reviews").whereEqualTo("targetType", targetType).whereEqualTo("targetId", targetId).live<Review>()
+    fun myReviews(uid: String) = col("reviews").whereEqualTo("authorId", uid).live<Review>()
+
+    /**
+     * Publica una reseña. Si es de un comercio, taller o moto, en el mismo lote se actualiza su promedio: las reglas
+     * comprueban la cuenta, que la reseña sea nueva y que la escriba quien usó el servicio.
+     */
+    suspend fun submitReview(r: Review) {
+        val id = "${r.kind}_${r.serviceId}"
+        val b = db.batch()
+        b.set(col("reviews").document(id), mapOf("kind" to r.kind, "serviceId" to r.serviceId, "targetType" to r.targetType, "targetId" to r.targetId,
+            "authorId" to r.authorId, "authorName" to r.authorName.take(60).ifBlank { "Rider" }, "stars" to r.stars.coerceIn(1, 5),
+            "comment" to r.comment.trim().take(200), "createdAt" to now()))
+        val target = when (r.targetType) { "venue" -> col("venues").document(r.targetId); "bike" -> col("bikes").document(r.targetId); else -> null }
+        if (target != null) {
+            val snap = target.get().await()
+            val n0 = snap.getLong("reviews") ?: 0L
+            val avg0 = snap.getDouble("rating") ?: 5.0
+            val n = n0 + 1
+            b.update(target, mapOf("rating" to (avg0 * n0 + r.stars.coerceIn(1, 5)) / n, "reviews" to n, "lastReview" to id))
+        }
+        b.commit().await()
+    }
 
     // ───────── Cupones ─────────
     fun couponsOfOwner(uid: String) = col("coupons").whereEqualTo("ownerId", uid).live<Coupon>()
@@ -266,20 +441,123 @@ class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth, private val consen
     fun bikes() = col("bikes").live<Bike>()
     suspend fun saveBike(b: Bike) { if (b.id.isBlank()) col("bikes").add(b).await() else col("bikes").document(b.id).set(b).await() }
     suspend fun deleteBike(id: String) { col("bikes").document(id).delete().await() }
-    suspend fun addBooking(bikeId: String, from: String, to: String) {
-        col("bikes").document(bikeId).update("booked", FieldValue.arrayUnion("$from|$to")).await()
+
+    // ───────── Renta segura (fase 5) ─────────
+    /** Perfil de conductor. Privado: las reglas solo se lo dejan leer a su titular. */
+    fun riderProfile(uid: String) = col("rider_profiles").document(uid).liveDoc<RiderProfile>()
+    suspend fun saveRiderProfile(uid: String, p: RiderProfile) {
+        col("rider_profiles").document(uid).set(mapOf(
+            "licenseCat" to p.licenseCat, "licenseUntil" to p.licenseUntil, "since" to p.since, "maxCc" to p.maxCc,
+            "emergencyName" to p.emergencyName.trim().take(60),
+            "emergencyPhone" to p.emergencyPhone.filter { it.isDigit() || it == '+' || it == ' ' }.trim().take(20),
+            "updatedAt" to now())).await()
     }
 
-    fun rodadas() = col("rodadas").live<Rodada>()
-    suspend fun createRodada(r: Rodada) { col("rodadas").add(r).await() }
-    suspend fun toggleJoin(r: Rodada, uid: String) {
-        val ref = col("rodadas").document(r.id)
-        if (uid in r.joined) ref.update("joined", FieldValue.arrayRemove(uid)).await()
-        else {
-            if (r.joined.size >= r.seats) error("Esta rodada ya no tiene cupos")
-            ref.update("joined", FieldValue.arrayUnion(uid)).await()
-        }
+    /** Actas en las que participa la persona: como dueño (las que llenó) o como rider (las que confirma). */
+    fun actasOf(uid: String, owner: Boolean) = col("actas").whereEqualTo(if (owner) "ownerId" else "riderId", uid).live<Acta>()
+
+    /** El dueño llena el acta. ID fijo: una de entrega y una de devolución por renta. */
+    suspend fun createActa(a: Acta) {
+        col("actas").document("${a.reqId}_${a.kind}").set(a.copy(id = "", bikeName = a.bikeName.take(80), condition = a.condition.trim().take(500),
+            damages = a.damages.trim().take(500), items = a.items.take(12), confirmed = false, createdAt = null, confirmedAt = null)).await()
     }
+    /** Solo mientras el rider no la haya confirmado (para corregirla). */
+    suspend fun deleteActa(id: String) { col("actas").document(id).delete().await() }
+
+    /**
+     * El rider confirma el acta y, en el mismo lote, la renta avanza: con la de entrega empieza; con la de devolución
+     * termina y se borra el contacto de emergencia de la solicitud. Las reglas no dejan avanzar sin el acta confirmada.
+     */
+    suspend fun confirmActa(a: Acta) {
+        val b = db.batch()
+        b.update(col("actas").document(a.id), mapOf("confirmed" to true, "confirmedAt" to FieldValue.serverTimestamp()))
+        val req = col("requests").document(a.reqId)
+        if (a.kind == "entrega") b.update(req, "status", "ride")
+        else b.update(req, mapOf("status" to "fin", "emergencyName" to "", "emergencyPhone" to ""))
+        b.commit().await()
+    }
+
+    /** S.O.S. de riders que van en una moto de este dueño. */
+    fun sosForOwner(uid: String) = col("sos").whereEqualTo("rentalOwnerId", uid).live<Sos>()
+
+    // ───────── Rodadas (fase 2) ─────────
+    /** Lo que cada quien puede ver: las públicas, aquellas a las que lo invitaron y en las que ya está. */
+    fun rodadas(uid: String): Flow<List<Rodada>> = combine(
+        col("rodadas").whereEqualTo("visibility", "public").live<Rodada>(),
+        col("rodadas").whereArrayContains("invited", uid).live<Rodada>(),
+        col("rodadas").whereArrayContains("joined", uid).live<Rodada>(),
+    ) { a, b, c -> (c + b + a).distinctBy { it.id } }
+
+    fun rodada(id: String) = col("rodadas").document(id).liveDoc<Rodada>()
+
+    suspend fun createRodada(r: Rodada): String {
+        val ref = col("rodadas").document()
+        ref.set(r.copy(joined = listOf(r.creatorId), pending = emptyList(), invited = emptyList(), lastInvited = "", leaderId = r.creatorId,
+            sweeperId = "", status = "planned", startedAt = null, endedAt = null)).await()
+        return ref.id
+    }
+
+    private suspend fun rod(id: String, m: Map<String, Any>) { col("rodadas").document(id).update(m).await() }
+
+    /** Unirse directo: rodada sin aprobación, o con invitación. */
+    suspend fun joinRodada(r: Rodada, uid: String) {
+        if (r.joined.size >= r.seats) error("Esta rodada ya está completa")
+        rod(r.id, mapOf("joined" to FieldValue.arrayUnion(uid), "pending" to FieldValue.arrayRemove(uid)))
+    }
+    suspend fun requestJoin(r: Rodada, uid: String) = rod(r.id, mapOf("pending" to FieldValue.arrayUnion(uid)))
+    suspend fun cancelJoinRequest(r: Rodada, uid: String) = rod(r.id, mapOf("pending" to FieldValue.arrayRemove(uid)))
+    suspend fun declineInvite(r: Rodada, uid: String) = rod(r.id, mapOf("invited" to FieldValue.arrayRemove(uid)))
+
+    /** Salir. Si era el líder, el liderazgo vuelve al creador; si cerraba el grupo, ese puesto queda libre. */
+    suspend fun leaveRodada(r: Rodada, uid: String) {
+        val m = mutableMapOf<String, Any>("joined" to FieldValue.arrayRemove(uid))
+        if (r.leaderId == uid) m["leaderId"] = r.creatorId
+        if (r.sweeperId == uid) m["sweeperId"] = ""
+        val b = db.batch()
+        b.update(col("rodadas").document(r.id), m)
+        b.delete(col("rodadas").document(r.id).collection("live").document(uid))
+        b.commit().await()
+    }
+
+    // Solo el creador
+    suspend fun approveJoin(r: Rodada, uid: String) {
+        if (r.joined.size >= r.seats) error("La rodada ya está completa. Aumenta el número de motos o quita a alguien.")
+        rod(r.id, mapOf("pending" to FieldValue.arrayRemove(uid), "joined" to FieldValue.arrayUnion(uid)))
+    }
+    suspend fun rejectJoin(r: Rodada, uid: String) = rod(r.id, mapOf("pending" to FieldValue.arrayRemove(uid)))
+    suspend fun kick(r: Rodada, uid: String) {
+        val m = mutableMapOf<String, Any>("joined" to FieldValue.arrayRemove(uid))
+        if (r.leaderId == uid) m["leaderId"] = r.creatorId
+        if (r.sweeperId == uid) m["sweeperId"] = ""
+        val b = db.batch()
+        b.update(col("rodadas").document(r.id), m)
+        b.delete(col("rodadas").document(r.id).collection("live").document(uid))
+        b.commit().await()
+    }
+    /** Invita a un amigo (de a uno: las reglas comprueban la amistad con lastInvited). */
+    suspend fun invite(r: Rodada, friendUid: String) = rod(r.id, mapOf("invited" to FieldValue.arrayUnion(friendUid), "lastInvited" to friendUid))
+    suspend fun setRoles(r: Rodada, leader: String, sweeper: String) = rod(r.id, mapOf("leaderId" to leader, "sweeperId" to sweeper))
+    suspend fun startRodada(r: Rodada) = rod(r.id, mapOf("status" to "active", "startedAt" to FieldValue.serverTimestamp()))
+
+    /** Terminar: la rodada queda cerrada y se borran todas las posiciones en vivo en el mismo lote. */
+    suspend fun endRodada(r: Rodada) {
+        val live = col("rodadas").document(r.id).collection("live").get().await().documents
+        val b = db.batch()
+        b.update(col("rodadas").document(r.id), mapOf("status" to "done", "endedAt" to FieldValue.serverTimestamp()))
+        live.take(450).forEach { b.delete(it.reference) }
+        b.commit().await()
+    }
+    suspend fun deleteRodada(r: Rodada) { col("rodadas").document(r.id).delete().await() }
+
+    // Mapa del grupo
+    fun livePositions(rodadaId: String) = col("rodadas").document(rodadaId).collection("live").live<LivePos>()
+
+    suspend fun shareLive(rodadaId: String, uid: String, lat: Double, lng: Double, heading: Double, p: Profile?, fallbackName: String, sos: Boolean) {
+        col("rodadas").document(rodadaId).collection("live").document(uid).set(mapOf(
+            "lat" to lat, "lng" to lng, "heading" to heading, "name" to (p?.name ?: fallbackName).take(60).ifBlank { "Rider" },
+            "moto" to (p?.moto ?: "naked"), "color" to (p?.color ?: "orange"), "sos" to sos, "updatedAt" to FieldValue.serverTimestamp())).await()
+    }
+    suspend fun stopLive(rodadaId: String, uid: String) { runCatching { col("rodadas").document(rodadaId).collection("live").document(uid).delete().await() } }
 
     // ───────── Solicitudes de renta ─────────
     fun requestsFrom(uid: String) = col("requests").whereEqualTo("fromId", uid).live<ServiceRequest>()
@@ -296,7 +574,25 @@ class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth, private val consen
         b.stamp(r.fromId, "request")
         b.commit().await()
     }
-    suspend fun setRequestStatus(id: String, st: String) { col("requests").document(id).update("status", st).await() }
+
+    /** El dueño acepta: la solicitud y el apartado de las fechas en la moto van en un solo lote. */
+    suspend fun acceptRequest(r: ServiceRequest) {
+        val b = db.batch()
+        b.update(col("requests").document(r.id), "status", "ok")
+        b.update(col("bikes").document(r.itemId), "booked", FieldValue.arrayUnion("${r.dateFrom}|${r.dateTo}"))
+        b.commit().await()
+    }
+
+    /**
+     * El dueño rechaza una solicitud pendiente o cancela en la entrega (reason: clave de C.OWNER_CANCEL). Se borra el
+     * contacto de emergencia y, si ya estaba aceptada, se liberan las fechas de la moto. El rider recibe el reembolso total.
+     */
+    suspend fun rejectRequest(r: ServiceRequest, reason: String = "") {
+        val b = db.batch()
+        b.update(col("requests").document(r.id), mapOf("status" to "no", "ownerCancel" to reason, "emergencyName" to "", "emergencyPhone" to ""))
+        if (r.status == "ok") b.update(col("bikes").document(r.itemId), "booked", FieldValue.arrayRemove("${r.dateFrom}|${r.dateTo}"))
+        b.commit().await()
+    }
 
     /**
      * Cancelación por el rider antes de que empiece el servicio. kind = "retracto" (dentro de los 5 días hábiles,
@@ -304,7 +600,7 @@ class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth, private val consen
      */
     suspend fun cancelRequest(r: ServiceRequest, kind: String) {
         val b = db.batch()
-        b.update(col("requests").document(r.id), mapOf("status" to "can", "cancelKind" to kind, "cancelledAt" to now()))
+        b.update(col("requests").document(r.id), mapOf("status" to "can", "cancelKind" to kind, "cancelledAt" to now(), "emergencyName" to "", "emergencyPhone" to ""))
         if (r.type == "rent" && r.status == "ok")
             b.update(col("bikes").document(r.itemId), mapOf("booked" to FieldValue.arrayRemove("${r.dateFrom}|${r.dateTo}"), "lastReq" to r.id))
         b.commit().await()
@@ -324,20 +620,33 @@ class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth, private val consen
         b.commit().await()
     }
     suspend fun setSosStatus(id: String, st: String) { col("sos").document(id).update("status", st).await() }
+    /** El taller llegó: empieza la atención y se borra su ubicación. */
+    suspend fun arriveSos(id: String) { col("sos").document(id).update(mapOf("status" to "site", "providerLat" to 0.0, "providerLng" to 0.0)).await() }
+    /** Dónde va el taller mientras va en camino. Solo lo ve el rider de ese S.O.S. */
+    suspend fun shareProviderLocation(id: String, lat: Double, lng: Double) {
+        col("sos").document(id).update(mapOf("providerLat" to lat, "providerLng" to lng, "providerAt" to FieldValue.serverTimestamp())).await()
+    }
     /** Al cancelar se borran las coordenadas: la ubicación solo se conserva mientras el servicio está activo. */
-    suspend fun cancelSos(id: String) { col("sos").document(id).update(mapOf("status" to "no", "lat" to 0.0, "lng" to 0.0, "doneAt" to now())).await() }
-    suspend fun acceptSos(id: String, providerId: String, providerName: String, eta: Int) {
+    suspend fun cancelSos(id: String) {
+        col("sos").document(id).update(mapOf("status" to "no", "lat" to 0.0, "lng" to 0.0, "doneAt" to now(), "providerLat" to 0.0, "providerLng" to 0.0)).await()
+    }
+    suspend fun acceptSos(id: String, providerId: String, providerName: String, eta: Int, venueId: String) {
         val ref = col("sos").document(id)
         db.runTransaction { tx ->
             val s = tx.get(ref)
             if (s.getString("status") != "new") throw IllegalStateException("Otro taller ya aceptó este S.O.S.")
-            tx.update(ref, mapOf("status" to "ok", "providerId" to providerId, "providerName" to providerName, "eta" to eta, "acceptedAt" to now()))
+            tx.update(ref, mapOf("status" to "ok", "providerId" to providerId, "providerName" to providerName, "eta" to eta, "acceptedAt" to now(), "providerVenueId" to venueId))
         }.await()
     }
     /** Al terminar se borran las coordenadas del rider; queda solo la descripción del lugar. */
-    suspend fun finishSos(id: String) { col("sos").document(id).update(mapOf("status" to "fin", "doneAt" to now(), "lat" to 0.0, "lng" to 0.0)).await() }
+    suspend fun finishSos(id: String) {
+        col("sos").document(id).update(mapOf("status" to "fin", "doneAt" to now(), "lat" to 0.0, "lng" to 0.0, "providerLat" to 0.0, "providerLng" to 0.0)).await()
+    }
     /** El taller suelta el S.O.S. (no puede ir): vuelve a quedar disponible para otros talleres. */
-    suspend fun releaseSos(id: String) { col("sos").document(id).update(mapOf("status" to "new", "providerId" to "", "providerName" to "", "eta" to 0)).await() }
+    suspend fun releaseSos(id: String) {
+        col("sos").document(id).update(mapOf("status" to "new", "providerId" to "", "providerName" to "", "eta" to 0, "providerVenueId" to "",
+            "providerLat" to 0.0, "providerLng" to 0.0)).await()
+    }
 
     // ───────── Chat ─────────
     /** Solo los mensajes de este hilo en los que participa esta persona (las reglas no dejan leer los demás). */
@@ -363,6 +672,9 @@ class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth, private val consen
             col(c).whereEqualTo(f, "").get().await().documents.chunked(400).forEach { chunk ->
                 val b = db.batch(); chunk.forEach { b.delete(it.reference) }; b.commit().await()
             }
+        }
+        col("reviews").whereEqualTo("kind", "demo").get().await().documents.chunked(400).forEach { chunk ->
+            val b = db.batch(); chunk.forEach { b.delete(it.reference) }; b.commit().await()
         }
         col("meta").document("seed").delete().await()
     }
@@ -441,21 +753,55 @@ class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth, private val consen
                 promo = s.promo, desc = s.desc, tags = s.tags, cuisines = s.cu, menu = s.menu,
                 lat = if (s.lat != 0.0) s.lat else c.lat + ((i % 3) - 1) * 0.012, lng = if (s.lng != 0.0) s.lng else c.lng + (i % 2) * 0.015)).await()
         }
+        // Con requisitos y acuerdo de daños distintos, para mostrar cada caso en una presentación.
         listOf(
-            Bike(name = "Yamaha MT-07", cc = 689, category = "Deportiva", pricePerDay = 280000, city = "Cali", specs = listOf("73 hp", "ABS"), rating = 4.9, trips = 31, instant = true),
-            Bike(name = "Honda XRE 300", cc = 300, category = "Aventura", pricePerDay = 160000, city = "Cali", specs = listOf("Doble propósito"), rating = 4.8, trips = 54, delivery = true),
-            Bike(name = "Suzuki V-Strom 650", cc = 645, category = "Aventura", pricePerDay = 320000, city = "Medellín", specs = listOf("Maletas incluidas"), rating = 4.9, trips = 22),
-            Bike(name = "Royal Enfield Himalayan", cc = 411, category = "Aventura", pricePerDay = 200000, city = "Bogotá", specs = listOf("Ideal para trocha"), rating = 4.7, trips = 40, instant = true),
+            Bike(name = "Yamaha MT-07", cc = 689, category = "Deportiva", pricePerDay = 280000, city = "Cali", specs = listOf("73 hp", "ABS"), rating = 4.9, trips = 31, instant = true,
+                minYears = 3, deposit = 800000, damageCap = 3000000, reviews = 31),
+            Bike(name = "Honda XRE 300", cc = 300, category = "Aventura", pricePerDay = 160000, city = "Cali", specs = listOf("Doble propósito"), rating = 4.8, trips = 54, delivery = true,
+                minYears = 1, deposit = 400000, damageCap = 1500000, reviews = 54),
+            Bike(name = "Suzuki V-Strom 650", cc = 645, category = "Aventura", pricePerDay = 320000, city = "Medellín", specs = listOf("Maletas incluidas"), rating = 4.9, trips = 22,
+                minYears = 2, deposit = 1000000, damageCap = 0, reviews = 22),
+            Bike(name = "Royal Enfield Himalayan", cc = 411, category = "Aventura", pricePerDay = 200000, city = "Bogotá", specs = listOf("Ideal para trocha"), rating = 4.7, trips = 40, instant = true,
+                reviews = 40),
         ).forEachIndexed { i, b -> col("bikes").document("demo_b${i + 1}").set(b.copy(soatUntil = addDays(today(), 300), rtmUntil = addDays(today(), 300))).await() }
         listOf(
-            Rodada(name = "Rodada Lago Calima", whenLabel = "Sábado 7:00", captain = "@camilo", meet = "Peaje Cencar, Cali", style = "Turismo", seats = 10),
-            Rodada(name = "Madrugón La Línea", whenLabel = "Domingo 5:30", captain = "@laura", meet = "Estación Terpel Armenia", style = "Aventura", seats = 8),
+            // Públicas y sin aprobación para que cualquiera pueda unirse en una presentación. No tienen creador: no se pueden iniciar.
+            Rodada(name = "Rodada Lago Calima", whenLabel = "Sábado 7:00", captain = "@camilo", meet = "Peaje Cencar, Cali", style = "Turismo", seats = 10,
+                visibility = "public", approval = false, routeName = "Cali → Lago Calima",
+                stops = listOf(RodadaStop("Peaje Cencar", 3.4954, -76.5251), RodadaStop("Lago Calima", C.corridor("calima").lat, C.corridor("calima").lng))),
+            Rodada(name = "Madrugón La Línea", whenLabel = "Domingo 5:30", captain = "@laura", meet = "Estación Terpel Armenia", style = "Aventura", seats = 8,
+                visibility = "public", approval = false),
         ).forEachIndexed { i, r -> col("rodadas").document("demo_r${i + 1}").set(r).await() }
+        // Reseñas de ejemplo (kind "demo") en los primeros comercios, para presentar la función.
+        val demoReviews = listOf(
+            Triple("Andrés P.", 5, "Parqueadero vigilado y la picada para dos rinde. Volvemos en la próxima rodada."),
+            Triple("Carolina M.", 4, "Buena vista al lago. A mediodía se llena: pide con hora desde la ruta."),
+            Triple("Julián R.", 5, "Atienden rápido a los grupos de motos."),
+        )
+        (1..3).forEach { v ->
+            demoReviews.forEachIndexed { k, (who, stars, text) ->
+                col("reviews").document("demo_dv${v}_$k").set(Review(kind = "demo", serviceId = "dv${v}_$k", targetType = "venue", targetId = "demo_v$v",
+                    authorId = "", authorName = who, stars = stars, comment = text, createdAt = now() - (k + 1) * 86_400_000L)).await()
+            }
+        }
+        // Y en las dos primeras motos.
+        val bikeReviews = listOf(
+            Triple("Mateo G.", 5, "La moto impecable. En la entrega revisamos juntos el acta y la licencia; fueron cinco minutos."),
+            Triple("Daniela S.", 5, "La devolví con el tanque lleno y me reintegraron el depósito ahí mismo."),
+        )
+        (1..2).forEach { v ->
+            bikeReviews.forEachIndexed { k, (who, stars, text) ->
+                col("reviews").document("demo_db${v}_$k").set(Review(kind = "demo", serviceId = "db${v}_$k", targetType = "bike", targetId = "demo_b$v",
+                    authorId = "", authorName = who, stars = stars, comment = text, createdAt = now() - (k + 2) * 86_400_000L)).await()
+            }
+        }
         marker.set(mapOf("at" to now())).await()
     }
 
     private companion object {
         /** Rol "Guía de rutas", retirado. Solo puede aparecer en cuentas creadas antes del 2026-11-15. */
         const val LEGACY_GUIDE = "d"
+        /** @usuario: 3 a 20 caracteres en minúscula. Las reglas de Firestore exigen lo mismo. */
+        val USERNAME = Regex("^[a-z0-9_.]{3,20}$")
     }
 }

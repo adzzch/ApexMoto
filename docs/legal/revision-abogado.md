@@ -4,13 +4,13 @@ Los documentos de `app/src/main/legal/` son borradores hechos con cuidado, pero 
 
 ## A. Riesgos que pueden impedir operar
 
-### 1. Planes de "protección" en la renta: posible actividad aseguradora
+### 1. Planes de "protección" en la renta: reemplazados por un acuerdo de daños
 
-La pantalla de renta ofrece planes Básica, Estándar y Premium con cobro diario y textos como "Cobertura obligatoria" y "Cero responsabilidad". Nadie los respalda.
+La pantalla de renta ofrecía planes Básica, Estándar y Premium con cobro diario y textos como "Cobertura obligatoria" y "Cero responsabilidad", que nadie respaldaba.
 
-- **Riesgo:** ofrecer coberturas a cambio de un precio sin ser aseguradora autorizada puede ser ejercicio ilegal de la actividad aseguradora (Estatuto Orgánico del Sistema Financiero, art. 108) y publicidad engañosa (Ley 1480, arts. 29 y 30).
-- **Lo hecho:** la pantalla y los términos dicen ahora que son condiciones que ofrece el dueño y que no son un seguro.
-- **Decisión pendiente del negocio:** (a) quitar los planes, (b) convertirlos en un depósito o en una limitación de responsabilidad pactada entre las partes, con otro nombre, o (c) respaldarlos con una póliza real de una aseguradora. Los textos "Cobertura obligatoria" y "Cero responsabilidad" siguen en `core/Constants.kt` y deberían cambiarse según lo que se decida.
+- **Riesgo que había:** ofrecer coberturas a cambio de un precio sin ser aseguradora autorizada puede ser ejercicio ilegal de la actividad aseguradora (Estatuto Orgánico del Sistema Financiero, art. 108) y publicidad engañosa (Ley 1480, arts. 29 y 30).
+- **Decisión (2026-11-15, fase 5):** se quitaron los planes. Cada moto tiene un acuerdo de daños entre las partes: un depósito que se devuelve y un tope de lo que el rider paga por daños, sin ningún cobro por esa "cobertura". La app y los textos dicen que no es un seguro.
+- **Queda por confirmar:** que el depósito y el tope, pactados entre particulares y sin precio, no se consideren actividad aseguradora; y que el dueño pueda descontar del depósito los daños anotados en un acta que el rider confirmó en la app.
 
 ### 2. Transporte de pasajeros y guías: rol retirado
 
@@ -42,8 +42,13 @@ Cualquier persona puede registrarse como taller y ver la ubicación de riders va
 |---|---|---|
 | Términos, 2 | Plataforma como intermediaria | Que la calificación de "portal de contacto" (art. 53) se sostenga con el nivel de control que ejerce la app (precios sugeridos del S.O.S., cupones, estados). A mayor control, mayor riesgo de responder como proveedor |
 | Términos, 8 | Daños, hurto, multas y accidentes en la renta | Distribución de riesgos, depósito, acta de entrega, validez frente a terceros |
-| Términos, 8 | Planes de protección | Ver A.1 |
+| Términos, 8 | Acuerdo de daños (antes, planes de protección) | Ver A.1 |
+| Términos, 8 | Perfil de conductor, requisitos y actas | Que la licencia A2 habilite también para motos de la categoría A1 (la app lo permite); valor probatorio de las actas confirmadas en la app; que el dueño pueda cancelar en la entrega si el rider no pasa la prueba de manejo |
+| Términos, 8 y 12; Privacidad, 8 | Calificaciones que los dueños hacen de los riders | Reseñas sobre personas: solo las ven los dueños y el propio rider, y se conservan con la renta aunque el rider elimine su cuenta. Revisar la base legal (interés legítimo de otros dueños) frente al derecho de supresión |
+| Privacidad, 2 | Contacto de emergencia | Es un dato de un tercero que entrega el rider, quien declara tener su permiso. Revisar si basta y si el plazo (hasta que termina la renta) es adecuado |
+| Reembolsos, 3 | Devolución del depósito | Plazo de 5 días hábiles y descuento de daños con tope |
 | Términos, 5 | Prohibición de cobrar por rodadas o por guiarlas | Ver A.2 |
+| Términos, 12 | Reseñas públicas con el nombre del autor | Moderación y retiro de contenido; responsabilidad por comentarios de terceros; reseñas sobre personas (renta) |
 | Términos, 9 | S.O.S. sin garantía de atención | Que no sea una exoneración abusiva (Ley 1480, arts. 42 y 43) |
 | Términos, 14 | Límite de responsabilidad | Las cláusulas que limitan la responsabilidad del productor o proveedor frente al consumidor son ineficaces (art. 43). Revisar redacción |
 | Términos, 5 | Suspensión y cierre de cuentas | Debido proceso y proporcionalidad |
@@ -57,6 +62,7 @@ Cualquier persona puede registrarse como taller y ver la ubicación de riders va
 | Declaración del dueño | Todo | Valor probatorio de una declaración con casilla |
 | Registro de aceptación | Sin IP y escrito desde el teléfono | Si es prueba suficiente ante la SIC (ver README, punto 3) |
 | Aviso de ubicación | Todo | Si la ubicación debe tratarse como dato sensible |
+| Aviso de ubicación 1.1, mapa del grupo | Ubicación en tiempo real compartida con los miembros de una rodada | Si basta el consentimiento por activación en cada rodada y si hace falta una medida reforzada para la ubicación en tiempo real |
 
 ## C. Obligaciones fuera de la app
 

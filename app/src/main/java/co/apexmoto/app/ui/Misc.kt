@@ -41,11 +41,16 @@ import co.apexmoto.app.ui.theme.*
 @Composable
 fun ProfileScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
     val orders by vm.myOrders.collectAsState()
-    val reqs by vm.reqFrom.collectAsState()
     var confirmReset by remember { mutableStateOf(false) }
     var confirmClear by remember { mutableStateOf(false) }
-    var cancel by remember { mutableStateOf<ServiceRequest?>(null) }
-    cancel?.let { r -> CancelRequestDialog(vm, r) { cancel = null } }
+    val myReviews by vm.myReviews.collectAsState()
+    var reviewOrder by remember { mutableStateOf<Order?>(null) }
+    reviewOrder?.let { o ->
+        ReviewSheet("¿Cómo te fue en ${o.venueName}?", { reviewOrder = null }) { stars, comment ->
+            vm.act("¡Gracias por tu reseña!") { vm.repo.submitReview(Review(kind = "order", serviceId = o.id, targetType = "venue", targetId = o.venueId,
+                authorId = u.id, authorName = u.name, stars = stars, comment = comment)) }
+        }
+    }
     if (confirmReset) AlertDialog(
         onDismissRequest = { confirmReset = false },
         title = { Text("¿Reiniciar los datos demo?") },
@@ -60,41 +65,46 @@ fun ProfileScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
         confirmButton = { TextButton({ confirmClear = false; vm.act("Datos demo borrados") { vm.repo.clearDemo() } }) { Text("Borrar") } },
         dismissButton = { TextButton({ confirmClear = false }) { Text("Cancelar") } },
     )
+    val profile by vm.myProfile.collectAsState()
     Screen {
         Card2(index = 0) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Avatar(u.name, 60.dp); Spacer(Modifier.width(14.dp))
+                val p = profile
+                if (p != null) MotoAvatar(p.moto, p.color, 60.dp) else Avatar(u.name, 60.dp)
+                Spacer(Modifier.width(14.dp))
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(u.name, fontFamily = Chivo, fontWeight = FontWeight.ExtraBold, fontSize = 21.sp)
+                    if (p != null) Lbl("@${p.username}", CyanDeep)
                     Pill(Role.label(u.role), OrangeSoft, OrangeDark)
                     if (u.email.isNotBlank()) Lbl(u.email)
                 }
             }
         }
-        if (orders.isNotEmpty()) {
-            H("Mis pedidos")
-            orders.sortedByDescending { it.createdAt }.take(6).forEach { o ->
-                Card2 { Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) { Text(o.venueName, fontWeight = FontWeight.Bold); Sub("${cop(o.total)} · ${o.items.sumOf { it.qty }} ítems") }
-                    StatusPill(ORD_ST[o.status] ?: o.status, o.status)
-                } }
+        if (u.role == Role.RIDER) Card2 {
+            val p = profile
+            if (p == null) {
+                IconLine(Icons.Filled.People, "Crea tu perfil de rider para agregar amigos y unirte al mapa de las rodadas.", CyanDeep, bold = false)
+                Btn("Crear mi perfil de rider", Modifier.fillMaxWidth(), Icons.Filled.Badge, kind = BK.Ghost) { vm.communityTab = "amigos"; nav.navigate("grp") }
+            } else {
+                SwitchRow("Mostrar mi estado a mis amigos", "En línea o en rodada. Nadie más lo ve.", p.showStatus) { on -> vm.act { vm.repo.setShowStatus(p, on) } }
+                Btn("Mis amigos", Modifier.fillMaxWidth(), Icons.Filled.People, kind = BK.Ghost) { vm.communityTab = "amigos"; nav.navigate("grp") }
             }
         }
-        val rent = reqs.filter { it.type == "rent" }
-        if (rent.isNotEmpty()) {
-            H("Mis rentas")
-            rent.sortedByDescending { it.createdAt }.take(6).forEach { r ->
+        if (u.role == Role.RIDER) RiderProfileCard(vm, u)
+        if (orders.isNotEmpty()) {
+            H("Mis pedidos")
+            val reviewed = myReviews.map { it.id }.toSet()
+            orders.sortedByDescending { it.createdAt }.take(6).forEach { o ->
                 Card2 {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) { Text(r.itemName, fontWeight = FontWeight.Bold); Sub("${prettyDate(r.dateFrom)} → ${prettyDate(r.dateTo)}") }
-                        StatusPill(REQ_ST[r.status] ?: r.status, r.status)
+                        Column(Modifier.weight(1f)) { Text(o.venueName, fontWeight = FontWeight.Bold); Sub("${cop(o.total)} · ${o.items.sumOf { it.qty }} ítems") }
+                        StatusPill(ORD_ST[o.status] ?: o.status, o.status)
                     }
-                    if (r.cancelKind == "retracto") Sub("Retracto ejercido: la devolución es total.")
-                    if (r.status !in listOf("no", "can") && r.toId.isNotBlank()) Btn("Chat con el dueño", Modifier.fillMaxWidth(), Icons.Filled.Chat, kind = BK.Ghost) { nav.chat("req_${r.id}", r.itemName, r.toId) }
-                    if (canCancel(r)) Btn("Cancelar renta", Modifier.fillMaxWidth(), Icons.Filled.Close, kind = BK.Danger, small = true) { cancel = r }
+                    if (o.status == "done" && "order_${o.id}" !in reviewed) Btn("Calificar", Modifier.fillMaxWidth(), Icons.Filled.Star, kind = BK.Ghost, small = true) { reviewOrder = o }
                 }
             }
         }
+        MyRentals(vm, nav, u)
         Btn("Legal y privacidad", Modifier.fillMaxWidth(), Icons.Filled.Gavel, kind = BK.Ghost) { nav.navigate("legal") }
         Btn("Configuración", Modifier.fillMaxWidth(), Icons.Filled.Settings, kind = BK.Ghost) { nav.navigate("settings") }
         // Los datos demo solo existen en la versión de pruebas, y las reglas solo se los permiten a un administrador.

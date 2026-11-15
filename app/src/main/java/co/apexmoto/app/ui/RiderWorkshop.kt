@@ -75,6 +75,9 @@ fun rememberLocationRequest(vm: AppViewModel, onResult: (Double, Double) -> Unit
 @Composable
 fun WorkshopScreen(vm: AppViewModel, nav: androidx.navigation.NavController, u: AppUser) {
     val all by vm.sos.collectAsState()
+    val reqs by vm.reqFrom.collectAsState()
+    // Si va en una moto rentada, el S.O.S. lleva la renta y el dueño también lo ve (las reglas lo comprueban).
+    val rental = reqs.firstOrNull { it.type == "rent" && it.status == "ride" }
     val mine = all.filter { it.fromId == u.id }.sortedByDescending { it.createdAt }
     val current = mine.firstOrNull { it.status in listOf("new", "ok", "go", "site") }
     var asking by rememberSaveable { mutableStateOf(false) }
@@ -92,6 +95,7 @@ fun WorkshopScreen(vm: AppViewModel, nav: androidx.navigation.NavController, u: 
     }
 
     Screen {
+        RateLastSos(vm, u, mine)
         if (current != null) {
             Card2(border = RedSoft) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -104,6 +108,7 @@ fun WorkshopScreen(vm: AppViewModel, nav: androidx.navigation.NavController, u: 
                 if (current.status == "new") Row(verticalAlignment = Alignment.CenterVertically) { Ping(); Spacer(Modifier.width(8.dp)); Sub("Estamos avisando a los talleres cercanos…") }
                 else if (current.status == "site") Text("${current.providerName} está atendiendo tu moto", fontWeight = FontWeight.Bold, fontSize = 15.sp)
                 else Text("${current.providerName} llega en ${current.eta} min", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                if (current.status in listOf("ok", "go")) TallerOnTheWay(vm, current)
                 if (current.providerId.isNotBlank()) Btn("Chat con el taller", Modifier.fillMaxWidth(), Icons.Filled.Chat, kind = BK.Ghost) { nav.chat("sos_${current.id}", current.providerName, current.providerId) }
                 Row(verticalAlignment = Alignment.CenterVertically) { Lbl("Tarifa estimada", modifier = Modifier.weight(1f)); Num(cop(current.price), OrangeDark, 18) }
                 if (current.status != "site") Btn("Cancelar S.O.S.", Modifier.fillMaxWidth(), Icons.Filled.Close, kind = BK.Danger) { vm.act("S.O.S. cancelado") { vm.repo.cancelSos(current.id) } }
@@ -134,13 +139,15 @@ fun WorkshopScreen(vm: AppViewModel, nav: androidx.navigation.NavController, u: 
                         Field("¿Dónde estás?", place, { place = it }, hint = "Km 12 vía al mar, junto a la gasolinera")
                         Btn(if (lat != 0.0) "Ubicación fijada" else "Usar mi ubicación", Modifier.fillMaxWidth(), if (lat != 0.0) Icons.Filled.CheckCircle else Icons.Filled.MyLocation, kind = BK.Ghost) { getLoc() }
                         if (lat != 0.0) Lbl("Los talleres aliados verán este punto hasta que termine el S.O.S.; después se borra.")
+                        if (rental != null) Lbl("Vas en una moto rentada (${rental.itemName}): el dueño también verá este S.O.S.", CyanDeep)
                         Lbl("Si hay heridos o peligro, llama primero al 123.", Red)
                         Field("Detalle (opcional)", note, { note = it }, lines = 2, hint = "Ej: llanta trasera, tengo repuesto")
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Btn("Cancelar", Modifier.weight(0.7f), kind = BK.Ghost) { asking = false }
                             Btn("Enviar S.O.S.", Modifier.weight(1f), Icons.Filled.Warning, kind = BK.Sos, enabled = place.isNotBlank()) {
                                 val k = C.SOS_KINDS.first { it.key == kind }
-                                vm.act("S.O.S. enviado") { vm.repo.createSos(Sos(fromId = u.id, fromName = u.name, kind = k.key, kindName = k.name, locationText = place, lat = lat, lng = lng, note = note, price = k.price)) }
+                                vm.act("S.O.S. enviado") { vm.repo.createSos(Sos(fromId = u.id, fromName = u.name, kind = k.key, kindName = k.name, locationText = place, lat = lat, lng = lng, note = note, price = k.price,
+                                    rentalReq = rental?.id.orEmpty(), rentalOwnerId = rental?.toId.orEmpty())) }
                                 place = ""; note = ""; lat = 0.0; lng = 0.0; asking = false
                             }
                         }
@@ -168,5 +175,47 @@ fun WorkshopScreen(vm: AppViewModel, nav: androidx.navigation.NavController, u: 
                 }
             }
         }
+    }
+}
+
+/** El taller en camino: mapa con el rider y el taller, distancia y una estimación de llegada (a 30 km/h promedio). */
+@Composable
+private fun TallerOnTheWay(vm: AppViewModel, s: Sos) {
+    if (s.providerLat == 0.0) { Sub("Cuando el taller salga hacia ti y comparta su ubicación, lo verás acercarse aquí."); return }
+    val shop = co.apexmoto.app.maps.LatLng(s.providerLat, s.providerLng)
+    val me = if (s.lat != 0.0) co.apexmoto.app.maps.LatLng(s.lat, s.lng) else null
+    val dist = me?.let { co.apexmoto.app.core.haversine(it.latitude, it.longitude, shop.latitude, shop.longitude) }
+    co.apexmoto.app.maps.OsmMap(
+        Modifier.fillMaxWidth().height(200.dp).clip(RoundedCornerShape(12.dp)), center = shop, zoom = 13.0, mapType = vm.mapType,
+        markers = listOfNotNull(
+            co.apexmoto.app.maps.MapMarker("taller", shop, s.providerName, "Taller en camino", color = "#1B8A3A", ring = "#FFFFFF", sizePx = 60),
+            me?.let { co.apexmoto.app.maps.MapMarker("yo", it, "Tú", s.locationText) },
+        ),
+    )
+    val minutes = dist?.let { (it / 1000.0 / 30.0 * 60.0).toInt().coerceAtLeast(1) }
+    Lbl(buildString {
+        if (dist != null) append("A ${co.apexmoto.app.core.fmtDist(dist)} · llega en unos $minutes min · ")
+        append("ubicación ${agoText(s.providerAt)}")
+    }, Green)
+}
+
+/** Después de un S.O.S. resuelto, invita a calificar al taller (una vez). */
+@Composable
+private fun RateLastSos(vm: AppViewModel, u: AppUser, mine: List<Sos>) {
+    val reviews by vm.myReviews.collectAsState()
+    var rate by remember { mutableStateOf<Sos?>(null) }
+    val done = reviews.map { it.id }.toSet()
+    rate?.let { r ->
+        ReviewSheet("¿Cómo te atendió ${r.providerName}?", { rate = null }) { stars, comment ->
+            vm.act("¡Gracias por tu reseña!") {
+                vm.repo.submitReview(Review(kind = "sos", serviceId = r.id, targetType = "venue", targetId = r.providerVenueId,
+                    authorId = u.id, authorName = u.name, stars = stars, comment = comment))
+            }
+        }
+    }
+    val s = mine.firstOrNull { it.status == "fin" && it.providerVenueId.isNotBlank() && "sos_${it.id}" !in done } ?: return
+    Card2(tone = Surf1) {
+        IconLine(Icons.Filled.Star, "¿Cómo te atendió ${s.providerName}?", OrangeDark)
+        Btn("Calificar al taller", Modifier.fillMaxWidth(), Icons.Filled.Star, kind = BK.Ghost, small = true) { rate = s }
     }
 }

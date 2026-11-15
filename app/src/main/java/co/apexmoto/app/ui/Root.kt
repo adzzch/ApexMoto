@@ -79,6 +79,10 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.delay
 import co.apexmoto.app.BuildConfig
 import co.apexmoto.app.core.C
 import co.apexmoto.app.data.AppUser
@@ -143,6 +147,67 @@ private fun RootContent(vm: AppViewModel) {
 @Composable
 fun MainScaffold(vm: AppViewModel, u: AppUser) {
     val nav = rememberNavController()
+    // Estado para los amigos: un latido cada 3 minutos, solo con la app en primer plano y si la persona lo permite.
+    val profile by vm.myProfile.collectAsState()
+    val owner = LocalLifecycleOwner.current
+    val showStatus = u.role == Role.RIDER && profile?.showStatus == true
+    val riding = vm.ridingName
+    LaunchedEffect(showStatus, riding) {
+        if (!showStatus) return@LaunchedEffect
+        owner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) { runCatching { vm.repo.heartbeat(u.id, riding) }; delay(180_000) }
+        }
+    }
+    // Rodada activa en la que participa: su nombre va en el estado ("En rodada: …"). Si la rodada en la que comparte
+    // la ubicación termina o la persona ya no es miembro, se deja de compartir y se borra su posición.
+    val rodadas by vm.rodadas.collectAsState()
+    val activeRide = rodadas.firstOrNull { it.status == "active" && u.id in it.joined }
+    LaunchedEffect(activeRide?.name) { vm.ridingName = activeRide?.name.orEmpty() }
+    val sharing = vm.sharingRodada
+    LaunchedEffect(rodadas, sharing) {
+        val r = rodadas.firstOrNull { it.id == sharing } ?: return@LaunchedEffect
+        if (r.status != "active" || u.id !in r.joined) vm.stopSharing(u.id)
+    }
+    // Taller en camino a un S.O.S.: su posición se envía como mucho cada 12 s, solo con la app abierta, y se corta sola
+    // cuando el S.O.S. deja de estar aceptado o en camino.
+    val sharingSos = vm.sharingSos
+    val sosList by vm.sos.collectAsState()
+    LaunchedEffect(sosList, sharingSos) {
+        val s = sosList.firstOrNull { it.id == sharingSos } ?: return@LaunchedEffect
+        if (s.status !in listOf("ok", "go") || s.providerId != u.id) vm.stopSosSharing()
+    }
+    LaunchedEffect(sharingSos) {
+        val sid = sharingSos ?: return@LaunchedEffect
+        owner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            var lastAt = 0L
+            try {
+                vm.container.location.updates().collect { loc ->
+                    val now = System.currentTimeMillis()
+                    if (now - lastAt >= 12_000) runCatching { vm.repo.shareProviderLocation(sid, loc.latitude, loc.longitude) }.onSuccess { lastAt = now }
+                }
+            } catch (e: SecurityException) { vm.stopSosSharing() }
+        }
+    }
+    // Mapa del grupo: la posición se envía como mucho cada 12 s y solo si se movió 20 m (o cada minuto si está quieto).
+    // Solo con la app en primer plano: al salir de ApexMoto se detiene (no hay ubicación en segundo plano).
+    LaunchedEffect(sharing) {
+        val rid = sharing ?: return@LaunchedEffect
+        owner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            var last: android.location.Location? = null
+            var lastAt = 0L
+            try {
+                vm.container.location.updates().collect { loc ->
+                    val now = System.currentTimeMillis()
+                    val moved = last?.distanceTo(loc) ?: Float.MAX_VALUE
+                    if (now - lastAt >= 12_000 && (moved >= 20f || now - lastAt >= 60_000)) {
+                        val sos = vm.sos.value.any { it.fromId == u.id && it.status in listOf("new", "ok", "go", "site") }
+                        runCatching { vm.repo.shareLive(rid, u.id, loc.latitude, loc.longitude, loc.bearing.toDouble(), vm.myProfile.value, u.name, sos) }
+                            .onSuccess { last = loc; lastAt = now }
+                    }
+                }
+            } catch (e: SecurityException) { vm.stopSharing(u.id) }
+        }
+    }
     val tabs = tabsFor(u.role)
     val start = tabs.first().route
     val route = nav.currentBackStackEntryAsState().value?.destination?.route
@@ -157,7 +222,7 @@ fun MainScaffold(vm: AppViewModel, u: AppUser) {
             // Rider
             composable("rut") { RoutesScreen(vm, nav, u) }
             composable("com") { VenuesScreen(vm, nav, u) }
-            composable("grp") { CommunityScreen(vm, u) }
+            composable("grp") { CommunityScreen(vm, nav, u) }
             composable("rent") { RentScreen(vm, nav) }
             composable("tal") { WorkshopScreen(vm, nav, u) }
             // Comercio
@@ -179,7 +244,8 @@ fun MainScaffold(vm: AppViewModel, u: AppUser) {
             composable("profile") { ProfileScreen(vm, nav, u) }
             composable("settings") { SettingsScreen(vm) }
             composable("legal") { LegalCenterScreen(vm, u) }
-            composable("navigate") { NavigationScreen(vm) }
+            composable("navigate") { NavigationScreen(vm, nav) }
+            composable("rodada/{id}") { b -> RodadaScreen(vm, nav, u, b.arguments?.getString("id").orEmpty()) }
             composable("menu/{id}") { b -> MenuScreen(vm, nav, u, b.arguments?.getString("id").orEmpty()) }
             composable("bike/{id}") { b -> BikeDetailScreen(vm, nav, u, b.arguments?.getString("id").orEmpty()) }
             composable(
@@ -255,6 +321,7 @@ private fun titleFor(route: String?) = when {
     route == null -> "ApexMoto"
     route.startsWith("menu") -> "Menú"
     route.startsWith("bike") -> "Moto"
+    route.startsWith("rodada") -> "Rodada"
     route.startsWith("chat") -> "Chat"
     route == "navigate" -> "Guiado"
     route == "profile" -> "Mi perfil"

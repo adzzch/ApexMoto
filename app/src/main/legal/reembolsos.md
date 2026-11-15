@@ -1,6 +1,6 @@
 # Política de cancelaciones, retracto y reembolsos
 
-**Versión 1.0.0 · Vigente desde: [COMPLETAR: fecha de publicación]**
+**Versión 1.1.0 · Vigente desde: [COMPLETAR: fecha de publicación]**
 
 Esta política hace parte de los Términos y Condiciones. Explica cómo cancelar, cuándo aplica el derecho de retracto y cómo se devuelve el dinero.
 
@@ -36,8 +36,10 @@ En las ventas a distancia, como las que se hacen por una aplicación, puedes des
 
 - Aplica el retracto si cancelas dentro de los 5 días hábiles siguientes a la reserva y antes de recibir la moto: reembolso total.
 - Fuera de ese plazo y antes de recibir la moto, se aplican las condiciones que el dueño te haya informado antes de reservar. Si no informó ninguna, el reembolso es total.
-- Una vez recibes la moto, el servicio empezó: no hay retracto. Los días no usados se devuelven solo si el dueño lo acepta.
-- Si el dueño cancela, o la moto no está en las condiciones anunciadas (incluidos SOAT o revisión técnico-mecánica vencidos), el reembolso es total.
+- Recibes la moto cuando confirmas el acta de entrega en la aplicación. Desde ese momento el servicio empezó: no hay retracto. Los días no usados se devuelven solo si el dueño lo acepta.
+- Si el dueño cancela, también en la entrega (por ejemplo, porque no presentaste la licencia o no pasaste la prueba de manejo), o la moto no está en las condiciones anunciadas (incluidos SOAT o revisión técnico-mecánica vencidos), el reembolso es total.
+- **Depósito:** el dueño te lo devuelve al recibir la moto o, a más tardar, dentro de los 5 días hábiles siguientes. Es completo si el acta de devolución no anota daños nuevos; si los anota, se descuenta su valor, que no puede pasar del tope por daños que aceptaste. El dueño no puede cobrar daños que no estén en el acta confirmada.
+- Si no estás de acuerdo con los daños anotados, no confirmes el acta: habla con el dueño y, si no se ponen de acuerdo, presenta un reclamo (punto 6).
 
 **Asistencia en carretera (S.O.S.)**
 
@@ -50,6 +52,7 @@ En las ventas a distancia, como las que se hacen por una aplicación, puedes des
 - Deben informar sus condiciones de cancelación antes de que el rider confirme. Lo que no se informa no se puede cobrar.
 - Deben devolver el dinero dentro de los plazos de esta política y de la ley.
 - Si cancelan un servicio aceptado, devuelven la totalidad de lo recibido.
+- El dueño de moto devuelve el depósito según el punto 3 y no cobra daños que no estén en el acta de devolución confirmada, ni por encima del tope pactado.
 - Las cancelaciones reiteradas o injustificadas pueden llevar a la suspensión de la cuenta.
 
 ## 5. Reversión del pago (artículo 51 de la Ley 1480 de 2011)

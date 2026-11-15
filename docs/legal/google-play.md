@@ -33,7 +33,8 @@ Respuestas para la consola de Play según lo que la app hace **hoy**. Si se agre
 | Dirección | Sí (solo aliados) | No | No para aliados | Cumplimiento legal (identificación del oferente) |
 | ID de usuario | Sí | No | No | Funcionalidad, seguridad |
 | Otra información personal (número de documento de aliados) | Sí (solo aliados) | No | No para aliados | Cumplimiento legal |
-| Ubicación precisa | Sí | **Sí**: los puntos de la ruta se envían a OpenRouteService; el punto del S.O.S. lo ven talleres | Sí | Funcionalidad de la app |
+| Otra información personal (perfil de conductor: categoría y vencimiento de la licencia, año desde el que maneja; contacto de emergencia con nombre y celular) | Sí (solo riders que rentan) | No | Sí | Funcionalidad de la app (renta) |
+| Ubicación precisa | Sí | **Sí**: los puntos de la ruta se envían a OpenRouteService; el punto del S.O.S. lo ven talleres (y el dueño, si es una moto rentada) | Sí | Funcionalidad de la app |
 | Ubicación aproximada | Sí | Igual que la precisa | Sí | Funcionalidad de la app |
 | Mensajes dentro de la app (chat) | Sí | No | Sí | Funcionalidad de la app |
 | Historial de compras (pedidos, rentas, salidas) | Sí | No | No | Funcionalidad de la app |
