@@ -1,0 +1,70 @@
+ApexMoto — Licencia propietaria / Proprietary License
+
+Copyright (c) 2026 Daniel Alejandro Zamora. Todos los derechos reservados.
+Copyright (c) 2026 Daniel Alejandro Zamora. All rights reserved.
+
+ESPAÑOL
+-------
+Este repositorio y todo su contenido (código fuente, recursos gráficos,
+textos legales, documentación, configuración y reglas de seguridad, en
+adelante el "Software") son propiedad exclusiva de su titular. El Software se
+publica únicamente para consulta y evaluación. NO es software libre ni de
+código abierto.
+
+1. Permisos. Sin autorización previa, expresa y por escrito del titular, se
+   permite únicamente: (a) leer el código y la documentación; y (b) clonar el
+   repositorio para uso personal de evaluación, sin distribuirlo.
+
+2. Prohibiciones. Sin esa autorización queda prohibido copiar, modificar,
+   fusionar, publicar, distribuir, sublicenciar, vender, alquilar, usar en
+   producción o con fines comerciales, ni crear obras derivadas del Software o
+   de cualquiera de sus partes, ni publicar una aplicación que lo contenga o se
+   base sustancialmente en él.
+
+3. Marca. "ApexMoto", su ícono y su identidad visual no se licencian. Esta
+   licencia no concede derecho alguno sobre ellos.
+
+4. Componentes de terceros. El Software usa librerías, fuentes y datos de
+   terceros que conservan sus propias licencias (ver THIRD_PARTY_NOTICES.md).
+   Nada de esta licencia modifica los términos de esos componentes.
+
+5. Contribuciones. Quien envíe una contribución (ver CONTRIBUTING.md) cede al
+   titular una licencia perpetua, mundial, gratuita e irrevocable para usarla,
+   modificarla y distribuirla como parte del Software, y declara que tiene
+   derecho a hacerlo.
+
+6. Sin garantía. EL SOFTWARE SE ENTREGA "TAL CUAL", SIN GARANTÍA DE NINGUNA
+   CLASE, EXPRESA O IMPLÍCITA, INCLUIDAS LAS DE COMERCIABILIDAD, IDONEIDAD PARA
+   UN FIN PARTICULAR Y NO INFRACCIÓN. EN NINGÚN CASO EL TITULAR SERÁ
+   RESPONSABLE POR RECLAMACIONES, DAÑOS U OTRAS RESPONSABILIDADES DERIVADAS DEL
+   USO DEL SOFTWARE. Los documentos de docs/legal/ son guías internas y no
+   constituyen asesoría jurídica.
+
+7. Terminación. El incumplimiento de estas condiciones termina
+   automáticamente los permisos del punto 1.
+
+8. Ley aplicable. Esta licencia se rige por las leyes de la República de
+   Colombia.
+
+Para solicitar permisos o licencias comerciales, contacta al titular a través
+de https://github.com/adzzch.
+
+ENGLISH (courtesy translation; the Spanish text prevails)
+----------------------------------------------------------
+This repository and all its contents (source code, graphic assets, legal
+texts, documentation, configuration and security rules, the "Software") are
+the exclusive property of the copyright holder. The Software is published for
+viewing and evaluation only. It is NOT free or open-source software.
+
+Without prior written permission from the holder you may only read the code
+and documentation and clone the repository for personal evaluation, without
+redistributing it. You may not copy, modify, merge, publish, distribute,
+sublicense, sell, rent, use in production or commercially, create derivative
+works, or publish an application that contains or is substantially based on
+the Software. The name "ApexMoto", its icon and visual identity are not
+licensed. Third-party components keep their own licenses (see
+THIRD_PARTY_NOTICES.md). Contributors grant the holder a perpetual,
+worldwide, royalty-free, irrevocable license to their contributions. THE
+SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, AND THE HOLDER IS
+NOT LIABLE FOR ANY CLAIM OR DAMAGES ARISING FROM ITS USE. Breach terminates
+the permissions above. Governed by the laws of the Republic of Colombia.

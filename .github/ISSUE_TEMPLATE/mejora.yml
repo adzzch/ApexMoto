@@ -1,0 +1,22 @@
+name: Mejora o idea
+description: Propón una funcionalidad o un cambio
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problema
+    attributes:
+      label: Problema que resuelve
+      description: ¿Qué necesita el rider (o el rol afectado) que hoy no puede hacer? Ver PRODUCT.md.
+    validations:
+      required: true
+  - type: textarea
+    id: propuesta
+    attributes:
+      label: Propuesta
+    validations:
+      required: true
+  - type: textarea
+    id: restricciones
+    attributes:
+      label: Restricciones a tener en cuenta
+      description: ¿Requiere un servicio nuevo (debe tener plan gratuito sin tarjeta)? ¿Toca datos personales o textos legales?
