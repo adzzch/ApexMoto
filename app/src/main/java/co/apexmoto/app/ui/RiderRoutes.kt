@@ -194,15 +194,10 @@ private fun ColumnScope.RouteAI(vm: AppViewModel, nav: NavController, u: AppUser
             Btn("Iniciar guiado", Modifier.fillMaxWidth(), Icons.Filled.Navigation, enabled = r.stops.all { it.venue.lat != 0.0 }) {
                 startGuide(vm, nav, title, r.stops.map { it.venue })
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Btn("Guardar", Modifier.weight(1f), Icons.Filled.Bookmark, kind = BK.Ghost) {
-                    vm.act("Ruta guardada") {
-                        vm.repo.saveRoute(SavedRoute(userId = u.id, name = "$title · ${r.stops.size} paradas", corridor = r.corridor, km = r.km, mins = r.mins,
-                            stops = r.stops.map { SavedStop(it.venue.id, it.venue.name, it.eta, it.venue.lat, it.venue.lng) }))
-                    }
-                }
-                Btn("Con guía", Modifier.weight(1f), Icons.Filled.SportsMotorsports, kind = BK.Ghost) {
-                    vm.preRoute = title; vm.rentMode = "cond"; nav.navigate("rent")
+            Btn("Guardar ruta", Modifier.fillMaxWidth(), Icons.Filled.Bookmark, kind = BK.Ghost) {
+                vm.act("Ruta guardada") {
+                    vm.repo.saveRoute(SavedRoute(userId = u.id, name = "$title · ${r.stops.size} paradas", corridor = r.corridor, km = r.km, mins = r.mins,
+                        stops = r.stops.map { SavedStop(it.venue.id, it.venue.name, it.eta, it.venue.lat, it.venue.lng) }))
                 }
             }
         }

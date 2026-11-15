@@ -36,7 +36,6 @@ import androidx.navigation.NavController
 import co.apexmoto.app.BuildConfig
 import co.apexmoto.app.core.cop
 import co.apexmoto.app.data.*
-import co.apexmoto.app.legal.Legal
 import co.apexmoto.app.ui.theme.*
 
 @Composable
@@ -44,16 +43,22 @@ fun ProfileScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
     val orders by vm.myOrders.collectAsState()
     val reqs by vm.reqFrom.collectAsState()
     var confirmReset by remember { mutableStateOf(false) }
-    var guideTerms by remember { mutableStateOf(false) }
+    var confirmClear by remember { mutableStateOf(false) }
     var cancel by remember { mutableStateOf<ServiceRequest?>(null) }
-    if (guideTerms) RoleConditionsDialog(Legal.doc(Legal.GUIDE), onAccept = { guideTerms = false; vm.setDriverMode(true) }, onDismiss = { guideTerms = false })
     cancel?.let { r -> CancelRequestDialog(vm, r) { cancel = null } }
     if (confirmReset) AlertDialog(
         onDismissRequest = { confirmReset = false },
         title = { Text("¿Reiniciar los datos demo?") },
-        text = { Text("Se borran los comercios, motos, conductores y rodadas de demostración (los que no tienen dueño) y se cargan de nuevo sin repetidos. Lo creado por usuarios reales no se toca.") },
+        text = { Text("Se borran los comercios, motos y rodadas de demostración (los que no tienen dueño) y se cargan de nuevo sin repetidos. Lo creado por usuarios reales no se toca.") },
         confirmButton = { TextButton({ confirmReset = false; vm.act("Datos demo reiniciados") { vm.repo.resetDemo() } }) { Text("Reiniciar") } },
         dismissButton = { TextButton({ confirmReset = false }) { Text("Cancelar") } },
+    )
+    if (confirmClear) AlertDialog(
+        onDismissRequest = { confirmClear = false },
+        title = { Text("¿Borrar los datos demo?") },
+        text = { Text("Se borran los comercios, motos y rodadas de demostración (los que no tienen dueño) y la app queda solo con lo que crearon ustedes. Puedes volver a cargarlos cuando quieras.") },
+        confirmButton = { TextButton({ confirmClear = false; vm.act("Datos demo borrados") { vm.repo.clearDemo() } }) { Text("Borrar") } },
+        dismissButton = { TextButton({ confirmClear = false }) { Text("Cancelar") } },
     )
     Screen {
         Card2(index = 0) {
@@ -63,18 +68,6 @@ fun ProfileScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
                     Text(u.name, fontFamily = Chivo, fontWeight = FontWeight.ExtraBold, fontSize = 21.sp)
                     Pill(Role.label(u.role), OrangeSoft, OrangeDark)
                     if (u.email.isNotBlank()) Lbl(u.email)
-                }
-            }
-        }
-        if (u.role == Role.RIDER || u.role == Role.DRIVER) {
-            Card2 {
-                // Antes de activar el modo guía se muestran y aceptan las condiciones del rol (licencia, SOAT, sin pasajeros).
-                SwitchRow("Modo guía de rutas", "Acompaña en tu moto a riders que quieren una salida guiada", u.role == Role.DRIVER) { on ->
-                    if (on && !Legal.isCurrent(u.legal, Legal.GUIDE)) guideTerms = true else vm.setDriverMode(on)
-                }
-                if (u.role == Role.DRIVER) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Btn("Mi servicio", Modifier.weight(1f), Icons.Filled.Badge, kind = BK.Ghost) { nav.navigate("dsv") }
-                    Btn("Ganancias", Modifier.weight(1f), Icons.Filled.Payments, kind = BK.Ghost) { nav.navigate("ding") }
                 }
             }
         }
@@ -104,10 +97,13 @@ fun ProfileScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
         }
         Btn("Legal y privacidad", Modifier.fillMaxWidth(), Icons.Filled.Gavel, kind = BK.Ghost) { nav.navigate("legal") }
         Btn("Configuración", Modifier.fillMaxWidth(), Icons.Filled.Settings, kind = BK.Ghost) { nav.navigate("settings") }
-        // Los datos demo solo existen en compilaciones de desarrollo, y las reglas solo se los permiten a un administrador.
-        if (BuildConfig.DEBUG) {
-            Btn("Cargar datos demo (desarrollo)", Modifier.fillMaxWidth(), Icons.Filled.CloudUpload, kind = BK.Ghost) { vm.act("Datos demo cargados") { vm.repo.seedDemo() } }
+        // Los datos demo solo existen en la versión de pruebas, y las reglas solo se los permiten a un administrador.
+        if (BuildConfig.PRUEBAS) Card2(tone = Surf1) {
+            H("Datos demo", Icons.Filled.Science)
+            Sub("Comercios, motos y rodadas de ejemplo para presentar la app. Solo un administrador puede cargarlos o borrarlos.")
+            Btn("Cargar datos demo", Modifier.fillMaxWidth(), Icons.Filled.CloudUpload, kind = BK.Ghost) { vm.act("Datos demo cargados") { vm.repo.seedDemo() } }
             Btn("Reiniciar datos demo (sin repetidos)", Modifier.fillMaxWidth(), Icons.Filled.Refresh, kind = BK.Ghost) { confirmReset = true }
+            Btn("Borrar datos demo", Modifier.fillMaxWidth(), Icons.Filled.DeleteSweep, kind = BK.Danger) { confirmClear = true }
         }
         Btn("Cerrar sesión", Modifier.fillMaxWidth(), Icons.AutoMirrored.Filled.Logout, kind = BK.Danger) { vm.logout() }
     }
@@ -117,8 +113,8 @@ fun ProfileScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
 fun SettingsScreen(vm: AppViewModel) {
     val key = BuildConfig.ORS_API_KEY
     Screen {
-        // Diagnóstico de la clave: solo en desarrollo. En producción no se muestra nada de la clave.
-        if (BuildConfig.DEBUG) Card2(border = if (key.isBlank()) RedSoft else GreenSoft) {
+        // Diagnóstico de la clave: solo en la versión de pruebas. En la app real no se muestra nada de la clave.
+        if (BuildConfig.PRUEBAS) Card2(border = if (key.isBlank()) RedSoft else GreenSoft) {
             H("Clave de OpenRouteService")
             if (key.isBlank()) {
                 IconLine(Icons.Filled.ErrorOutline, "No hay clave configurada.", Red)

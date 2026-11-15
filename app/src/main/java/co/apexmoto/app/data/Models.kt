@@ -2,9 +2,13 @@ package co.apexmoto.app.data
 
 import com.google.firebase.firestore.DocumentId
 
+/**
+ * Roles. El de "Guía de rutas" ("d") se retiró el 2026-11-15: ApexMoto no ofrece guías pagados ni transporte de
+ * pasajeros. Las cuentas que lo tenían pasan solas a rider al abrir la app (ver Repo.currentUser).
+ */
 object Role {
-    const val RIDER = "m"; const val SHOP = "c"; const val OWNER = "o"; const val DRIVER = "d"; const val WORKSHOP = "t"
-    fun label(r: String) = when (r) { RIDER -> "Rider"; SHOP -> "Comercio"; OWNER -> "Dueño de moto"; WORKSHOP -> "Taller mecánico"; else -> "Guía de rutas" }
+    const val RIDER = "m"; const val SHOP = "c"; const val OWNER = "o"; const val WORKSHOP = "t"
+    fun label(r: String) = when (r) { SHOP -> "Comercio"; OWNER -> "Dueño de moto"; WORKSHOP -> "Taller mecánico"; else -> "Rider" }
     /** Roles que administran un negocio (comercio o taller) y por eso tienen un Venue propio. */
     fun hasVenue(r: String) = r == SHOP || r == WORKSHOP
 }
@@ -42,26 +46,18 @@ data class Bike(
     var lastReq: String = "",
 )
 
-data class Driver(
-    @DocumentId var id: String = "", var ownerId: String = "", var name: String = "", var bike: String = "", var zone: String = "Cali",
-    var rate: Long = 200000, var rating: Double = 5.0, var reviews: Int = 0, var services: List<String> = listOf("Ruta guiada"),
-    var bio: String = "", var online: Boolean = true,
-    /** Solicitud que originó la última calificación. Las reglas de Firestore la usan para validar que es real. */
-    var lastRatingReq: String = "",
-)
-
 data class Rodada(
     @DocumentId var id: String = "", var creatorId: String = "", var name: String = "", var whenLabel: String = "Este fin de semana",
     var captain: String = "", var rating: Double = 5.0, var meet: String = "", var style: String = "Turismo", var seats: Int = 8,
     var joined: List<String> = emptyList(),
 )
 
+/** Solicitud de renta de una moto (type = "rent", el único tipo que existe). */
 data class ServiceRequest(
     @DocumentId var id: String = "", var type: String = "rent", var fromId: String = "", var fromName: String = "", var toId: String = "",
     var itemId: String = "", var itemName: String = "", var days: Int = 1, var amount: Long = 0, var total: Long = 0,
     var dateFrom: String = "", var dateTo: String = "", var plan: String = "", var extras: List<String> = emptyList(),
-    var delivery: Boolean = false, var status: String = "p", var meet: String = "", var service: String = "",
-    var driverName: String = "", var rated: Int = 0, var createdAt: Long = 0,
+    var delivery: Boolean = false, var status: String = "p", var rated: Int = 0, var createdAt: Long = 0,
     /** Renta: el rider declaró tener licencia vigente de esta categoría (A1 o A2). No se guarda foto ni número. */
     var licenseDeclared: Boolean = false, var licenseCat: String = "",
     // Cancelación por el rider. cancelKind: "retracto" (art. 47 Ley 1480) o "cancelacion".

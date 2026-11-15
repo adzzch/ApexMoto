@@ -47,6 +47,8 @@ service cloud.firestore {
     // ───────── Documentos legales y aceptación trazable ─────────
     // Versiones que hoy se pueden aceptar. Al publicar una versión nueva de un documento, agrégala aquí
     // (y quita la anterior cuando la app que la trae ya no deba poder registrarse).
+    // 'declaracion-guia' es del rol de guía, retirado el 2026-11-15: la app ya no la ofrece y solo sigue aquí para que
+    // los perfiles de prueba que la aceptaron no queden inválidos.
     function versionOk(docId, version) {
       let valid = {
         'terminos': ['1.0.0'],
@@ -66,7 +68,6 @@ service cloud.firestore {
       return d.legal is map
         && d.legal.keys().hasOnly(['terminos', 'privacidad', 'ubicacion', 'declaracion-guia', 'declaracion-propietario'])
         && accepted(d, 'terminos') && accepted(d, 'privacidad')
-        && (d.role != 'd' || accepted(d, 'declaracion-guia'))
         && (d.role != 'o' || accepted(d, 'declaracion-propietario'))
         && (!('ubicacion' in d.legal) || accepted(d, 'ubicacion'))
         && (!('declaracion-guia' in d.legal) || accepted(d, 'declaracion-guia'))
@@ -95,16 +96,16 @@ service cloud.firestore {
     // Nadie lee el perfil de otra persona (ahí están su correo o celular). Sin consulta de listas.
     function userShape(d) {
       return d.keys().hasOnly(['name', 'email', 'role', 'legal']) && d.keys().hasAll(['name', 'email', 'role', 'legal'])
-        && text(d, 'name', 60) && str(d, 'email', 120) && d.role in ['m', 'c', 'o', 'd', 't'];
+        && text(d, 'name', 60) && str(d, 'email', 120) && d.role in ['m', 'c', 'o', 't'];
     }
     match /users/{id} {
       allow get: if signedIn() && (uid() == id || isAdmin());
       allow create: if signedIn() && uid() == id && userShape(request.resource.data) && legalOk(request.resource.data);
       allow update: if signedIn() && uid() == id && userShape(request.resource.data)
         && onlyChanges(['name', 'role', 'legal'])
-        // El rol solo puede alternar entre rider y guía; los demás se eligen al registrarse.
+        // El rol se elige al registrarse y no cambia. Única excepción: una cuenta del rol de guía (retirado) pasa a rider.
         && (request.resource.data.role == resource.data.role
-            || (resource.data.role in ['m', 'd'] && request.resource.data.role in ['m', 'd']))
+            || (resource.data.role == 'd' && request.resource.data.role == 'm'))
         // Una aceptación registrada no se puede retirar del perfil.
         && (!('legal' in resource.data) || request.resource.data.legal.keys().hasAll(resource.data.legal.keys()))
         && legalOk(request.resource.data);
@@ -134,7 +135,7 @@ service cloud.firestore {
     // Identificación del oferente (art. 53 Ley 1480). Privada: solo su titular y un administrador.
     match /providers/{id} {
       allow get: if signedIn() && (uid() == id || isAdmin());
-      allow create, update: if signedIn() && uid() == id && role() in ['c', 'o', 'd', 't']
+      allow create, update: if signedIn() && uid() == id && role() in ['c', 'o', 't']
         && request.resource.data.keys().hasOnly(['legalName', 'idType', 'idNumber', 'address', 'phone', 'updatedAt'])
         && text(request.resource.data, 'legalName', 120) && request.resource.data.idType in ['CC', 'CE', 'NIT', 'PAS']
         && text(request.resource.data, 'idNumber', 20) && text(request.resource.data, 'address', 160) && text(request.resource.data, 'phone', 20);
@@ -190,32 +191,7 @@ service cloud.firestore {
       allow delete: if isAdmin() || (signedIn() && resource.data.ownerId == uid());
     }
 
-    // ───────── Guías ─────────
-    function driverShape(d) {
-      return text(d, 'name', 60) && str(d, 'bike', 80) && str(d, 'zone', 60) && str(d, 'bio', 500)
-        && d.rate is int && d.rate > 0 && d.rate <= 5000000 && d.services is list && d.services.size() <= 6;
-    }
-    // Calificación: solo quien contrató, una vez, con el servicio finalizado, y en el mismo lote que marca la solicitud como calificada.
-    function ratingOk(id) {
-      let rid = request.resource.data.lastRatingReq;
-      let before = get(path('requests', rid)).data;
-      let stars = getAfter(path('requests', rid)).data.rated;
-      let n = request.resource.data.reviews;
-      return onlyChanges(['rating', 'reviews', 'lastRatingReq'])
-        && before.fromId == uid() && before.itemId == id && before.type == 'drv' && before.status == 'fin' && before.rated == 0
-        && stars is int && stars >= 1 && stars <= 5 && n == resource.data.reviews + 1
-        && math.abs(request.resource.data.rating * n - resource.data.rating * (n - 1) - stars) < 0.01;
-    }
-    match /drivers/{id} {
-      allow read: if signedIn();
-      allow create: if isAdmin() || (signedIn() && id == uid() && request.resource.data.ownerId == uid() && role() == 'd'
-        && driverShape(request.resource.data) && request.resource.data.reviews == 0);
-      allow update: if isAdmin() || (signedIn() && (
-        (resource.data.ownerId == uid() && request.resource.data.ownerId == uid() && driverShape(request.resource.data)
-          && request.resource.data.rating == resource.data.rating && request.resource.data.reviews == resource.data.reviews)
-        || ratingOk(id)));
-      allow delete: if isAdmin() || (signedIn() && resource.data.ownerId == uid());
-    }
+    // Los perfiles de guía (colección drivers) se retiraron el 2026-11-15: quedan cerrados como cualquier colección no declarada.
 
     // ───────── Rodadas ─────────
     // Unirse o salir: solo cambia la propia presencia en `joined`, y no se pasa de los cupos.
@@ -260,7 +236,7 @@ service cloud.firestore {
         || (resource.data.fromId == uid() && resource.data.status == 'new' && request.resource.data.status == 'can'));
     }
 
-    // ───────── Solicitudes de renta y de guía ─────────
+    // ───────── Solicitudes de renta ─────────
     function rentOk(d) {
       let b = get(path('bikes', d.itemId)).data;
       return d.toId == b.ownerId && b.available == true
@@ -270,29 +246,20 @@ service cloud.firestore {
         && isDate(b.soatUntil) && isDate(b.rtmUntil) && b.soatUntil >= d.dateTo && b.rtmUntil >= d.dateTo
         && d.licenseDeclared == true && d.licenseCat in ['A1', 'A2'];
     }
-    function guideOk(d) {
-      return d.status == 'p' && d.toId == get(path('drivers', d.itemId)).data.ownerId && isDate(d.dateFrom) && text(d, 'meet', 160);
-    }
     match /requests/{id} {
       allow read: if signedIn() && (resource.data.fromId == uid() || resource.data.toId == uid());
       allow create: if signedIn() && request.resource.data.fromId == uid()
         && request.resource.data.rated == 0 && request.resource.data.cancelKind == ''
         && request.resource.data.total is int && request.resource.data.total >= 0
         && text(request.resource.data, 'fromName', 60) && str(request.resource.data, 'itemName', 160)
-        && ((request.resource.data.type == 'rent' && rentOk(request.resource.data))
-          || (request.resource.data.type == 'drv' && guideOk(request.resource.data)))
+        && request.resource.data.type == 'rent' && rentOk(request.resource.data)
         && stamped('request');
       allow update: if signedIn() && (
-        // El aliado (dueño o guía) avanza el estado paso a paso.
+        // El dueño avanza el estado paso a paso.
         (resource.data.toId == uid() && onlyChanges(['status']) && (
           (resource.data.status == 'p' && request.resource.data.status in ['ok', 'no'])
-          || (resource.data.status == 'ok' && resource.data.type == 'rent' && request.resource.data.status == 'ride')
-          || (resource.data.status == 'ok' && resource.data.type == 'drv' && request.resource.data.status == 'go')
-          || (resource.data.status == 'go' && request.resource.data.status == 'ride')
+          || (resource.data.status == 'ok' && request.resource.data.status == 'ride')
           || (resource.data.status == 'ride' && request.resource.data.status == 'fin')))
-        // Quien solicitó califica una sola vez, con el servicio finalizado.
-        || (resource.data.fromId == uid() && onlyChanges(['rated']) && resource.data.status == 'fin' && resource.data.rated == 0
-          && request.resource.data.rated is int && request.resource.data.rated >= 1 && request.resource.data.rated <= 5)
         // Quien solicitó cancela o ejerce el retracto antes de que el servicio empiece.
         || (resource.data.fromId == uid() && onlyChanges(['status', 'cancelKind', 'cancelledAt'])
           && resource.data.status in ['p', 'ok'] && request.resource.data.status == 'can'

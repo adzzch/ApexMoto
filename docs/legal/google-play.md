@@ -6,7 +6,7 @@ Respuestas para la consola de Play según lo que la app hace **hoy**. Si se agre
 
 | Requisito | Estado |
 |---|---|
-| Política de privacidad en una URL pública | **Pendiente.** Publicar `app/src/main/assets/legal/privacidad.md` (por ejemplo en Firebase Hosting o GitHub Pages, ambos gratuitos) y poner la URL en la ficha y en el formulario |
+| Política de privacidad en una URL pública | **Pendiente.** Publicar el texto completo de `privacidad.md`, el que deja la compilación de prod en `app/build/generated/assets/fillProdReleaseLegalTexts/legal/` con los datos del responsable ya puestos (por ejemplo en Firebase Hosting o GitHub Pages, ambos gratuitos) y poner la URL en la ficha y en el formulario |
 | Eliminación de cuenta dentro de la app | Hecho: Perfil → Legal y privacidad → Eliminar mi cuenta |
 | URL para pedir la eliminación sin abrir la app | **Pendiente.** Una página pública que explique cómo pedirla por correo y qué se borra y qué se conserva. Play la exige |
 | Nivel de API de destino | **Pendiente.** El proyecto apunta a API 34. Play exige un nivel reciente para apps nuevas: revisar el requisito vigente y subir `targetSdk` (implica actualizar AGP y probar) |

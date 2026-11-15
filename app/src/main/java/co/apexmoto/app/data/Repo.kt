@@ -66,7 +66,7 @@ class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth, private val consen
     /**
      * Guarda el perfil (rol incluido) junto con el registro de cada aceptación legal, en un solo lote:
      * o quedan las dos cosas o ninguna. Las reglas de Firestore rechazan un perfil sin sus aceptaciones.
-     * Luego crea el comercio o el perfil de guía si aplica.
+     * Luego crea el comercio o el taller si aplica.
      */
     suspend fun completeProfile(name: String, role: String, bizName: String, corridor: String, method: String): AppUser {
         val fu = auth.currentUser ?: error("Tu sesión no es válida. Vuelve a ingresar.")
@@ -79,29 +79,20 @@ class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth, private val consen
         b.commit().await()
         if (role == Role.SHOP) newVenue(fu.uid, bizName.ifBlank { "Mi negocio" }, corridor)
         if (role == Role.WORKSHOP) newWorkshop(fu.uid, bizName.ifBlank { "Mi taller" }, corridor)
-        if (role == Role.DRIVER) ensureDriver(u)
         return u
     }
 
     suspend fun currentUser(): AppUser? {
         val id = auth.currentUser?.uid ?: return null
-        return col("users").document(id).get().await().toObject(AppUser::class.java)
+        val u = col("users").document(id).get().await().toObject(AppUser::class.java) ?: return null
+        if (u.role != LEGACY_GUIDE) return u
+        // El rol de guía se retiró: la cuenta pasa a rider (las reglas solo permiten ese cambio). Si no se puede guardar
+        // ahora, igual entra como rider y se intenta de nuevo la próxima vez.
+        runCatching { col("users").document(id).update("role", Role.RIDER).await() }
+        return u.copy(role = Role.RIDER)
     }
 
     fun logout() = auth.signOut()
-
-    /** Cambia entre rider y guía. Para ser guía se registra, en el mismo lote, la aceptación de las condiciones del rol. */
-    suspend fun setRole(u: AppUser, role: String, method: String): AppUser {
-        val docs = Legal.pending(role, u.legal)
-        val legal = u.legal + docs.associate { it.id to it.version }
-        val b = db.batch()
-        b.update(col("users").document(u.id), mapOf("role" to role, "legal" to legal))
-        addAcceptances(b, u.id, role, docs, method)
-        b.commit().await()
-        val nu = u.copy(role = role, legal = legal)
-        if (role == Role.DRIVER) ensureDriver(nu)
-        return nu
-    }
 
     // ───────── Aceptación legal trazable ─────────
     /**
@@ -147,7 +138,6 @@ class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth, private val consen
         val n = name.trim().take(60)
         if (n.isBlank()) error("Escribe tu nombre")
         col("users").document(u.id).update("name", n).await()
-        if (u.role == Role.DRIVER) runCatching { col("drivers").document(u.id).update("name", n).await() }
         return u.copy(name = n)
     }
 
@@ -178,11 +168,10 @@ class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth, private val consen
         out.put("aceptaciones", many("legal_acceptances", "userId"))
         out.put("solicitudes_de_privacidad", many("privacy_requests", "userId"))
         out.put("identificacion_oferente", one("providers"))
-        out.put("perfil_de_guia", one("drivers"))
         out.put("negocios", many("venues", "ownerId"))
         out.put("motos", many("bikes", "ownerId"))
         out.put("pedidos", many("orders", "fromId"))
-        out.put("rentas_y_salidas", many("requests", "fromId"))
+        out.put("rentas", many("requests", "fromId"))
         out.put("cupones", many("coupons", "userId"))
         out.put("sos", many("sos", "fromId"))
         out.put("rutas_guardadas", many("routes", "userId"))
@@ -208,15 +197,9 @@ class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth, private val consen
                 val b = db.batch(); chunk.forEach { b.delete(it.reference) }; b.commit().await()
             }
         }
-        runCatching { col("drivers").document(u.id).delete().await() }
         runCatching { col("providers").document(u.id).delete().await() }
         col("users").document(u.id).delete().await()
         fu.delete().await()
-    }
-
-    private suspend fun ensureDriver(u: AppUser) {
-        val ref = col("drivers").document(u.id)
-        if (!ref.get().await().exists()) ref.set(Driver(ownerId = u.id, name = u.name, bio = "Guía de rutas en ApexMoto.")).await()
     }
 
     // ───────── Comercios ─────────
@@ -279,16 +262,13 @@ class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth, private val consen
         return d.getString("userName").orEmpty()
     }
 
-    // ───────── Motos, conductores y rodadas ─────────
+    // ───────── Motos y rodadas ─────────
     fun bikes() = col("bikes").live<Bike>()
     suspend fun saveBike(b: Bike) { if (b.id.isBlank()) col("bikes").add(b).await() else col("bikes").document(b.id).set(b).await() }
     suspend fun deleteBike(id: String) { col("bikes").document(id).delete().await() }
     suspend fun addBooking(bikeId: String, from: String, to: String) {
         col("bikes").document(bikeId).update("booked", FieldValue.arrayUnion("$from|$to")).await()
     }
-
-    fun drivers() = col("drivers").live<Driver>()
-    suspend fun saveDriver(d: Driver) { col("drivers").document(d.id).set(d).await() }
 
     fun rodadas() = col("rodadas").live<Rodada>()
     suspend fun createRodada(r: Rodada) { col("rodadas").add(r).await() }
@@ -301,7 +281,7 @@ class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth, private val consen
         }
     }
 
-    // ───────── Solicitudes (renta y conductor) ─────────
+    // ───────── Solicitudes de renta ─────────
     fun requestsFrom(uid: String) = col("requests").whereEqualTo("fromId", uid).live<ServiceRequest>()
     fun requestsTo(uid: String) = col("requests").whereEqualTo("toId", uid).live<ServiceRequest>()
     /**
@@ -327,19 +307,6 @@ class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth, private val consen
         b.update(col("requests").document(r.id), mapOf("status" to "can", "cancelKind" to kind, "cancelledAt" to now()))
         if (r.type == "rent" && r.status == "ok")
             b.update(col("bikes").document(r.itemId), mapOf("booked" to FieldValue.arrayRemove("${r.dateFrom}|${r.dateTo}"), "lastReq" to r.id))
-        b.commit().await()
-    }
-
-    /** Calificación y marca de "ya calificado" en un solo lote: una solicitud finalizada solo puede calificar una vez. */
-    suspend fun rateDriver(req: ServiceRequest, stars: Int) {
-        val ref = col("drivers").document(req.itemId)
-        val d = ref.get().await().toObject(Driver::class.java)
-        val b = db.batch()
-        if (d != null) {
-            val n = d.reviews + 1
-            b.update(ref, mapOf("rating" to ((d.rating * d.reviews + stars) / n), "reviews" to n, "lastRatingReq" to req.id))
-        }
-        b.update(col("requests").document(req.id), "rated", stars)
         b.commit().await()
     }
 
@@ -386,28 +353,22 @@ class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth, private val consen
     suspend fun saveRoute(r: SavedRoute) { col("routes").add(r.copy(createdAt = now())).await() }
     suspend fun deleteRoute(id: String) { col("routes").document(id).delete().await() }
 
-    // ───────── Datos demo (tomados del prototipo) ─────────
+    // ───────── Datos demo (tomados del prototipo; solo en la versión de pruebas) ─────────
     /**
-     * Borra solo los datos demo (los que no tienen dueño: ownerId / creatorId vacío) y vuelve a cargarlos sin repetidos.
-     * Los comercios, motos y perfiles creados por usuarios reales no se tocan.
+     * Borra solo los datos demo: los que no tienen dueño (ownerId / creatorId vacío). Los comercios, motos y rodadas
+     * creados por usuarios reales no se tocan. Después se pueden volver a cargar.
      */
-    suspend fun resetDemo() {
-        for ((c, f) in listOf("venues" to "ownerId", "bikes" to "ownerId", "drivers" to "ownerId", "rodadas" to "creatorId")) {
+    suspend fun clearDemo() {
+        for ((c, f) in listOf("venues" to "ownerId", "bikes" to "ownerId", "rodadas" to "creatorId")) {
             col(c).whereEqualTo(f, "").get().await().documents.chunked(400).forEach { chunk ->
                 val b = db.batch(); chunk.forEach { b.delete(it.reference) }; b.commit().await()
             }
         }
         col("meta").document("seed").delete().await()
-        seedDemo()
     }
 
-    /** Si quien carga los datos demo es conductor guía y no tiene moto registrada, le asigna una para probar. */
-    private suspend fun assignDemoBikeToMe() {
-        val uid = auth.currentUser?.uid ?: return
-        val ref = col("drivers").document(uid)
-        val snap = ref.get().await()
-        if (snap.exists() && snap.getString("bike").isNullOrBlank()) ref.update(mapOf("bike" to "Honda XRE 300", "zone" to "Cali")).await()
-    }
+    /** Borra los datos demo y los vuelve a cargar, sin repetidos. */
+    suspend fun resetDemo() { clearDemo(); seedDemo() }
 
     suspend fun seedDemo() {
         val marker = col("meta").document("seed")
@@ -487,14 +448,14 @@ class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth, private val consen
             Bike(name = "Royal Enfield Himalayan", cc = 411, category = "Aventura", pricePerDay = 200000, city = "Bogotá", specs = listOf("Ideal para trocha"), rating = 4.7, trips = 40, instant = true),
         ).forEachIndexed { i, b -> col("bikes").document("demo_b${i + 1}").set(b.copy(soatUntil = addDays(today(), 300), rtmUntil = addDays(today(), 300))).await() }
         listOf(
-            Driver(name = "Camilo R.", bike = "Honda XRE 300", zone = "Cali", rate = 220000, rating = 4.9, reviews = 38, services = listOf("Ruta guiada", "Acompañamiento"), bio = "10 años guiando por el Valle y el Eje Cafetero."),
-            Driver(name = "Laura M.", bike = "BMW G 310 GS", zone = "Bogotá", rate = 250000, rating = 4.8, reviews = 21, services = listOf("Ruta guiada", "Fotografía"), bio = "Rutas de montaña y fotografía en ruta."),
-        ).forEachIndexed { i, d -> col("drivers").document("demo_d${i + 1}").set(d).await() }
-        listOf(
             Rodada(name = "Rodada Lago Calima", whenLabel = "Sábado 7:00", captain = "@camilo", meet = "Peaje Cencar, Cali", style = "Turismo", seats = 10),
             Rodada(name = "Madrugón La Línea", whenLabel = "Domingo 5:30", captain = "@laura", meet = "Estación Terpel Armenia", style = "Aventura", seats = 8),
         ).forEachIndexed { i, r -> col("rodadas").document("demo_r${i + 1}").set(r).await() }
-        assignDemoBikeToMe()
         marker.set(mapOf("at" to now())).await()
+    }
+
+    private companion object {
+        /** Rol "Guía de rutas", retirado. Solo puede aparecer en cuentas creadas antes del 2026-11-15. */
+        const val LEGACY_GUIDE = "d"
     }
 }

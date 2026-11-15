@@ -1,6 +1,6 @@
 # Lo que debe revisar un abogado antes de publicar
 
-Los documentos de `app/src/main/assets/legal/` son borradores hechos con cuidado, pero no reemplazan a un abogado colombiano de tecnología, consumo y transporte. Esta lista ordena la revisión de mayor a menor riesgo.
+Los documentos de `app/src/main/legal/` son borradores hechos con cuidado, pero no reemplazan a un abogado colombiano de tecnología, consumo y transporte. Esta lista ordena la revisión de mayor a menor riesgo.
 
 ## A. Riesgos que pueden impedir operar
 
@@ -12,14 +12,17 @@ La pantalla de renta ofrece planes Básica, Estándar y Premium con cobro diario
 - **Lo hecho:** la pantalla y los términos dicen ahora que son condiciones que ofrece el dueño y que no son un seguro.
 - **Decisión pendiente del negocio:** (a) quitar los planes, (b) convertirlos en un depósito o en una limitación de responsabilidad pactada entre las partes, con otro nombre, o (c) respaldarlos con una póliza real de una aseguradora. Los textos "Cobertura obligatoria" y "Cero responsabilidad" siguen en `core/Constants.kt` y deberían cambiarse según lo que se decida.
 
-### 2. Rol guía: riesgo de transporte no autorizado y de actividades reguladas
+### 2. Transporte de pasajeros y guías: rol retirado
+
+**Decisión del 2026-11-15:** el rol "Guía de rutas" se retiró y ApexMoto no ofrece transporte de pasajeros de ningún tipo (ni parrillero, ni conductores tipo DiDi o Yango). En una rodada, el "líder" es un participante que va adelante: lo asigna quien la creó, no cobra y no presta un servicio. Los términos prohíben cobrar por participar en una rodada o por guiarla. **Queda por confirmar con el abogado:** que el líder de una rodada sin cobro no encaje en la guianza turística, y que la prohibición en los términos sea suficiente.
+
+Los riesgos que llevaron a esa decisión:
 
 - **Transporte:** si el guía lleva al rider como pasajero a cambio de dinero, es transporte público sin habilitación (Ley 336 de 1996, arts. 9 y 16; Ley 769 de 2002, art. 131, infracción D.12: inmovilización y multa; y causal de suspensión de la licencia, art. 26). El mototaxismo está restringido en muchos municipios al amparo del Decreto 2961 de 2006. La plataforma que lo facilita también se expone a sanciones de la Superintendencia de Transporte.
 - **Guía de turismo:** "guía" es una profesión regulada cuando se presta guianza turística: exige tarjeta profesional y Registro Nacional de Turismo (Ley 300 de 1996, art. 94, modificado por la Ley 1558 de 2012). Hay que definir si acompañar una ruta en moto encaja ahí.
 - **Enseñanza de conducción:** solo la prestan centros de enseñanza automovilística autorizados. Se quitó el servicio "Instructor".
 - **Escolta:** puede confundirse con vigilancia y seguridad privada, que regula la Superintendencia de Vigilancia (Decreto 356 de 1994). Se cambió por "Acompañamiento".
-- **Mitigaciones hechas:** el rol se llama "Guía de rutas" en vez de "Conductor guía"; declaración obligatoria ("voy en mi propia moto, no transporto pasajeros"); aviso en la pantalla de contratación; prohibición en los términos.
-- **Pendiente:** confirmar el nombre y el alcance del rol, y si hace falta RNT. Algunos textos internos del código todavía dicen "conductor" (nombres de funciones, no visibles al usuario).
+- **Antes del retiro** se había cambiado "Conductor guía" por "Guía de rutas", con declaración obligatoria y aviso en pantalla. Ya no aplica.
 
 ### 3. Renta de motos entre particulares
 
@@ -40,18 +43,18 @@ Cualquier persona puede registrarse como taller y ver la ubicación de riders va
 | Términos, 2 | Plataforma como intermediaria | Que la calificación de "portal de contacto" (art. 53) se sostenga con el nivel de control que ejerce la app (precios sugeridos del S.O.S., cupones, estados). A mayor control, mayor riesgo de responder como proveedor |
 | Términos, 8 | Daños, hurto, multas y accidentes en la renta | Distribución de riesgos, depósito, acta de entrega, validez frente a terceros |
 | Términos, 8 | Planes de protección | Ver A.1 |
-| Términos, 9 | Guía independiente | Ver A.2. También el riesgo de que se alegue relación laboral |
-| Términos, 10 | S.O.S. sin garantía de atención | Que no sea una exoneración abusiva (Ley 1480, arts. 42 y 43) |
-| Términos, 15 | Límite de responsabilidad | Las cláusulas que limitan la responsabilidad del productor o proveedor frente al consumidor son ineficaces (art. 43). Revisar redacción |
+| Términos, 5 | Prohibición de cobrar por rodadas o por guiarlas | Ver A.2 |
+| Términos, 9 | S.O.S. sin garantía de atención | Que no sea una exoneración abusiva (Ley 1480, arts. 42 y 43) |
+| Términos, 14 | Límite de responsabilidad | Las cláusulas que limitan la responsabilidad del productor o proveedor frente al consumidor son ineficaces (art. 43). Revisar redacción |
 | Términos, 5 | Suspensión y cierre de cuentas | Debido proceso y proporcionalidad |
-| Términos, 21 | Ley y jurisdicción | Confirmar |
+| Términos, 20 | Ley y jurisdicción | Confirmar |
 | Privacidad, 2 y 4 | Finalidades y datos | Que estén completas; cada finalidad nueva exige nueva autorización |
 | Privacidad, 7 | Transmisión internacional | Si basta la autorización o hace falta contrato de transmisión con cada encargado (Decreto 1377, art. 25) y qué países tienen nivel adecuado (Circular Externa 005 de 2017 de la SIC) |
 | Privacidad, 8 | Plazos de conservación | Los 1, 5 y 10 años son una propuesta |
 | Privacidad, 11 | Incidentes | Plazo y canal de reporte a la SIC |
 | Reembolsos, 2 y 3 | Retracto por tipo de servicio | La ley colombiana no trae una excepción general para "servicios con fecha determinada". Se trató así: aplica si se ejerce dentro de los 5 días hábiles y el servicio no ha empezado. Confirmar, y confirmar que la comida encaja en "bienes perecederos" |
 | Reembolsos, 1 | Quién devuelve el dinero | Si ApexMoto responde solidariamente aunque no recaude |
-| Declaraciones de guía y de dueño | Todo | Valor probatorio de una declaración con casilla |
+| Declaración del dueño | Todo | Valor probatorio de una declaración con casilla |
 | Registro de aceptación | Sin IP y escrito desde el teléfono | Si es prueba suficiente ante la SIC (ver README, punto 3) |
 | Aviso de ubicación | Todo | Si la ubicación debe tratarse como dato sensible |
 

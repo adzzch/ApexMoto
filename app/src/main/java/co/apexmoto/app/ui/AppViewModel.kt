@@ -45,10 +45,8 @@ class AppViewModel(val container: AppContainer) : ViewModel() {
     var navSession by mutableStateOf<NavSession?>(null)
     var mapType by mutableIntStateOf(container.prefs.mapType)
     var voice by mutableStateOf(container.prefs.voice)
-    var rentMode by mutableStateOf("moto")
     var rentFrom by mutableStateOf(addDays(today(), 2))
     var rentTo by mutableStateOf(addDays(today(), 4))
-    var preRoute by mutableStateOf("")
     /** true cuando la persona ya autorizó el uso de la ubicación (aviso vigente). Sin esto la app no la consulta. */
     var locationConsented by mutableStateOf(false); private set
 
@@ -87,7 +85,6 @@ class AppViewModel(val container: AppContainer) : ViewModel() {
 
     val venues = byUser { repo.venues() }
     val bikes = byUser { repo.bikes() }
-    val drivers = byUser { repo.drivers() }
     val rodadas = byUser { repo.rodadas() }
     val myOrders = byUser { repo.ordersFrom(it.id) }
     val shopOrders = byUser { repo.ordersOfOwner(it.id) }
@@ -129,11 +126,6 @@ class AppViewModel(val container: AppContainer) : ViewModel() {
     fun completeProfile(name: String, role: String, biz: String, corridor: String) =
         act { user.value = repo.completeProfile(name, role, biz, corridor, AcceptMethod.FIRST_LOGIN); pending = null }
     fun logout() { repo.logout(); user.value = null; pending = null }
-    /** Para activar el modo guía la pantalla muestra antes las condiciones del rol; aquí queda el registro de esa aceptación. */
-    fun setDriverMode(on: Boolean) = act {
-        val u = user.value ?: return@act
-        user.value = repo.setRole(u, if (on) Role.DRIVER else Role.RIDER, AcceptMethod.ROLE)
-    }
 
     // Legal y privacidad
     fun acceptDocs(docs: List<LegalDoc>, method: String) = act {

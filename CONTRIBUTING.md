@@ -21,8 +21,8 @@ ApexMoto es un proyecto personal con licencia propietaria ([LICENSE](LICENSE)). 
 - Textos para el usuario en español de Colombia; precios con `cop()` (`$280.000`).
 - Ningún servicio nuevo sin plan gratuito sin tarjeta.
 - Dependencia nueva: actualiza [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) y verifica que su licencia sea compatible con una app propietaria (no GPL/AGPL).
-- **Textos legales** (`app/src/main/assets/legal/`): siguen el procedimiento de [docs/legal/README.md](docs/legal/README.md) §4. Cambian versión, reglas y reaceptación; no los edites sin ese proceso.
-- **Secretos:** nunca subas `google-services.json`, `local.properties`, claves de firma ni tokens.
+- **Textos legales** (`app/src/main/legal/`): siguen el procedimiento de [docs/legal/README.md](docs/legal/README.md) §4. Cambian versión, reglas y reaceptación; no los edites sin ese proceso.
+- **Secretos y datos personales:** nunca subas `google-services.json`, `local.properties`, `legal.properties`, claves de firma ni tokens.
 - No presentes como existente lo que no existe (pagos, reseñas, aliados reales). No inventes testimonios ni métricas.
 
 ## Lista antes de enviar el PR

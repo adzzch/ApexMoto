@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Fondo del ícono en la versión de pruebas: cian de la paleta (la app real usa el naranja). -->
+    <color name="ic_launcher_bg">#0E7490</color>
+</resources>

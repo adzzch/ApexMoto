@@ -191,34 +191,16 @@ fun LocationDisclosure(onAccept: () -> Unit, onDismiss: () -> Unit) {
     if (full) LegalDocSheet(Legal.doc(Legal.LOCATION)) { full = false }
 }
 
-// ───────────────── Cambio de rol y retracto ─────────────────
-
-/** Condiciones del rol (guía o dueño) con su casilla, antes de activarlo. */
-@Composable
-fun RoleConditionsDialog(doc: LegalDoc, onAccept: () -> Unit, onDismiss: () -> Unit) {
-    var checked by remember { mutableStateOf(setOf<String>()) }
-    AlertDialog(
-        onDismissRequest = onDismiss, containerColor = Color.White, shape = RoundedCornerShape(24.dp),
-        title = { Text(doc.title, fontFamily = Chivo, fontWeight = FontWeight.ExtraBold, fontSize = 20.sp) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (doc.id == Legal.GUIDE) Text("Vas en tu propia moto y acompañas al rider, que conduce la suya. Por ApexMoto no se puede ofrecer transporte de pasajeros.", color = Muted, style = MaterialTheme.typography.bodyMedium)
-                LegalChecks(listOf(doc), checked) { checked = it }
-            }
-        },
-        confirmButton = { Btn("Activar", enabled = doc.id in checked) { onAccept() } },
-        dismissButton = { TextButton(onDismiss) { Text("Cancelar", color = Muted) } },
-    )
-}
+// ───────────────── Retracto ─────────────────
 
 private val DayFmt = DateTimeFormatter.ofPattern("EEEE d 'de' MMMM", Locale("es", "CO"))
 fun longDate(d: LocalDate): String = d.format(DayFmt)
 
-/** Una renta o salida se puede cancelar desde la aplicación mientras no haya empezado. */
+/** Una renta se puede cancelar desde la aplicación mientras no haya empezado. */
 fun canCancel(r: ServiceRequest) = r.status == "p" || r.status == "ok"
 
 /**
- * Cancelación de una renta o salida. Si la persona está dentro de los 5 días hábiles y el servicio no ha empezado,
+ * Cancelación de una renta. Si la persona está dentro de los 5 días hábiles y el servicio no ha empezado,
  * se registra como retracto (art. 47 Ley 1480 de 2011) y se le informa que la devolución es total.
  */
 @Composable
@@ -261,7 +243,7 @@ fun DeleteAccountDialog(vm: AppViewModel, onDismiss: () -> Unit) {
         title = { Text("¿Eliminar tu cuenta?", fontFamily = Chivo, fontWeight = FontWeight.ExtraBold, fontSize = 20.sp) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Se borran tu perfil, tus rutas guardadas y lo que publicaste (negocio, motos, perfil de guía). No se puede deshacer.", color = Muted, style = MaterialTheme.typography.bodyMedium)
+                Text("Se borran tu perfil, tus rutas guardadas y lo que publicaste (negocio o motos). No se puede deshacer.", color = Muted, style = MaterialTheme.typography.bodyMedium)
                 Text("Conservamos, por el tiempo que indica la Política de Privacidad, el registro de tus aceptaciones y el historial de servicios con otras personas, porque la ley nos exige poder demostrarlos y atender reclamos.", color = Muted, style = MaterialTheme.typography.bodySmall)
             }
         },
@@ -304,8 +286,7 @@ fun LegalCenterScreen(vm: AppViewModel, u: AppUser) {
         // 1. Documentos
         H("Documentos", Icons.Filled.Gavel)
         Card2 {
-            val docs = Legal.PUBLIC + listOfNotNull(
-                Legal.doc(Legal.GUIDE).takeIf { u.role == Role.DRIVER }, Legal.doc(Legal.OWNER).takeIf { u.role == Role.OWNER }, Legal.doc(Legal.LICENSES))
+            val docs = Legal.PUBLIC + listOfNotNull(Legal.doc(Legal.OWNER).takeIf { u.role == Role.OWNER }, Legal.doc(Legal.LICENSES))
             docs.forEach { d -> DocRow(d.title, "Versión ${d.version}") { open = d } }
         }
 

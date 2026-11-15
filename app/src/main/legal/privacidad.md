@@ -25,7 +25,7 @@ Solo pedimos los datos necesarios para cada función.
 
 **Rider**
 
-- Pedidos, solicitudes de renta y de guía, cupones y rutas guardadas.
+- Pedidos, solicitudes de renta, cupones y rutas guardadas.
 - Declaración de que tienes licencia de conducción vigente y su categoría. No pedimos foto ni número de la licencia.
 - En un S.O.S.: el tipo de emergencia, la descripción del lugar y, si la compartes, tu ubicación en ese momento.
 - Mensajes de chat con el aliado de cada servicio.
@@ -39,11 +39,6 @@ Solo pedimos los datos necesarios para cada función.
 
 - Datos de cada moto que se publican: modelo, cilindraje, ciudad, precio y fechas de vencimiento del SOAT y de la revisión técnico-mecánica.
 - Declaración de propiedad o autorización, y datos de identificación del oferente (no se publican).
-
-**Guía**
-
-- Perfil que se publica: nombre, moto, zona, tarifa, servicios y presentación.
-- Declaración de licencia, SOAT y revisión técnico-mecánica vigentes, y datos de identificación del oferente (no se publican).
 
 **Datos que no pedimos**
 
@@ -62,7 +57,7 @@ En esta versión no pedimos ni guardamos fotos de documentos, selfis de verifica
 ## 4. Para qué usamos tus datos
 
 - Crear y administrar tu cuenta y verificar tu identidad al ingresar.
-- Prestar las funciones de la aplicación: rutas, pedidos, rentas, salidas con guía, S.O.S., chat y comunidad.
+- Prestar las funciones de la aplicación: rutas, pedidos, rentas, S.O.S., chat y comunidad.
 - Poner en contacto a las partes de cada servicio y permitir que se cumpla.
 - Cumplir obligaciones legales: identificar a los oferentes, atender peticiones, quejas y reclamos, y responder a las autoridades competentes.
 - Prevenir fraude y abuso, y proteger la seguridad de la plataforma.
@@ -77,7 +72,7 @@ No usamos tus datos para publicidad de terceros ni los vendemos. Si queremos env
 
 ## 6. Con quién compartimos datos
 
-- **Con la otra parte de cada servicio:** el comercio ve tu nombre y tu pedido; el dueño o el guía ven tu nombre y los datos de la solicitud; el taller ve tu nombre, el tipo de emergencia y el lugar. Tú ves el nombre público del aliado.
+- **Con la otra parte de cada servicio:** el comercio ve tu nombre y tu pedido; el dueño de la moto ve tu nombre y los datos de la solicitud; el taller ve tu nombre, el tipo de emergencia y el lugar. Tú ves el nombre público del aliado.
 - **Con proveedores que tratan datos por encargo nuestro:** Google (Firebase Authentication y Cloud Firestore) para las cuentas y la base de datos; OpenRouteService (HeiGIT gGmbH, Alemania) para calcular rutas; los servidores de mapas de OpenStreetMap y OpenTopoMap, que reciben tu dirección IP y las zonas del mapa que consultas.
 - **Con autoridades**, cuando lo exija una norma o una orden.
 - **Con un consumidor que lo pida para reclamar**, entregamos los datos de identificación del oferente con el que contrató, como lo exige la ley.
@@ -91,7 +86,7 @@ Los servidores de Google y de los proveedores de mapas y rutas pueden estar fuer
 - **Datos de la cuenta y del perfil:** mientras la cuenta exista. Al eliminarla se borran de inmediato.
 - **Coordenadas de un S.O.S.:** hasta que el S.O.S. termina o se cancela.
 - **Rutas guardadas:** hasta que las borres o elimines la cuenta.
-- **Pedidos, rentas, salidas y atenciones:** hasta 5 años después del servicio, para atender reclamos y obligaciones legales.
+- **Pedidos, rentas y atenciones:** hasta 5 años después del servicio, para atender reclamos y obligaciones legales.
 - **Mensajes de chat:** hasta 1 año después del servicio.
 - **Registro de aceptaciones y solicitudes de privacidad:** hasta 10 años después del cierre de la cuenta, como prueba de la autorización.
 - **Datos de identificación del oferente:** mientras tenga cuenta y hasta 5 años después, para reclamos de consumidores.

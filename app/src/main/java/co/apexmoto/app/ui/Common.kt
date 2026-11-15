@@ -67,7 +67,7 @@ import java.util.Locale
 
 val Mono = JetBrainsMono
 
-val REQ_ST = mapOf("p" to "Pendiente", "ok" to "Aceptada", "go" to "En camino", "ride" to "En ruta", "fin" to "Finalizada", "no" to "Rechazada", "can" to "Cancelada")
+val REQ_ST = mapOf("p" to "Pendiente", "ok" to "Aceptada", "ride" to "En ruta", "fin" to "Finalizada", "no" to "Rechazada", "can" to "Cancelada")
 val ORD_ST = mapOf("new" to "Enviado", "prep" to "Preparando", "ready" to "¡Listo!", "done" to "Entregado", "no" to "Rechazado", "can" to "Cancelado")
 val SOS_ST = mapOf("new" to "Buscando taller", "ok" to "Taller asignado", "go" to "En camino", "site" to "Atendiendo", "fin" to "Resuelto", "no" to "Cancelado")
 
