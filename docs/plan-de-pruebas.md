@@ -28,6 +28,7 @@ Cada paso dice quién lo hace y qué debe pasar. Marca la casilla si salió bien
 | R10. Rutas y guiado | ✓ | | | |
 | R11. Legal y privacidad | ✓ | ✓ | ✓ | ✓ |
 | R13. Amigos | ✓ (los dos) | | | |
+| R14. Mapa del grupo | ✓ (los dos) | | | |
 | R12. Eliminar la cuenta | ✓ | | | |
 
 ## Recorridos
@@ -93,8 +94,12 @@ Cada paso dice quién lo hace y qué debe pasar. Marca la casilla si salió bien
 
 ### R9. Rodada
 
-- [ ] **Rider 1:** Comunidad → "Crear rodada" → nombre, cuándo, cupos, punto de encuentro y estilo → "Publicar rodada". → Aparece en la lista.
-- [ ] **Rider 2:** "Unirme" y luego "Salir". → Los cupos libres cambian. Cuando se llena, ya no deja unirse.
+- [ ] **Rider 1:** Comunidad → Rodadas → "Crear rodada": nombre, cuándo, número de motos, punto de encuentro, estilo, "Pública" con aprobación y, si tiene una ruta guardada, la ruta. → Se abre el detalle, con Rider 1 como líder.
+- [ ] **Rider 2:** en la lista, "Pedir unirme". → Queda "Solicitud enviada".
+- [ ] **Rider 1:** en el detalle, "Quieren unirse" → "Aprobar". → Rider 2 aparece en Miembros.
+- [ ] **Rider 1:** crear otra rodada "Solo amigos" e invitar a Rider 2 (deben ser amigos, ver R13). → Rider 2 ve "Te invitaron" y entra con "Unirme".
+- [ ] **Una cuenta que no sea amiga de Rider 1:** no ve la rodada "Solo amigos".
+- [ ] **Rider 2:** "Salir de la rodada". → Ya no aparece en Miembros.
 
 ### R10. Rutas y guiado
 
@@ -122,6 +127,16 @@ Cada paso dice quién lo hace y qué debe pasar. Marca la casilla si salió bien
 - [ ] **Rider 1:** botón de compartir. → Abre el menú del celular con el texto y su @usuario.
 - [ ] **Rider 1:** en el amigo, ⋮ → Bloquear. → Dejan de ser amigos y Rider 2 ya no puede enviarle solicitud. Luego "Desbloquear".
 - [ ] **Comercio:** no tiene Comunidad ni Amigos.
+
+### R14. Mapa del grupo (al aire libre y con datos)
+
+- [ ] **Rider 1 (creador):** en el detalle de la rodada, ⋮ de Rider 2 → "Hacer líder". → Rider 2 aparece con la bandera de líder.
+- [ ] **Rider 1:** "Iniciar rodada". → Queda "En curso".
+- [ ] **Los dos:** activar "Compartir mi ubicación con el grupo" (la primera vez pide el aviso y el permiso). → En el mapa se ven los dos círculos de colores, y en Miembros dice "En el mapa · hace … s · a … km".
+- [ ] **Rider 2:** abrir un S.O.S. (R8) sin salir de la rodada. → En el mapa de Rider 1 su círculo se pone rojo y aparece el aviso de auxilio.
+- [ ] **Rider 2:** salir de ApexMoto con el botón de inicio. → Al rato deja de actualizarse ("hace … min").
+- [ ] **Un amigo de Rider 1 que no está en la rodada:** en Amigos ve "En rodada: …", pero no ve el mapa.
+- [ ] **Rider 1:** "Terminar rodada". → El mapa desaparece para todos y la rodada queda "Terminada".
 
 ### R12. Eliminar la cuenta (al final)
 

@@ -31,6 +31,7 @@ Solo pedimos los datos necesarios para cada función.
 - Mensajes de chat con el aliado de cada servicio.
 - **Perfil público**, si lo creas para usar Amigos: tu @usuario, el nombre que elijas mostrar y tu avatar (una silueta de moto y un color; no hay fotos).
 - **Amigos:** las solicitudes que envías y recibes, tus amistades y las personas que bloqueas.
+- **Rodadas:** las que creas o en las que participas (nombre, fecha, punto de encuentro, ruta y miembros), las invitaciones y solicitudes para unirte, y si eres líder o cierras el grupo.
 - **Estado para tus amigos:** si estás en línea o en una rodada, y la hora de tu última actividad en la aplicación. Puedes apagarlo en tu perfil.
 
 **Comercio aliado y taller mecánico**
@@ -54,7 +55,8 @@ En esta versión no pedimos ni guardamos fotos de documentos, selfis de verifica
 - **S.O.S.:** si tocas "Usar mi ubicación", guardamos el punto donde estás en ese momento. Lo ven los talleres aliados mientras tu S.O.S. busca taller, y después solo el taller que lo aceptó. Las coordenadas se borran cuando el S.O.S. termina o se cancela.
 - **Negocios:** el comercio o taller puede fijar la ubicación de su local con el GPS.
 - **Mapa de comercios:** tu ubicación se usa en tu teléfono para mostrarte en el mapa. No se guarda.
-- No usamos la ubicación en segundo plano ni compartimos tu posición en tiempo real con otros usuarios.
+- **Mapa del grupo:** si lo activas en una rodada en curso, tu posición (y si tienes un S.O.S. abierto) la ven solo los miembros de esa rodada, como mucho cada 12 segundos. Se borra al dejar de compartir, salir de la rodada o terminarla.
+- No usamos la ubicación en segundo plano ni compartimos tu posición en tiempo real con otros usuarios, salvo en el mapa del grupo cuando tú lo activas.
 - Puedes retirar el permiso cuando quieras en los ajustes de Android. Las funciones que dependen de la ubicación dejarán de usarla.
 
 ## 4. Para qué usamos tus datos
@@ -92,6 +94,8 @@ Los servidores de Google y de los proveedores de mapas y rutas pueden estar fuer
 - **Rutas guardadas:** hasta que las borres o elimines la cuenta.
 - **Perfil público, amistades, solicitudes y bloqueos:** hasta que los borres o elimines la cuenta.
 - **Estado para tus amigos:** se reemplaza en cada actividad y se borra al apagarlo o al eliminar la cuenta.
+- **Ubicación en el mapa del grupo:** hasta que dejas de compartir, sales de la rodada o la rodada termina.
+- **Rodadas:** las que creaste se borran al eliminar la cuenta; de las demás sales automáticamente.
 - **Pedidos, rentas y atenciones:** hasta 5 años después del servicio, para atender reclamos y obligaciones legales.
 - **Mensajes de chat:** hasta 1 año después del servicio.
 - **Registro de aceptaciones y solicitudes de privacidad:** hasta 10 años después del cierre de la cuenta, como prueba de la autorización.

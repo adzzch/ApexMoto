@@ -41,7 +41,7 @@ object Legal {
             "Autorizo de manera previa, expresa e informada el tratamiento de mis datos personales según la Política de Privacidad."),
         LegalDoc(REFUNDS, "Cancelaciones, retracto y reembolsos", "1.0.0", "reembolsos.md", ""),
         LegalDoc(TRACKING, "Identificadores, analítica y rastreo", "1.0.0", "rastreo.md", ""),
-        LegalDoc(LOCATION, "Uso de la ubicación", "1.0.0", "ubicacion.md", "Autorizo el uso de mi ubicación para lo que explica este aviso."),
+        LegalDoc(LOCATION, "Uso de la ubicación", "1.1.0", "ubicacion.md", "Autorizo el uso de mi ubicación para lo que explica este aviso."),
         LegalDoc(OWNER, "Condiciones para dueños de moto", "1.0.0", "declaracion-propietario.md",
             "Declaro que cumplo las Condiciones para dueños: soy propietario o estoy autorizado, y la moto tiene SOAT y revisión vigentes."),
         LegalDoc(LICENSES, "Licencias de terceros", "1.0.0", "licencias.md", ""),

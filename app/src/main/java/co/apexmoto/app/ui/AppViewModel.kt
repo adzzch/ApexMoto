@@ -85,7 +85,7 @@ class AppViewModel(val container: AppContainer) : ViewModel() {
 
     val venues = byUser { repo.venues() }
     val bikes = byUser { repo.bikes() }
-    val rodadas = byUser { repo.rodadas() }
+    val rodadas = byUser { if (it.role == Role.RIDER) repo.rodadas(it.id) else flowOf(emptyList()) }
     val myOrders = byUser { repo.ordersFrom(it.id) }
     val shopOrders = byUser { repo.ordersOfOwner(it.id) }
     val reqFrom = byUser { repo.requestsFrom(it.id) }
@@ -110,6 +110,20 @@ class AppViewModel(val container: AppContainer) : ViewModel() {
     var communityTab by mutableStateOf("rodadas")
     /** Nombre de la rodada activa en la que participa la persona ("" si ninguna): va en su estado para los amigos. */
     var ridingName by mutableStateOf("")
+    /** Rodada en la que la persona comparte su ubicación ahora mismo. Solo funciona con la app en primer plano (MainScaffold). */
+    var sharingRodada by mutableStateOf<String?>(null); private set
+
+    fun startSharing(rodadaId: String) {
+        if (container.location.hasPermission() && locationConsented) { sharingRodada = rodadaId; toast("Tu grupo ya te ve en el mapa") }
+        else toast("Activa la ubicación para compartirla con el grupo.")
+    }
+
+    /** Deja de compartir y borra la posición publicada: nadie del grupo la sigue viendo. */
+    fun stopSharing(uid: String) {
+        val rid = sharingRodada ?: return
+        sharingRodada = null
+        viewModelScope.launch { repo.stopLive(rid, uid) }
+    }
 
     // Sesión
     private suspend fun afterAuth() {

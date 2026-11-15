@@ -53,7 +53,7 @@ service cloud.firestore {
       let valid = {
         'terminos': ['1.0.0', '1.1.0'],
         'privacidad': ['1.0.0', '1.1.0'],
-        'ubicacion': ['1.0.0'],
+        'ubicacion': ['1.0.0', '1.1.0'],
         'declaracion-guia': ['1.0.0'],
         'declaracion-propietario': ['1.0.0']
       };
@@ -285,25 +285,89 @@ service cloud.firestore {
     // Los perfiles de guía (colección drivers) se retiraron el 2026-11-15: quedan cerrados como cualquier colección no declarada.
 
     // ───────── Rodadas ─────────
-    // Unirse o salir: solo cambia la propia presencia en `joined`, y no se pasa de los cupos.
-    function joinOk() {
-      let a = request.resource.data.joined.toSet();
-      let b = resource.data.joined.toSet();
-      return onlyChanges(['joined'])
-        && ((a.difference(b) == [uid()].toSet() && b.difference(a).size() == 0 && request.resource.data.joined.size() <= resource.data.seats)
-          || (b.difference(a) == [uid()].toSet() && a.difference(b).size() == 0));
-    }
+    // Cada quien va en su moto; seats = máximo de motos. Una rodada "friends" solo la ven sus invitados y miembros.
+    // El creador aprueba solicitudes, invita amigos (de a uno), quita miembros y elige al líder y a quien cierra el grupo.
     function rodadaShape(d) {
       return text(d, 'name', 80) && text(d, 'meet', 160) && str(d, 'whenLabel', 40) && str(d, 'captain', 40) && str(d, 'style', 20)
-        && d.seats is int && d.seats >= 2 && d.seats <= 40 && d.joined is list && d.joined.size() <= d.seats;
+        && d.seats is int && d.seats >= 2 && d.seats <= 40
+        && d.joined is list && d.joined.size() <= d.seats && d.pending is list && d.pending.size() <= 40
+        && d.invited is list && d.invited.size() <= 100 && str(d, 'lastInvited', 128)
+        && d.visibility in ['public', 'friends'] && d.approval is bool
+        && d.status in ['planned', 'active', 'done'] && str(d, 'routeName', 160) && d.stops is list && d.stops.size() <= 30
+        && str(d, 'leaderId', 128) && str(d, 'sweeperId', 128)
+        && (d.leaderId == '' || d.leaderId in d.joined) && (d.sweeperId == '' || d.sweeperId in d.joined)
+        && (d.startedAt == null || d.startedAt is timestamp) && (d.endedAt == null || d.endedAt is timestamp);
+    }
+    function canSee(d) { return d.visibility == 'public' || uid() in d.joined || uid() in d.invited || uid() in d.pending || d.creatorId == uid(); }
+    function addsMe(after, before) { return after.toSet().difference(before.toSet()) == [uid()].toSet() && before.toSet().difference(after.toSet()).size() == 0; }
+    function removesMe(after, before) { return before.toSet().difference(after.toSet()) == [uid()].toSet() && after.toSet().difference(before.toSet()).size() == 0; }
+    function addsOne(after, before) { return after.toSet().difference(before.toSet()).size() == 1 && before.toSet().difference(after.toSet()).size() == 0; }
+    function removesOne(after, before) { return before.toSet().difference(after.toSet()).size() == 1 && after.toSet().difference(before.toSet()).size() == 0; }
+    // planned → active (hora del servidor) → done; también se puede cancelar una planeada.
+    function rodadaStatusOk(d, o) {
+      return (d.status == o.status && d.startedAt == o.startedAt && d.endedAt == o.endedAt)
+        || (o.status == 'planned' && d.status == 'active' && d.startedAt == request.time && d.endedAt == o.endedAt)
+        || (o.status in ['planned', 'active'] && d.status == 'done' && d.endedAt == request.time && d.startedAt == o.startedAt);
+    }
+    function rodadaMembersOk(d, o) {
+      let j = d.joined.toSet(); let jo = o.joined.toSet();
+      let p = d.pending.toSet(); let po = o.pending.toSet();
+      let i = d.invited.toSet(); let io = o.invited.toSet();
+      return o.creatorId in d.joined && (
+        (j == jo && p == po && i == io)
+        // Aprobar: alguien pasa de pendiente a miembro.
+        || (addsOne(d.joined, o.joined) && removesOne(d.pending, o.pending) && po.difference(p) == j.difference(jo) && i == io)
+        // Rechazar una solicitud.
+        || (j == jo && removesOne(d.pending, o.pending) && i == io)
+        // Quitar a un miembro (nunca al creador, que queda en joined).
+        || (removesOne(d.joined, o.joined) && p == po && i == io)
+        // Invitar a un amigo, de a uno.
+        || (j == jo && p == po && i.difference(io) == [d.lastInvited].toSet() && io.difference(i).size() == 0 && friends(uid(), d.lastInvited)));
+    }
+    function rodadaCreatorEdit() {
+      let d = request.resource.data; let o = resource.data;
+      return o.creatorId == uid() && d.creatorId == uid() && rodadaShape(d) && rodadaStatusOk(d, o) && rodadaMembersOk(d, o);
+    }
+    function rodadaMemberAction() {
+      let d = request.resource.data; let o = resource.data;
+      return o.creatorId != uid() && o.status != 'done' && (
+        // Unirse directo: rodada sin aprobación, o con invitación.
+        (onlyChanges(['joined', 'pending']) && canSee(o) && (o.approval == false || uid() in o.invited)
+          && addsMe(d.joined, o.joined) && d.joined.size() <= o.seats && d.pending.toSet() == o.pending.toSet().difference([uid()].toSet()))
+        // Pedir unirse.
+        || (onlyChanges(['pending']) && canSee(o) && o.approval == true && !(uid() in o.joined) && addsMe(d.pending, o.pending) && d.pending.size() <= 40)
+        // Retirar la solicitud o rechazar la invitación.
+        || (onlyChanges(['pending']) && removesMe(d.pending, o.pending))
+        || (onlyChanges(['invited']) && removesMe(d.invited, o.invited))
+        // Salir. Si era el líder, el liderazgo vuelve al creador; si cerraba el grupo, el puesto queda libre.
+        || (onlyChanges(['joined', 'leaderId', 'sweeperId']) && removesMe(d.joined, o.joined)
+          && (d.leaderId == o.leaderId || (o.leaderId == uid() && d.leaderId == o.creatorId))
+          && (d.sweeperId == o.sweeperId || (o.sweeperId == uid() && d.sweeperId == '')))
+      );
     }
     match /rodadas/{id} {
-      allow read: if signedIn();
+      allow read: if signedIn() && canSee(resource.data);
       allow create: if isAdmin() || (signedIn() && request.resource.data.creatorId == uid() && rodadaShape(request.resource.data)
-        && request.resource.data.joined == [uid()]);
-      allow update: if isAdmin() || (signedIn() && (
-        (resource.data.creatorId == uid() && request.resource.data.creatorId == uid() && rodadaShape(request.resource.data)) || joinOk()));
+        && request.resource.data.joined == [uid()] && request.resource.data.pending.size() == 0 && request.resource.data.invited.size() == 0
+        && request.resource.data.leaderId == uid() && request.resource.data.sweeperId == '' && request.resource.data.status == 'planned'
+        && request.resource.data.startedAt == null && request.resource.data.endedAt == null);
+      allow update: if isAdmin() || (signedIn() && (rodadaCreatorEdit() || rodadaMemberAction()));
       allow delete: if isAdmin() || (signedIn() && resource.data.creatorId == uid());
+    }
+
+    // Mapa del grupo: posición en vivo de cada miembro mientras la rodada está activa (y como mucho 12 h desde que empezó).
+    // La leen solo los miembros. Hora del servidor y como mucho una escritura cada 8 s. El creador borra todas al terminar.
+    function liveRodada(rid) { return get(path('rodadas', rid)).data; }
+    match /rodadas/{rid}/live/{member} {
+      allow read: if signedIn() && uid() in liveRodada(rid).joined && liveRodada(rid).status == 'active';
+      allow create, update: if signedIn() && uid() == member && uid() in liveRodada(rid).joined && liveRodada(rid).status == 'active'
+        && request.time < liveRodada(rid).startedAt + duration.value(12, 'h')
+        && request.resource.data.keys().hasOnly(['lat', 'lng', 'heading', 'name', 'moto', 'color', 'sos', 'updatedAt'])
+        && coords(request.resource.data) && request.resource.data.heading is number && request.resource.data.sos is bool
+        && text(request.resource.data, 'name', 60) && str(request.resource.data, 'moto', 20) && str(request.resource.data, 'color', 20)
+        && request.resource.data.updatedAt == request.time
+        && (resource == null || request.time > resource.data.updatedAt + duration.value(8, 's'));
+      allow delete: if signedIn() && (uid() == member || liveRodada(rid).creatorId == uid());
     }
 
     // ───────── Pedidos ─────────

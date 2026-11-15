@@ -53,65 +53,6 @@ fun CommunityScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
     }
 }
 
-@Composable
-private fun ColumnScope.RodadasPane(vm: AppViewModel, nav: NavController, u: AppUser) {
-    val rodadas by vm.rodadas.collectAsState()
-    var create by remember { mutableStateOf(false) }
-    run {
-        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            H("Rodadas", Icons.Filled.Groups)
-            Sub("Salidas en grupo con cupos limitados. Únete o arma la tuya.")
-        }
-        if (rodadas.isEmpty()) Empty("Aún no hay rodadas. Crea la primera y reúne a tu grupo.", Icons.Filled.Groups)
-        rodadas.forEachIndexed { i, r ->
-            val joined = u.id in r.joined
-            val free = (r.seats - r.joined.size).coerceAtLeast(0)
-            val fill by animateFloatAsState(if (r.seats > 0) r.joined.size / r.seats.toFloat() else 0f, tween(600, easing = EaseOutExpo), label = "seats")
-            Card2(index = i) {
-                Row(verticalAlignment = Alignment.Top) {
-                    Text(r.name, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium.copy(fontSize = 17.sp, fontWeight = FontWeight.ExtraBold))
-                    Spacer(Modifier.width(8.dp)); Pill(r.whenLabel, Orange, Color.White)
-                }
-                Lbl("${r.captain} · ${r.style}")
-                IconLine(Icons.Filled.Place, r.meet, Muted, bold = false)
-                Box(Modifier.fillMaxWidth().height(6.dp).clip(CircleShape).background(Surf3)) {
-                    Box(Modifier.fillMaxWidth(fill).fillMaxHeight().clip(CircleShape).background(if (free == 0) Red else Green))
-                }
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Row(Modifier.weight(1f), verticalAlignment = Alignment.Bottom) {
-                        Num("$free", OrangeDark, 20); Spacer(Modifier.width(6.dp)); Lbl(if (free == 1) "cupo libre de ${r.seats}" else "cupos libres de ${r.seats}")
-                    }
-                    Btn(if (joined) "Salir" else "Unirme", icon = if (joined) Icons.Filled.Close else Icons.Filled.Check, kind = if (joined) BK.Ghost else BK.Primary,
-                        small = true, enabled = joined || free > 0) { vm.act(if (joined) "Saliste de la rodada" else "¡Estás dentro!") { vm.repo.toggleJoin(r, u.id) } }
-                }
-            }
-        }
-        Btn("Crear rodada", Modifier.fillMaxWidth(), Icons.Filled.GroupAdd) { create = true }
-    }
-    if (create) {
-        var name by remember { mutableStateOf("") }; var whenL by remember { mutableStateOf("Sábado 7:00") }
-        var meet by remember { mutableStateOf("") }; var style by remember { mutableStateOf("Turismo") }; var seats by remember { mutableStateOf("8") }
-        Sheet({ create = false }) {
-            H("Nueva rodada", Icons.Filled.GroupAdd)
-            Field("Nombre", name, { name = it }, hint = "Ej: Rumbo al Calima")
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Field("Cuándo", whenL, { whenL = it }, Modifier.weight(1f))
-                Field("Cupos", seats, { seats = it.filter(Char::isDigit) }, Modifier.weight(0.6f), kb = androidx.compose.ui.text.input.KeyboardType.Number)
-            }
-            Field("Punto de encuentro", meet, { meet = it }, hint = "Ej: Peaje Cencar, Cali")
-            Lbl("Estilo")
-            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                C.RIDE_STYLES.forEach { s -> Chip(s, style == s, accent = Cyan) { style = s } }
-            }
-            Btn("Publicar rodada", Modifier.fillMaxWidth(), Icons.Filled.Check, enabled = name.isNotBlank() && meet.isNotBlank()) {
-                create = false
-                vm.act("Rodada publicada") { vm.repo.createRodada(Rodada(creatorId = u.id, name = name, whenLabel = whenL, captain = "@" + u.name.split(" ").first().lowercase(),
-                    meet = meet, style = style, seats = seats.toIntOrNull()?.coerceIn(2, 40) ?: 8, joined = listOf(u.id))) }
-            }
-        }
-    }
-}
-
 // ───────────────── Rentar motos ─────────────────
 fun bikeTint(b: Bike) = when (b.category) { "Deportiva" -> OrangeSoft; "Turismo" -> CyanTint; "Urbana" -> Surf3; else -> GreenTint }
 

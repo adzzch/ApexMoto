@@ -48,10 +48,32 @@ data class Bike(
     var lastReq: String = "",
 )
 
+data class RodadaStop(var name: String = "", var lat: Double = 0.0, var lng: Double = 0.0)
+
+/**
+ * Salida en grupo. Cada quien va en su propia moto (seats = número máximo de motos).
+ * visibility: "public" (la ve cualquiera) o "friends" (solo invitados y miembros). Con approval, quien quiere unirse queda
+ * en pending hasta que el creador lo apruebe; un invitado entra directo. El creador elige al líder (va adelante) y a
+ * quien cierra el grupo. status: "planned" → "active" (mapa del grupo en vivo) → "done".
+ */
 data class Rodada(
     @DocumentId var id: String = "", var creatorId: String = "", var name: String = "", var whenLabel: String = "Este fin de semana",
     var captain: String = "", var rating: Double = 5.0, var meet: String = "", var style: String = "Turismo", var seats: Int = 8,
     var joined: List<String> = emptyList(),
+    var visibility: String = "public", var approval: Boolean = true,
+    var pending: List<String> = emptyList(), var invited: List<String> = emptyList(),
+    /** Último invitado: las reglas lo usan para comprobar que es amigo del creador. */
+    var lastInvited: String = "",
+    var leaderId: String = "", var sweeperId: String = "",
+    var status: String = "planned", var startedAt: Date? = null, var endedAt: Date? = null,
+    var routeName: String = "", var stops: List<RodadaStop> = emptyList(),
+)
+
+/** Posición en vivo de un miembro en una rodada activa (rodadas/{id}/live/{uid}). Se borra al dejar de compartir. */
+data class LivePos(
+    @DocumentId var id: String = "", var lat: Double = 0.0, var lng: Double = 0.0, var heading: Double = 0.0,
+    var name: String = "", var moto: String = "naked", var color: String = "orange", var sos: Boolean = false,
+    @ServerTimestamp var updatedAt: Date? = null,
 )
 
 /** Solicitud de renta de una moto (type = "rent", el único tipo que existe). */

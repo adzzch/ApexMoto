@@ -193,6 +193,8 @@ class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth, private val consen
         out.put("bloqueos", many("blocks", "blocker"))
         val friends = runCatching { col("friendships").whereArrayContains("members", uid).get().await().documents }.getOrDefault(emptyList())
         out.put("amistades", JSONArray().also { a -> friends.forEach { a.put(clean(it.data)) } })
+        val rides = runCatching { col("rodadas").whereArrayContains("joined", uid).get().await().documents }.getOrDefault(emptyList())
+        out.put("rodadas", JSONArray().also { a -> rides.forEach { d -> a.put((clean(d.data) as? JSONObject)?.put("_id", d.id) ?: JSONObject.NULL) } })
         val chats = runCatching { col("chats").whereArrayContains("members", uid).get().await().documents }.getOrDefault(emptyList())
         out.put("mensajes_enviados", JSONArray().also { a -> chats.filter { it.getString("fromId") == uid }.forEach { a.put(clean(it.data)) } })
         return out.toString(2)
@@ -235,6 +237,17 @@ class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth, private val consen
             q.get().await().documents.chunked(400).forEach { ch -> val b = db.batch(); ch.forEach { b.delete(it.reference) }; b.commit().await() }
         }
         runCatching { col("status").document(uid).delete().await() }
+        // Rodadas: se borran las que creó (con sus posiciones en vivo); de las demás sale y retira solicitudes e invitaciones.
+        col("rodadas").whereEqualTo("creatorId", uid).get().await().documents.forEach { d ->
+            runCatching {
+                d.reference.collection("live").get().await().documents.forEach { it.reference.delete().await() }
+                d.reference.delete().await()
+            }
+        }
+        col("rodadas").whereArrayContains("joined", uid).get().await().toObjects(Rodada::class.java).filter { it.creatorId != uid }
+            .forEach { runCatching { leaveRodada(it, uid) } }
+        col("rodadas").whereArrayContains("pending", uid).get().await().toObjects(Rodada::class.java).forEach { runCatching { cancelJoinRequest(it, uid) } }
+        col("rodadas").whereArrayContains("invited", uid).get().await().toObjects(Rodada::class.java).forEach { runCatching { declineInvite(it, uid) } }
     }
 
     // ───────── Perfil público y amigos ─────────
@@ -397,16 +410,84 @@ class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth, private val consen
         col("bikes").document(bikeId).update("booked", FieldValue.arrayUnion("$from|$to")).await()
     }
 
-    fun rodadas() = col("rodadas").live<Rodada>()
-    suspend fun createRodada(r: Rodada) { col("rodadas").add(r).await() }
-    suspend fun toggleJoin(r: Rodada, uid: String) {
-        val ref = col("rodadas").document(r.id)
-        if (uid in r.joined) ref.update("joined", FieldValue.arrayRemove(uid)).await()
-        else {
-            if (r.joined.size >= r.seats) error("Esta rodada ya no tiene cupos")
-            ref.update("joined", FieldValue.arrayUnion(uid)).await()
-        }
+    // ───────── Rodadas (fase 2) ─────────
+    /** Lo que cada quien puede ver: las públicas, aquellas a las que lo invitaron y en las que ya está. */
+    fun rodadas(uid: String): Flow<List<Rodada>> = combine(
+        col("rodadas").whereEqualTo("visibility", "public").live<Rodada>(),
+        col("rodadas").whereArrayContains("invited", uid).live<Rodada>(),
+        col("rodadas").whereArrayContains("joined", uid).live<Rodada>(),
+    ) { a, b, c -> (c + b + a).distinctBy { it.id } }
+
+    fun rodada(id: String) = col("rodadas").document(id).liveDoc<Rodada>()
+
+    suspend fun createRodada(r: Rodada): String {
+        val ref = col("rodadas").document()
+        ref.set(r.copy(joined = listOf(r.creatorId), pending = emptyList(), invited = emptyList(), lastInvited = "", leaderId = r.creatorId,
+            sweeperId = "", status = "planned", startedAt = null, endedAt = null)).await()
+        return ref.id
     }
+
+    private suspend fun rod(id: String, m: Map<String, Any>) { col("rodadas").document(id).update(m).await() }
+
+    /** Unirse directo: rodada sin aprobación, o con invitación. */
+    suspend fun joinRodada(r: Rodada, uid: String) {
+        if (r.joined.size >= r.seats) error("Esta rodada ya está completa")
+        rod(r.id, mapOf("joined" to FieldValue.arrayUnion(uid), "pending" to FieldValue.arrayRemove(uid)))
+    }
+    suspend fun requestJoin(r: Rodada, uid: String) = rod(r.id, mapOf("pending" to FieldValue.arrayUnion(uid)))
+    suspend fun cancelJoinRequest(r: Rodada, uid: String) = rod(r.id, mapOf("pending" to FieldValue.arrayRemove(uid)))
+    suspend fun declineInvite(r: Rodada, uid: String) = rod(r.id, mapOf("invited" to FieldValue.arrayRemove(uid)))
+
+    /** Salir. Si era el líder, el liderazgo vuelve al creador; si cerraba el grupo, ese puesto queda libre. */
+    suspend fun leaveRodada(r: Rodada, uid: String) {
+        val m = mutableMapOf<String, Any>("joined" to FieldValue.arrayRemove(uid))
+        if (r.leaderId == uid) m["leaderId"] = r.creatorId
+        if (r.sweeperId == uid) m["sweeperId"] = ""
+        val b = db.batch()
+        b.update(col("rodadas").document(r.id), m)
+        b.delete(col("rodadas").document(r.id).collection("live").document(uid))
+        b.commit().await()
+    }
+
+    // Solo el creador
+    suspend fun approveJoin(r: Rodada, uid: String) {
+        if (r.joined.size >= r.seats) error("La rodada ya está completa. Aumenta el número de motos o quita a alguien.")
+        rod(r.id, mapOf("pending" to FieldValue.arrayRemove(uid), "joined" to FieldValue.arrayUnion(uid)))
+    }
+    suspend fun rejectJoin(r: Rodada, uid: String) = rod(r.id, mapOf("pending" to FieldValue.arrayRemove(uid)))
+    suspend fun kick(r: Rodada, uid: String) {
+        val m = mutableMapOf<String, Any>("joined" to FieldValue.arrayRemove(uid))
+        if (r.leaderId == uid) m["leaderId"] = r.creatorId
+        if (r.sweeperId == uid) m["sweeperId"] = ""
+        val b = db.batch()
+        b.update(col("rodadas").document(r.id), m)
+        b.delete(col("rodadas").document(r.id).collection("live").document(uid))
+        b.commit().await()
+    }
+    /** Invita a un amigo (de a uno: las reglas comprueban la amistad con lastInvited). */
+    suspend fun invite(r: Rodada, friendUid: String) = rod(r.id, mapOf("invited" to FieldValue.arrayUnion(friendUid), "lastInvited" to friendUid))
+    suspend fun setRoles(r: Rodada, leader: String, sweeper: String) = rod(r.id, mapOf("leaderId" to leader, "sweeperId" to sweeper))
+    suspend fun startRodada(r: Rodada) = rod(r.id, mapOf("status" to "active", "startedAt" to FieldValue.serverTimestamp()))
+
+    /** Terminar: la rodada queda cerrada y se borran todas las posiciones en vivo en el mismo lote. */
+    suspend fun endRodada(r: Rodada) {
+        val live = col("rodadas").document(r.id).collection("live").get().await().documents
+        val b = db.batch()
+        b.update(col("rodadas").document(r.id), mapOf("status" to "done", "endedAt" to FieldValue.serverTimestamp()))
+        live.take(450).forEach { b.delete(it.reference) }
+        b.commit().await()
+    }
+    suspend fun deleteRodada(r: Rodada) { col("rodadas").document(r.id).delete().await() }
+
+    // Mapa del grupo
+    fun livePositions(rodadaId: String) = col("rodadas").document(rodadaId).collection("live").live<LivePos>()
+
+    suspend fun shareLive(rodadaId: String, uid: String, lat: Double, lng: Double, heading: Double, p: Profile?, fallbackName: String, sos: Boolean) {
+        col("rodadas").document(rodadaId).collection("live").document(uid).set(mapOf(
+            "lat" to lat, "lng" to lng, "heading" to heading, "name" to (p?.name ?: fallbackName).take(60).ifBlank { "Rider" },
+            "moto" to (p?.moto ?: "naked"), "color" to (p?.color ?: "orange"), "sos" to sos, "updatedAt" to FieldValue.serverTimestamp())).await()
+    }
+    suspend fun stopLive(rodadaId: String, uid: String) { runCatching { col("rodadas").document(rodadaId).collection("live").document(uid).delete().await() } }
 
     // ───────── Solicitudes de renta ─────────
     fun requestsFrom(uid: String) = col("requests").whereEqualTo("fromId", uid).live<ServiceRequest>()
@@ -575,8 +656,12 @@ class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth, private val consen
             Bike(name = "Royal Enfield Himalayan", cc = 411, category = "Aventura", pricePerDay = 200000, city = "Bogotá", specs = listOf("Ideal para trocha"), rating = 4.7, trips = 40, instant = true),
         ).forEachIndexed { i, b -> col("bikes").document("demo_b${i + 1}").set(b.copy(soatUntil = addDays(today(), 300), rtmUntil = addDays(today(), 300))).await() }
         listOf(
-            Rodada(name = "Rodada Lago Calima", whenLabel = "Sábado 7:00", captain = "@camilo", meet = "Peaje Cencar, Cali", style = "Turismo", seats = 10),
-            Rodada(name = "Madrugón La Línea", whenLabel = "Domingo 5:30", captain = "@laura", meet = "Estación Terpel Armenia", style = "Aventura", seats = 8),
+            // Públicas y sin aprobación para que cualquiera pueda unirse en una presentación. No tienen creador: no se pueden iniciar.
+            Rodada(name = "Rodada Lago Calima", whenLabel = "Sábado 7:00", captain = "@camilo", meet = "Peaje Cencar, Cali", style = "Turismo", seats = 10,
+                visibility = "public", approval = false, routeName = "Cali → Lago Calima",
+                stops = listOf(RodadaStop("Peaje Cencar", 3.4954, -76.5251), RodadaStop("Lago Calima", C.corridor("calima").lat, C.corridor("calima").lng))),
+            Rodada(name = "Madrugón La Línea", whenLabel = "Domingo 5:30", captain = "@laura", meet = "Estación Terpel Armenia", style = "Aventura", seats = 8,
+                visibility = "public", approval = false),
         ).forEachIndexed { i, r -> col("rodadas").document("demo_r${i + 1}").set(r).await() }
         marker.set(mapOf("at" to now())).await()
     }

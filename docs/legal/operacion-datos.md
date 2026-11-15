@@ -25,6 +25,8 @@ Revisión de cada formulario de la app. "Se queda" significa que el dato es nece
 | Rider | Perfil público: @usuario, nombre visible, avatar (moto y color) | Agregado, opcional | Para usar Amigos. Sin fotos. Lo ve cualquier usuario con sesión que busque el @usuario exacto |
 | Rider | Solicitudes, amistades y bloqueos | Agregado | Función de Amigos. Se borran al eliminar la cuenta |
 | Rider | Estado (en línea o en rodada) y hora de la última actividad | Agregado, se puede apagar | Solo lo ven los amigos; se reemplaza en cada latido |
+| Rider | Rodadas: creadas o en las que participa, invitaciones, solicitudes, líder y cierre | Agregado | Función de rodadas. Las que creó se borran al eliminar la cuenta |
+| Rider | Posición en vivo en una rodada activa (y si tiene un S.O.S. abierto) | Agregado, opcional | Solo si la activa; la ven solo los miembros; se borra al dejar de compartir, salir o terminar la rodada |
 | Dueño | Modelo, cilindraje, ciudad, precio | Se queda | Oferta |
 | Dueño | Vencimiento de SOAT y de revisión | Agregado | Sin ellos la moto no puede circular; el rider debe saberlo |
 | Dueño | Placa, tarjeta de propiedad | No se piden | La colección de motos es visible para todos los usuarios; se verifican al entregar |

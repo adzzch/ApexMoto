@@ -9,7 +9,7 @@ App Android para motociclistas en Colombia (Valle del Cauca primero): rutas por 
 
 | Para | Funciones |
 |---|---|
-| **Rider** | Ruta IA y presupuesto, rutas guardadas, comercios en mapa, pedidos y cupones, renta de moto, rodadas, amigos, S.O.S. con taller, guiado giro a giro con voz |
+| **Rider** | Ruta IA y presupuesto, rutas guardadas, comercios en mapa, pedidos y cupones, renta de moto, rodadas con mapa del grupo, amigos, S.O.S. con taller, guiado giro a giro con voz |
 | **Comercio aliado** | Negocio y menú, ubicación en mapa, pedidos, canje de cupones |
 | **Taller mecánico** | Recibe y atiende S.O.S. cercanos paso a paso, catálogo de servicios |
 | **Dueño de moto** | Flota, solicitudes de renta, ingresos |

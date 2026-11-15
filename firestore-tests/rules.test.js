@@ -369,14 +369,65 @@ test('datos demo y metadatos: solo un administrador', async () => {
   await assertSucceeds(setDoc(doc(db(A), 'venues', 'demo_v1'), venue('')));
   await assertSucceeds(setDoc(doc(db(A), 'meta', 'seed'), { at: 1 }));
 });
-test('rodadas: cada quien solo se une o se sale a sí mismo, sin pasar los cupos', async () => {
-  const rod = { creatorId: O, name: 'Calima', whenLabel: 'Sábado 7:00', captain: '@o', rating: 5.0, meet: 'Peaje', style: 'Turismo', seats: 2, joined: [O] };
-  await env.withSecurityRulesDisabled((c) => setDoc(doc(c.firestore(), 'rodadas', 'r1'), rod));
+// ───────── Rodadas y mapa del grupo (fase 2) ─────────
+const rodada = (extra = {}) => ({ creatorId: O, name: 'Calima', whenLabel: 'Sábado 7:00', captain: '@o', rating: 5.0, meet: 'Peaje', style: 'Turismo',
+  seats: 3, joined: [O], visibility: 'public', approval: false, pending: [], invited: [], lastInvited: '', leaderId: O, sweeperId: '',
+  status: 'planned', startedAt: null, endedAt: null, routeName: '', stops: [], ...extra });
+const seedRodada = (id, extra) => env.withSecurityRulesDisabled((c) => setDoc(doc(c.firestore(), 'rodadas', id), rodada(extra)));
+const live = (extra = {}) => ({ lat: 3.45, lng: -76.53, heading: 90, name: 'Rider', moto: 'naked', color: 'orange', sos: false, updatedAt: serverTimestamp(), ...extra });
+
+test('rodadas: se crean con el creador como único miembro y líder', async () => {
+  await assertSucceeds(setDoc(doc(db(R), 'rodadas', 'n1'), rodada({ creatorId: R, joined: [R], leaderId: R })));
+  await assertFails(setDoc(doc(db(R), 'rodadas', 'n2'), rodada({ creatorId: R, joined: [R, X], leaderId: R })));
+  await assertFails(setDoc(doc(db(R), 'rodadas', 'n3'), rodada({ creatorId: R, joined: [R], leaderId: R, status: 'active' })));
+  await assertFails(setDoc(doc(db(R), 'rodadas', 'n4'), rodada({ creatorId: X, joined: [X], leaderId: X })));
+});
+test('rodadas: cada quien solo se une o sale a sí mismo, sin pasar el máximo de motos', async () => {
+  await seedRodada('r1', { seats: 2 });
   await assertFails(updateDoc(doc(db(R), 'rodadas', 'r1'), { joined: arrayUnion(X) }));
   await assertFails(updateDoc(doc(db(R), 'rodadas', 'r1'), { joined: [R] }));                   // sacar al creador
   await assertSucceeds(updateDoc(doc(db(R), 'rodadas', 'r1'), { joined: arrayUnion(R) }));
-  await assertFails(updateDoc(doc(db(X), 'rodadas', 'r1'), { joined: arrayUnion(X) }));         // sin cupos
+  await assertFails(updateDoc(doc(db(X), 'rodadas', 'r1'), { joined: arrayUnion(X) }));         // ya está completa
   await assertSucceeds(updateDoc(doc(db(R), 'rodadas', 'r1'), { joined: arrayRemove(R) }));
+});
+test('rodadas con aprobación: se pide, el creador aprueba o rechaza; nadie entra sin pedir', async () => {
+  await seedRodada('r2', { approval: true, seats: 5 });
+  await assertFails(updateDoc(doc(db(R), 'rodadas', 'r2'), { joined: arrayUnion(R) }));
+  await assertSucceeds(updateDoc(doc(db(R), 'rodadas', 'r2'), { pending: arrayUnion(R) }));
+  await assertSucceeds(updateDoc(doc(db(O), 'rodadas', 'r2'), { pending: arrayRemove(R), joined: arrayUnion(R) }));
+  await assertSucceeds(updateDoc(doc(db(X), 'rodadas', 'r2'), { pending: arrayUnion(X) }));
+  await assertSucceeds(updateDoc(doc(db(O), 'rodadas', 'r2'), { pending: arrayRemove(X) }));
+  await assertFails(updateDoc(doc(db(O), 'rodadas', 'r2'), { joined: arrayUnion(S) }));        // S nunca pidió unirse
+});
+test('rodadas de amigos: solo se invita a amigos del creador y nadie más la ve', async () => {
+  const fid = [O, X].sort().join('_');
+  await env.withSecurityRulesDisabled((c) => setDoc(doc(c.firestore(), 'friendships', fid), { members: [O, X].sort(), since: 1 }));
+  await seedRodada('r3', { visibility: 'friends', approval: true });
+  await assertFails(getDoc(doc(db(X), 'rodadas', 'r3')));
+  await assertFails(updateDoc(doc(db(O), 'rodadas', 'r3'), { invited: arrayUnion(S), lastInvited: S }));   // no es su amigo
+  await assertSucceeds(updateDoc(doc(db(O), 'rodadas', 'r3'), { invited: arrayUnion(X), lastInvited: X }));
+  await assertSucceeds(getDoc(doc(db(X), 'rodadas', 'r3')));
+  await assertFails(getDoc(doc(db(S), 'rodadas', 'r3')));
+  await assertSucceeds(updateDoc(doc(db(X), 'rodadas', 'r3'), { joined: arrayUnion(X) }));       // con invitación entra directo
+});
+test('rodadas: líder y cierre deben ser miembros; solo el creador inicia, con la hora del servidor', async () => {
+  await seedRodada('r4', { joined: [O, R] });
+  await assertFails(updateDoc(doc(db(O), 'rodadas', 'r4'), { leaderId: X }));
+  await assertSucceeds(updateDoc(doc(db(O), 'rodadas', 'r4'), { leaderId: R, sweeperId: O }));
+  await assertFails(updateDoc(doc(db(R), 'rodadas', 'r4'), { status: 'active', startedAt: serverTimestamp() }));
+  await assertFails(updateDoc(doc(db(O), 'rodadas', 'r4'), { status: 'active', startedAt: past(3600) }));
+  await assertSucceeds(updateDoc(doc(db(O), 'rodadas', 'r4'), { status: 'active', startedAt: serverTimestamp() }));
+});
+test('mapa del grupo: solo miembros de una rodada activa, con la hora del servidor y sin inundar', async () => {
+  await seedRodada('r5', { joined: [O, R], status: 'active', startedAt: past(60) });
+  await seedRodada('r6', { joined: [O, R] });
+  await assertSucceeds(setDoc(doc(db(R), 'rodadas/r5/live', R), live()));
+  await assertFails(setDoc(doc(db(R), 'rodadas/r5/live', R), live()));                           // menos de 8 s después
+  await assertFails(setDoc(doc(db(X), 'rodadas/r5/live', X), live()));                           // no es miembro
+  await assertFails(setDoc(doc(db(R), 'rodadas/r6/live', R), live()));                           // la rodada no ha empezado
+  await assertSucceeds(getDoc(doc(db(O), 'rodadas/r5/live', R)));
+  await assertFails(getDoc(doc(db(S), 'rodadas/r5/live', R)));
+  await assertSucceeds(deleteDoc(doc(db(O), 'rodadas/r5/live', R)));                              // el creador limpia al terminar
 });
 test('rutas guardadas: son privadas', async () => {
   const route = { userId: R, name: 'Calima · 2 paradas', corridor: 'calima', km: 90, mins: 120, stops: [], createdAt: 1 };

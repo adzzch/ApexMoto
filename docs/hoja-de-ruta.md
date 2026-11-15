@@ -7,7 +7,7 @@ Estado al 2026-11-15. Es una lista de trabajo, no un compromiso de fechas. Las t
 - **Sin pasajeros.** ApexMoto no lleva pasajeros de ningún tipo: ni parrillero entre amigos, ni conductores tipo DiDi o Yango. Cobrar por llevar a alguien en una moto particular es transporte informal (Ley 769 de 2002, art. 131, infracción D.12).
 - **Sin guías pagados.** El rol "Guía de rutas" se retiró. En una rodada, quien la crea asigna al **líder**, que va adelante con una bandera: es un participante más, no cobra y no presta un servicio.
 - **Dos ambientes.** *Pruebas* para desarrollo y presentaciones (con datos demo) y *Productivo* para la app real, que arranca vacía. Ver [desarrollo.md](desarrollo.md).
-- **Ubicación en vivo** solo entre los miembros de un grupo activo, cada 10 a 15 segundos, guardada en Realtime Database (plan gratuito; Firestore se quedaría sin cuota de lecturas).
+- **Ubicación en vivo** solo entre los miembros de una rodada activa, como mucho cada 12 segundos y solo con la app abierta, guardada en **Firestore** (decisión del 2026-11-15: sus reglas pueden comprobar miembros y amigos; Realtime Database no). Alcanza para la prueba cerrada: una rodada de 5 personas durante 3 horas gasta cerca de un tercio de las lecturas gratis del día. Si el uso crece, pasarla a Realtime Database.
 - **Avatares sin fotos:** cada usuario escoge la silueta de su moto y un color. No hay almacenamiento de imágenes (Firebase Storage exige tarjeta).
 - **Reseñas:** las de ejemplo solo existen en el ambiente de pruebas. En productivo solo hay reseñas reales, de quien usó el servicio.
 
@@ -38,7 +38,7 @@ En **todas** las fases se incluyen las reglas de Firestore con sus pruebas, la a
 - Estado visible solo para los amigos: "en línea" o "En rodada: Rumbo al Calima".
 - De un perfil, los demás solo ven nombre, @usuario y avatar.
 
-### Fase 2 · Rodadas con líder y mapa del grupo
+### Fase 2 · Rodadas con líder y mapa del grupo (hecha)
 
 - La rodada se arma sobre una ruta con paradas, con fecha y punto de encuentro. "Cupos" pasa a llamarse "motos".
 - Invitación rápida desde la lista de amigos. La rodada puede ser abierta o con aprobación, y pública o solo para amigos.

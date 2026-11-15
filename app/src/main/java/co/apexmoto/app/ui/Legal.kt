@@ -180,6 +180,7 @@ fun LocationDisclosure(onAccept: () -> Unit, onDismiss: () -> Unit) {
                 IconLine(Icons.Filled.Navigation, "Guiarte giro a giro. No guardamos tu recorrido.", Ink, bold = false)
                 IconLine(Icons.Filled.Sos, "Enviar tu punto al taller en un S.O.S. Se borra al terminar.", Ink, bold = false)
                 IconLine(Icons.Filled.Map, "Mostrarte en el mapa de comercios.", Ink, bold = false)
+                IconLine(Icons.Filled.Groups, "Mostrarte a tu grupo en una rodada en curso, solo si lo activas.", Ink, bold = false)
                 Text("No la usamos en segundo plano ni para publicidad. Si dices que no, la aplicación sigue funcionando sin guiado en vivo.", color = Muted, style = MaterialTheme.typography.bodySmall)
                 Text("Leer el aviso completo", Modifier.clip(RoundedCornerShape(8.dp)).clickable { full = true }.padding(vertical = 8.dp),
                     color = CyanDeep, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, textDecoration = TextDecoration.Underline)

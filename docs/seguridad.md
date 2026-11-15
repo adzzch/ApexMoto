@@ -27,7 +27,8 @@ La app habla directamente con Firestore; no hay servidor propio. Por eso **las r
 | `coupons` | Rider y comercio | Rider crea; comercio canjea una vez |
 | `sos` | El rider; talleres mientras busca taller; luego solo el taller asignado | Rider crea y cancela; taller acepta a su nombre y avanza; coordenadas en cero al terminar |
 | `chats` | Los dos participantes | Solo las dos partes reales del pedido, la solicitud o el S.O.S. |
-| `rodadas` | Usuarios con sesión | Creador; los demás solo se unen o salen a sí mismos, sin pasar los cupos |
+| `rodadas` | Las públicas, cualquiera con sesión; las de amigos, solo invitados y miembros | Creador: aprueba, rechaza, quita miembros, invita solo a sus amigos (de a uno), elige líder y cierre entre los miembros, inicia y termina con la hora del servidor. Los demás solo se unen (o piden unirse), salen o rechazan la invitación por sí mismos, sin pasar el máximo de motos |
+| `rodadas/{id}/live` | Los miembros, mientras la rodada está activa | Cada miembro solo su posición, con la hora del servidor, como mucho cada 8 s y hasta 12 h después de iniciar; el creador las borra al terminar |
 | `routes` | El dueño | El dueño |
 | `profiles` | Usuarios con sesión | El rider dueño; el @usuario se reserva en `usernames` en el mismo lote |
 | `usernames` | Usuarios con sesión, de a uno | Solo existe mientras el perfil de su dueño lo use; nadie toma uno ocupado |
@@ -57,7 +58,7 @@ La app habla directamente con Firestore; no hay servidor propio. Por eso **las r
 
 ## 3. Pruebas de las reglas
 
-`firestore-tests/rules.test.js`: 50 pruebas contra el emulador. Cada una afirma una garantía concreta, tanto lo que debe funcionar como lo que debe rechazarse.
+`firestore-tests/rules.test.js`: 55 pruebas contra el emulador. Cada una afirma una garantía concreta, tanto lo que debe funcionar como lo que debe rechazarse.
 
 ```bash
 cd firestore-tests

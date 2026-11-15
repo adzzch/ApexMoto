@@ -57,6 +57,7 @@ Cualquier persona puede registrarse como taller y ver la ubicación de riders va
 | Declaración del dueño | Todo | Valor probatorio de una declaración con casilla |
 | Registro de aceptación | Sin IP y escrito desde el teléfono | Si es prueba suficiente ante la SIC (ver README, punto 3) |
 | Aviso de ubicación | Todo | Si la ubicación debe tratarse como dato sensible |
+| Aviso de ubicación 1.1, mapa del grupo | Ubicación en tiempo real compartida con los miembros de una rodada | Si basta el consentimiento por activación en cada rodada y si hace falta una medida reforzada para la ubicación en tiempo real |
 
 ## C. Obligaciones fuera de la app
 

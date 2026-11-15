@@ -94,6 +94,8 @@ Podemos suspender o cerrar una cuenta que incumpla estas reglas. Antes de cerrar
 
 - Las rodadas las organizan los propios usuarios. ApexMoto no las organiza, no las supervisa y no responde por lo que ocurra en ellas.
 - Cada participante conduce bajo su propia responsabilidad y debe cumplir las normas de tránsito.
+- Quien crea una rodada puede designar a un participante como líder, que va adelante, y a otro para cerrar el grupo. Son participantes como los demás: no prestan un servicio, no cobran y no responden por la conducción de otros.
+- Compartir la ubicación en el mapa del grupo es opcional y solo la ven los miembros de la rodada mientras está en curso. No uses el mapa mientras conduces: si necesitas mirarlo, detente en un lugar seguro.
 - Tu @usuario y tu avatar son públicos para los demás usuarios. No uses el nombre de otra persona, marcas ajenas ni palabras ofensivas; podemos pedirte que lo cambies o retirarlo.
 - Puedes agregar amigos, eliminarlos y bloquear a quien quieras. Quien está bloqueado no puede enviarte solicitudes ni ver tu estado.
 
