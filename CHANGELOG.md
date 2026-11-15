@@ -18,6 +18,7 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y 
 - `gradle/gradle-daemon-jvm.properties`: el daemon de Gradle usa JDK 21 (JetBrains).
 
 ### Cambiado
+- **Formularios de acceso más tranquilos:** al crear cuenta hay un solo campo de contraseña (con el ojo para revisarla) y debajo, en texto pequeño, solo lo que le falta; cada requisito se oculta al cumplirse. Se quitaron la caja con píldoras, los mensajes de ánimo y "Confirmar contraseña". Los errores salen debajo de cada campo al salir de él (correo sin @ o sin .com, faltan números del celular), y sobre el botón aparece "Falta: …" cuando todavía no se puede continuar. Nombres con mayúscula inicial y sin autocorrección en correos y contraseñas. `Field` acepta `error`, `cap` y `onFocus`; nuevo `Missing` en `Common.kt`.
 - Los textos legales pasan de `app/src/main/assets/legal/` a `app/src/main/legal/`. Se quitó del texto todo lo del guía, y los términos prohíben cobrar por participar en una rodada o por guiarla.
 - La tarea `checkLegalPlaceholders` se reemplaza por `fill<Variante>LegalTexts`.
 - `google-services.json` ya no va en `app/`, sino en `app/src/<ambiente>/`.

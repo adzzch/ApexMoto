@@ -9,7 +9,6 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.animateContentSize
@@ -71,6 +70,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import androidx.navigation.NavType
@@ -348,7 +348,6 @@ fun AuthScreen(vm: AppViewModel) {
     var name by rememberSaveable { mutableStateOf("") }
     var email by rememberSaveable { mutableStateOf("") }
     var pw by remember { mutableStateOf("") }
-    var pw2 by remember { mutableStateOf("") }          // confirmación (solo al crear cuenta)
     var showPw by rememberSaveable { mutableStateOf(false) }
     val pwOk = passwordChecks(pw).all { it.second }
     var role by rememberSaveable { mutableStateOf(Role.RIDER) }
@@ -365,6 +364,16 @@ fun AuthScreen(vm: AppViewModel) {
     // Casillas legales marcadas. Ninguna viene marcada y se reinician al cambiar de paso o de rol.
     var checks by remember { mutableStateOf(setOf<String>()) }
     fun legalOk(asRole: String) = checks.containsAll(Legal.requiredFor(asRole).map { it.id })
+    // La línea "Falta: …" sale cuando la persona ya empezó a llenar; con todo vacío sería otra lista invasiva.
+    val started = name.isNotEmpty() || email.isNotEmpty() || pw.isNotEmpty() || biz.isNotEmpty() || checks.isNotEmpty()
+    // Lo que falta para crear la cuenta, en el orden en que aparece en pantalla.
+    fun missingFor(asRole: String, partner: Boolean) = buildList {
+        if (partner && Role.hasVenue(asRole) && biz.isBlank()) add(if (asRole == Role.WORKSHOP) "el nombre del taller" else "el nombre del negocio")
+        if (name.isBlank()) add("tu nombre")
+        if (!emailOk) add("un correo válido")
+        if (!pwOk) add("completar la contraseña")
+        if (!legalOk(asRole)) add("aceptar los documentos")
+    }
 
     // Entrada de la marca: el logo cae en su lugar con un pequeño rebote.
     val reduce = reducedMotion()
@@ -388,7 +397,6 @@ fun AuthScreen(vm: AppViewModel) {
 
     LaunchedEffect(step, role) { checks = emptySet() }
     LaunchedEffect(step) {
-        pw2 = ""
         if (step == AuthStep.Phone || step == AuthStep.Code) pw = ""
         if (step == AuthStep.Partner && role !in PartnerRoles) role = Role.SHOP
     }
@@ -429,25 +437,30 @@ fun AuthScreen(vm: AppViewModel) {
                             AuthStep.Login -> {
                                 StepTitle("Ingresar", "Qué bueno verte de nuevo en la ruta.")
                                 Field("Correo", email, { email = it.trim() }, kb = KeyboardType.Email, hint = "tucorreo@email.com",
-                                    leading = Icons.Filled.MailOutline, ime = ImeAction.Next, onIme = { focus.moveFocus(FocusDirection.Down) })
+                                    leading = Icons.Filled.MailOutline, ime = ImeAction.Next, onIme = { focus.moveFocus(FocusDirection.Down) },
+                                    error = emailError(email))
                                 Field("Contraseña", pw, { pw = it }, hint = "Tu contraseña", password = !showPw, kb = KeyboardType.Password,
                                     leading = Icons.Outlined.Lock, ime = ImeAction.Done, onIme = { if (emailOk && pw.length >= 6) login() },
                                     trailing = { PwToggle(showPw) { showPw = !showPw } })
                                 Text("¿Olvidaste tu contraseña?", Modifier.align(Alignment.End).clip(RoundedCornerShape(8.dp))
                                     .clickable { if (emailOk) vm.resetPassword(email) else vm.toast("Escribe tu correo arriba y te enviamos un enlace para cambiarla.") }
                                     .padding(horizontal = 6.dp, vertical = 4.dp), color = CyanDeep, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                                Missing(if (email.isEmpty() && pw.isEmpty()) emptyList() else buildList { if (!emailOk) add("tu correo"); if (pw.length < 6) add("tu contraseña") })
                                 Btn("Entrar", Modifier.fillMaxWidth(), enabled = emailOk && pw.length >= 6, loading = busy) { login() }
                             }
                             AuthStep.Register -> {
                                 StepTitle("Crear cuenta", "Únete a la red motera en un minuto.", onBack = { step = AuthStep.Login })
                                 Field("Nombre", name, { name = it }, hint = "Tu nombre", leading = Icons.Filled.PersonOutline,
-                                    ime = ImeAction.Next, onIme = { focus.moveFocus(FocusDirection.Down) })
+                                    ime = ImeAction.Next, onIme = { focus.moveFocus(FocusDirection.Down) },
+                                    cap = KeyboardCapitalization.Words, error = if (name.isBlank()) "Escribe tu nombre" else null)
                                 Field("Correo", email, { email = it.trim() }, kb = KeyboardType.Email, hint = "tucorreo@email.com",
-                                    leading = Icons.Filled.MailOutline, ime = ImeAction.Next, onIme = { focus.moveFocus(FocusDirection.Down) })
-                                PasswordPair(pw, { pw = it.take(64) }, pw2, { pw2 = it.take(64) }, showPw, { showPw = !showPw }, focus)
+                                    leading = Icons.Filled.MailOutline, ime = ImeAction.Next, onIme = { focus.moveFocus(FocusDirection.Down) },
+                                    error = emailError(email, required = true))
+                                NewPassword(pw, { pw = it.take(64) }, showPw, { showPw = !showPw }, focus)
                                 LegalChecks(Legal.requiredFor(Role.RIDER), checks) { checks = it }
-                                Btn("Crear cuenta", Modifier.fillMaxWidth(), loading = busy,
-                                    enabled = name.isNotBlank() && emailOk && pwOk && pw2 == pw && legalOk(Role.RIDER)) { register(Role.RIDER) }
+                                val missing = missingFor(Role.RIDER, partner = false)
+                                Missing(if (started) missing else emptyList())
+                                Btn("Crear cuenta", Modifier.fillMaxWidth(), loading = busy, enabled = missing.isEmpty()) { register(Role.RIDER) }
                             }
                             AuthStep.Partner -> {
                                 StepTitle("Únete como aliado", "Para negocios, talleres y dueños de moto.", onBack = { step = AuthStep.Register })
@@ -456,24 +469,35 @@ fun AuthScreen(vm: AppViewModel) {
                                 AnimatedVisibility(Role.hasVenue(role)) {
                                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                                         Field(if (role == Role.WORKSHOP) "Nombre del taller" else "Nombre del negocio", biz, { biz = it },
-                                            leading = if (role == Role.WORKSHOP) Icons.Filled.Handyman else Icons.Filled.Storefront)
+                                            leading = if (role == Role.WORKSHOP) Icons.Filled.Handyman else Icons.Filled.Storefront,
+                                            cap = KeyboardCapitalization.Words, error = if (biz.isBlank()) "Escribe el nombre" else null)
                                         Drop("¿En qué zona está?", C.CORRIDORS.map { it.key to it.name }, cor, { cor = it })
                                     }
                                 }
                                 Field("Tu nombre", name, { name = it }, hint = "Tu nombre", leading = Icons.Filled.PersonOutline,
-                                    ime = ImeAction.Next, onIme = { focus.moveFocus(FocusDirection.Down) })
+                                    ime = ImeAction.Next, onIme = { focus.moveFocus(FocusDirection.Down) },
+                                    cap = KeyboardCapitalization.Words, error = if (name.isBlank()) "Escribe tu nombre" else null)
                                 Field("Correo", email, { email = it.trim() }, kb = KeyboardType.Email, hint = "tucorreo@email.com",
-                                    leading = Icons.Filled.MailOutline, ime = ImeAction.Next, onIme = { focus.moveFocus(FocusDirection.Down) })
-                                PasswordPair(pw, { pw = it.take(64) }, pw2, { pw2 = it.take(64) }, showPw, { showPw = !showPw }, focus)
+                                    leading = Icons.Filled.MailOutline, ime = ImeAction.Next, onIme = { focus.moveFocus(FocusDirection.Down) },
+                                    error = emailError(email, required = true))
+                                NewPassword(pw, { pw = it.take(64) }, showPw, { showPw = !showPw }, focus)
                                 LegalChecks(Legal.requiredFor(role), checks) { checks = it }
+                                val missing = missingFor(role, partner = true)
+                                Missing(if (started) missing else emptyList())
                                 Btn("Crear cuenta de aliado", Modifier.fillMaxWidth(), loading = busy,
-                                    enabled = role in PartnerRoles && name.isNotBlank() && emailOk && pwOk && pw2 == pw && (!Role.hasVenue(role) || biz.isNotBlank()) && legalOk(role)) { register(role) }
+                                    enabled = role in PartnerRoles && missing.isEmpty()) { register(role) }
                             }
                             AuthStep.Phone -> {
                                 StepTitle("Entrar con tu celular", "Te enviamos un código por SMS. Sin contraseñas.", onBack = { step = AuthStep.Login })
                                 Field("Número de celular", phone, { phone = it.filter { c -> c.isDigit() || c == '+' || c == ' ' }.take(16) }, kb = KeyboardType.Phone,
                                     hint = "300 123 4567", leading = Icons.Filled.PhoneIphone, prefix = if (phone.trim().startsWith("+")) null else "+57 ",
-                                    ime = ImeAction.Done, onIme = { if (digits.length >= 10) sendSms() })
+                                    ime = ImeAction.Done, onIme = { if (digits.length >= 10) sendSms() },
+                                    error = when {
+                                        digits.isEmpty() -> "Escribe tu número de celular"
+                                        digits.length < 10 -> if (10 - digits.length == 1) "Falta 1 número" else "Faltan ${10 - digits.length} números"
+                                        else -> null
+                                    })
+                                Missing(if (digits.isNotEmpty() && digits.length < 10) listOf("tu número de celular") else emptyList())
                                 Btn("Enviar código", Modifier.fillMaxWidth(), Icons.Filled.Sms, enabled = digits.length >= 10, loading = busy) { sendSms() }
                                 Lbl("Si tu número no es de Colombia, escríbelo con su indicativo, por ejemplo +1.")
                             }
@@ -601,68 +625,48 @@ private fun StepTitle(title: String, sub: String, onBack: (() -> Unit)? = null) 
 
 /** Requisitos de la contraseña al crear cuenta, con su texto para mostrarlos como lista. */
 fun passwordChecks(pw: String) = listOf(
-    "8 o más caracteres" to (pw.length >= 8),
+    "Mínimo 8 caracteres" to (pw.length >= 8),
     "Una mayúscula" to pw.any { it.isUpperCase() },
     "Un número" to pw.any { it.isDigit() },
     "Un símbolo como ! # @" to pw.any { !it.isLetterOrDigit() && !it.isWhitespace() },
 )
 
-/** Contraseña y confirmación seguidas, y debajo una guía amable de lo que le falta. */
+/**
+ * Contraseña nueva, en un solo campo (el ojo permite revisarla; no hace falta escribirla dos veces).
+ * Debajo, en texto pequeño, solo lo que le falta: cada requisito se oculta cuando se cumple, y la lista aparece
+ * mientras se escribe en el campo o si se sale dejándola incompleta. Sin caja, sin píldoras, sin mensajes de ánimo.
+ */
 @Composable
-private fun PasswordPair(pw: String, onPw: (String) -> Unit, pw2: String, onPw2: (String) -> Unit, show: Boolean, onToggle: () -> Unit,
-                         focus: androidx.compose.ui.focus.FocusManager) {
-    Field("Contraseña", pw, onPw, hint = "Nueva contraseña", password = !show, kb = KeyboardType.Password,
-        leading = Icons.Outlined.Lock, ime = ImeAction.Next, onIme = { focus.moveFocus(FocusDirection.Down) }, trailing = { PwToggle(show, onToggle) })
-    Field("Confirmar contraseña", pw2, onPw2, hint = "Escríbela otra vez", password = !show, kb = KeyboardType.Password,
-        leading = Icons.Outlined.Lock, ime = ImeAction.Done, onIme = { focus.clearFocus() }, trailing = { PwToggle(show, onToggle) })
-    PasswordHints(pw, pw2)
-}
-
-@Composable
-private fun PasswordHints(pw: String, pw2: String) {
+private fun NewPassword(pw: String, onPw: (String) -> Unit, show: Boolean, onToggle: () -> Unit, focus: androidx.compose.ui.focus.FocusManager) {
+    var focused by remember { mutableStateOf(false) }
+    Field("Contraseña", pw, onPw, hint = "Crea una contraseña", password = !show, kb = KeyboardType.Password,
+        leading = Icons.Outlined.Lock, ime = ImeAction.Done, onIme = { focus.clearFocus() }, trailing = { PwToggle(show, onToggle) },
+        onFocus = { focused = it })
     val checks = passwordChecks(pw)
-    val n = checks.count { it.second }
-    val done = n == checks.size
-    val (msg, tone) = when {
-        pw.isEmpty() -> "Para cuidar tu cuenta, tu contraseña debe tener:" to Muted
-        done -> "¡Listo! Tu contraseña es segura" to Green
-        n >= 2 -> "Vas bien, te falta poco:" to Muted
-        else -> "Sigue así, agrégale:" to Muted
-    }
-    val bg by animateColorAsState(if (done) GreenSoft.copy(alpha = 0.10f) else Surf1, tween(300), label = "hintBg")
-    Column(
-        Modifier.fillMaxWidth().animateContentSize().clip(RoundedCornerShape(14.dp)).background(bg).padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(if (done) Icons.Filled.VerifiedUser else Icons.Filled.Shield, null, Modifier.size(18.dp), tint = if (done) Green else CyanDeep)
-            Spacer(Modifier.width(8.dp))
-            Text(msg, color = tone, fontSize = 13.sp, lineHeight = 18.sp, fontWeight = if (done) FontWeight.SemiBold else FontWeight.Normal)
-        }
-        if (!done) FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            checks.forEach { (label, ok) -> HintPill(label, ok) }
-        }
-        if (pw2.isNotEmpty()) {
-            val match = pw2 == pw
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(if (match) Icons.Filled.CheckCircle else Icons.Filled.Info, null, Modifier.size(16.dp), tint = if (match) Green else Amber)
-                Spacer(Modifier.width(8.dp))
-                Text(if (match) "Las dos contraseñas coinciden" else "Las contraseñas aún no coinciden", color = if (match) Green else Amber, fontSize = 13.sp)
+    val visible = focused || pw.isNotEmpty()
+    Column(Modifier.padding(start = 4.dp).offset(y = (-6).dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        checks.forEach { (label, ok) ->
+            AnimatedVisibility(visible && !ok, enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(5.dp).clip(CircleShape).background(Muted))
+                    Spacer(Modifier.width(8.dp))
+                    Text(label, color = Muted, fontSize = 12.sp, lineHeight = 16.sp)
+                }
             }
         }
     }
 }
 
-@Composable
-private fun HintPill(label: String, ok: Boolean) {
-    val bg by animateColorAsState(if (ok) GreenSoft else Color.White, tween(220), label = "pillBg")
-    val fg by animateColorAsState(if (ok) Green else Muted, tween(220), label = "pillFg")
-    Row(
-        Modifier.clip(CircleShape).background(bg).border(1.dp, if (ok) Color.Transparent else Surf4, CircleShape).padding(horizontal = 10.dp, vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        AnimatedVisibility(ok) { Row { Icon(Icons.Filled.Check, null, Modifier.size(14.dp), tint = fg); Spacer(Modifier.width(4.dp)) } }
-        Text(label, color = fg, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+/** Error del correo en palabras sencillas, o null si está bien (o vacío y no es obligatorio). */
+private fun emailError(email: String, required: Boolean = false): String? {
+    val e = email.trim()
+    return when {
+        e.isEmpty() -> if (required) "Escribe tu correo" else null
+        e.matches(Regex("^\\S+@\\S+\\.\\S+$")) -> null
+        '@' !in e -> "Falta la @ del correo"
+        e.substringAfter('@').isEmpty() -> "Falta lo que va después de la @, por ejemplo gmail.com"
+        '.' !in e.substringAfter('@') -> "Te falta el final, por ejemplo .com"
+        else -> "Revisa el correo, parece incompleto"
     }
 }
 

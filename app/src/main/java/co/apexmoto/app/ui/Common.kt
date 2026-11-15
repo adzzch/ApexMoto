@@ -5,6 +5,12 @@ package co.apexmoto.app.ui
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -327,29 +333,68 @@ fun Segmented(options: List<Triple<String, String, ImageVector?>>, selected: Str
 // ───────────────── Campos ─────────────────
 private val FieldShape = RoundedCornerShape(10.dp)
 
+/**
+ * Campo de texto. [error] se muestra en rojo debajo, pero solo después de que la persona sale del campo una vez:
+ * así no la regaña mientras todavía está escribiendo. [onFocus] avisa cuando el campo gana o pierde el foco.
+ */
 @Composable
 fun Field(label: String, value: String, onChange: (String) -> Unit, modifier: Modifier = Modifier, kb: KeyboardType = KeyboardType.Text,
           lines: Int = 1, hint: String = "", password: Boolean = false, leading: ImageVector? = null, trailing: (@Composable () -> Unit)? = null,
-          prefix: String? = null, ime: ImeAction = ImeAction.Default, onIme: (() -> Unit)? = null) {
+          prefix: String? = null, ime: ImeAction = ImeAction.Default, onIme: (() -> Unit)? = null,
+          error: String? = null, cap: KeyboardCapitalization = KeyboardCapitalization.None, onFocus: ((Boolean) -> Unit)? = null) {
+    var focused by remember { mutableStateOf(false) }
+    var touched by rememberSaveable { mutableStateOf(false) }
+    val showError = touched && !focused && error != null
     Column(modifier, verticalArrangement = Arrangement.spacedBy(5.dp)) {
         if (label.isNotBlank()) Lbl(label)
         OutlinedTextField(
-            value = value, onValueChange = onChange, modifier = Modifier.fillMaxWidth(),
+            value = value, onValueChange = onChange,
+            modifier = Modifier.fillMaxWidth().onFocusChanged { s ->
+                if (focused && !s.isFocused) touched = true
+                if (focused != s.isFocused) { focused = s.isFocused; onFocus?.invoke(s.isFocused) }
+            },
             placeholder = { if (hint.isNotBlank()) Text(hint, color = Muted, maxLines = lines, overflow = TextOverflow.Ellipsis) }, singleLine = lines == 1, minLines = lines,
             leadingIcon = leading?.let { { Icon(it, null, tint = Muted) } }, trailingIcon = trailing,
             prefix = prefix?.let { { Text(it, color = Ink, fontFamily = JetBrainsMono, fontWeight = FontWeight.Bold) } },
-            keyboardOptions = KeyboardOptions(keyboardType = kb, imeAction = ime),
+            // Sin autocorrección en correos, contraseñas y números: el corrector los daña ("gmail" → "Gmail").
+            keyboardOptions = KeyboardOptions(capitalization = cap, autoCorrectEnabled = kb == KeyboardType.Text && !password,
+                keyboardType = kb, imeAction = ime),
             keyboardActions = KeyboardActions(onAny = { onIme?.invoke() ?: defaultKeyboardAction(ime) }),
-            shape = FieldShape, textStyle = MaterialTheme.typography.bodyLarge,
+            shape = FieldShape, textStyle = MaterialTheme.typography.bodyLarge, isError = showError,
             visualTransformation = if (password) PasswordVisualTransformation() else VisualTransformation.None,
             colors = OutlinedTextFieldDefaults.colors(
-                focusedContainerColor = Surf0, unfocusedContainerColor = Surf0, disabledContainerColor = Surf0,
-                focusedBorderColor = CyanDeep, unfocusedBorderColor = Color.Transparent, cursorColor = Orange,
-                focusedLeadingIconColor = CyanDeep,
+                focusedContainerColor = Surf0, unfocusedContainerColor = Surf0, disabledContainerColor = Surf0, errorContainerColor = Surf0,
+                focusedBorderColor = CyanDeep, unfocusedBorderColor = Color.Transparent, errorBorderColor = Red, cursorColor = Orange,
+                focusedLeadingIconColor = CyanDeep, errorLeadingIconColor = Red, errorTrailingIconColor = Muted,
             ),
         )
+        AnimatedVisibility(showError, enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
+            Text(error.orEmpty(), color = Red, fontSize = 12.sp, lineHeight = 16.sp, modifier = Modifier.padding(start = 4.dp))
+        }
     }
 }
+
+/**
+ * Línea pequeña sobre un botón que todavía no se puede tocar, diciendo qué falta. Un botón gris sin explicación parece
+ * un error de la app. Recibe la lista de lo que falta ("tu nombre", "aceptar los términos") y la une en una frase.
+ */
+@Composable
+fun Missing(items: List<String>, modifier: Modifier = Modifier) {
+    AnimatedVisibility(items.isNotEmpty(), modifier, enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
+        // Se recuerda el último texto para que no quede vacío mientras se oculta.
+        var last by remember { mutableStateOf("") }
+        if (items.isNotEmpty()) last = joinEs(items)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Filled.Info, null, Modifier.size(15.dp), tint = Muted)
+            Spacer(Modifier.width(6.dp))
+            Text("Falta: $last.", color = Muted, fontSize = 12.sp, lineHeight = 16.sp)
+        }
+    }
+}
+
+/** ["a"] → "a"; ["a", "b", "c"] → "a, b y c". */
+fun joinEs(items: List<String>): String =
+    if (items.size <= 1) items.firstOrNull().orEmpty() else items.dropLast(1).joinToString(", ") + " y " + items.last()
 
 /** Caja rellena que abre algo al tocarla (lista, calendario). */
 @Composable
