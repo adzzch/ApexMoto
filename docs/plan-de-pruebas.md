@@ -27,6 +27,7 @@ Cada paso dice quién lo hace y qué debe pasar. Marca la casilla si salió bien
 | R9. Rodada | ✓ (los dos) | | | |
 | R10. Rutas y guiado | ✓ | | | |
 | R11. Legal y privacidad | ✓ | ✓ | ✓ | ✓ |
+| R13. Amigos | ✓ (los dos) | | | |
 | R12. Eliminar la cuenta | ✓ | | | |
 
 ## Recorridos
@@ -109,6 +110,18 @@ Cada paso dice quién lo hace y qué debe pasar. Marca la casilla si salió bien
 - [ ] **Todos:** Registro de aceptaciones. → Están términos y privacidad, y ubicación si la aceptó.
 - [ ] **Aliados:** completar "Datos del oferente". → Se guardan y nadie más los ve.
 - [ ] **Uno:** cambiar su nombre. → Los demás lo ven con el nombre nuevo en pedidos y chats nuevos.
+
+### R13. Amigos
+
+- [ ] **Rider 1:** Comunidad → Amigos → crear el perfil: @usuario, nombre, moto y color. → Aparece su tarjeta con el avatar.
+- [ ] **Rider 2:** lo mismo. Probar primero el @usuario de Rider 1. → Avisa que ya lo tiene otra persona.
+- [ ] **Rider 1:** buscar el @usuario exacto de Rider 2 → "Agregar". → Queda "Solicitud enviada".
+- [ ] **Rider 2:** Solicitudes recibidas → "Aceptar". → Los dos se ven en Amigos.
+- [ ] **Rider 2** con la app abierta. → **Rider 1** lo ve "En línea" (puede tardar unos minutos).
+- [ ] **Rider 2:** Perfil → apagar "Mostrar mi estado a mis amigos". → Rider 1 deja de ver su estado.
+- [ ] **Rider 1:** botón de compartir. → Abre el menú del celular con el texto y su @usuario.
+- [ ] **Rider 1:** en el amigo, ⋮ → Bloquear. → Dejan de ser amigos y Rider 2 ya no puede enviarle solicitud. Luego "Desbloquear".
+- [ ] **Comercio:** no tiene Comunidad ni Amigos.
 
 ### R12. Eliminar la cuenta (al final)
 

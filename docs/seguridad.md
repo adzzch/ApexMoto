@@ -29,6 +29,12 @@ La app habla directamente con Firestore; no hay servidor propio. Por eso **las r
 | `chats` | Los dos participantes | Solo las dos partes reales del pedido, la solicitud o el S.O.S. |
 | `rodadas` | Usuarios con sesión | Creador; los demás solo se unen o salen a sí mismos, sin pasar los cupos |
 | `routes` | El dueño | El dueño |
+| `profiles` | Usuarios con sesión | El rider dueño; el @usuario se reserva en `usernames` en el mismo lote |
+| `usernames` | Usuarios con sesión, de a uno | Solo existe mientras el perfil de su dueño lo use; nadie toma uno ocupado |
+| `friend_requests` | Quien la envía y quien la recibe | Con los datos reales de los dos perfiles, sin duplicar ni invertir, sin bloqueos y con sello cada 10 s |
+| `friendships` | Los dos amigos | La crea quien recibió la solicitud, borrándola en el mismo lote; la borra cualquiera de los dos |
+| `blocks` | Quien bloquea | Quien bloquea |
+| `status` | Solo los amigos, de a uno | El dueño, con la hora del servidor y como máximo un latido cada 30 s |
 | `rate_limits` | El dueño | Solo sellos con la hora del servidor y respetando el tiempo mínimo |
 | `meta`, datos demo | Usuarios con sesión | Solo administrador |
 | `admins` | El propio | Nadie desde la app (se crea en la consola) |
@@ -51,7 +57,7 @@ La app habla directamente con Firestore; no hay servidor propio. Por eso **las r
 
 ## 3. Pruebas de las reglas
 
-`firestore-tests/rules.test.js`: 44 pruebas contra el emulador. Cada una afirma una garantía concreta, tanto lo que debe funcionar como lo que debe rechazarse.
+`firestore-tests/rules.test.js`: 50 pruebas contra el emulador. Cada una afirma una garantía concreta, tanto lo que debe funcionar como lo que debe rechazarse.
 
 ```bash
 cd firestore-tests

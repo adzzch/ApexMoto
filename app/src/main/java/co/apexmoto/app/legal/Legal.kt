@@ -36,8 +36,8 @@ object Legal {
 
     /** accept = texto de la casilla. Vacío en los documentos que solo se consultan. */
     val DOCS = listOf(
-        LegalDoc(TERMS, "Términos y Condiciones", "1.0.0", "terminos.md", "Soy mayor de 18 años y acepto los Términos y Condiciones."),
-        LegalDoc(PRIVACY, "Política de Privacidad", "1.0.0", "privacidad.md",
+        LegalDoc(TERMS, "Términos y Condiciones", "1.1.0", "terminos.md", "Soy mayor de 18 años y acepto los Términos y Condiciones."),
+        LegalDoc(PRIVACY, "Política de Privacidad", "1.1.0", "privacidad.md",
             "Autorizo de manera previa, expresa e informada el tratamiento de mis datos personales según la Política de Privacidad."),
         LegalDoc(REFUNDS, "Cancelaciones, retracto y reembolsos", "1.0.0", "reembolsos.md", ""),
         LegalDoc(TRACKING, "Identificadores, analítica y rastreo", "1.0.0", "rastreo.md", ""),

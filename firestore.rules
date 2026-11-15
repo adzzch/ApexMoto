@@ -40,8 +40,8 @@ service cloud.firestore {
     match /rate_limits/{id} {
       allow get: if signedIn() && uid() == id;
       allow create, update: if signedIn() && uid() == id
-        && request.resource.data.keys().hasOnly(['sos', 'order', 'request'])
-        && stampOk('sos', 60) && stampOk('order', 15) && stampOk('request', 15);
+        && request.resource.data.keys().hasOnly(['sos', 'order', 'request', 'friend'])
+        && stampOk('sos', 60) && stampOk('order', 15) && stampOk('request', 15) && stampOk('friend', 10);
     }
 
     // ───────── Documentos legales y aceptación trazable ─────────
@@ -51,8 +51,8 @@ service cloud.firestore {
     // los perfiles de prueba que la aceptaron no queden inválidos.
     function versionOk(docId, version) {
       let valid = {
-        'terminos': ['1.0.0'],
-        'privacidad': ['1.0.0'],
+        'terminos': ['1.0.0', '1.1.0'],
+        'privacidad': ['1.0.0', '1.1.0'],
         'ubicacion': ['1.0.0'],
         'declaracion-guia': ['1.0.0'],
         'declaracion-propietario': ['1.0.0']
@@ -139,6 +139,97 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly(['legalName', 'idType', 'idNumber', 'address', 'phone', 'updatedAt'])
         && text(request.resource.data, 'legalName', 120) && request.resource.data.idType in ['CC', 'CE', 'NIT', 'PAS']
         && text(request.resource.data, 'idNumber', 20) && text(request.resource.data, 'address', 160) && text(request.resource.data, 'phone', 20);
+      allow delete: if signedIn() && uid() == id;
+    }
+
+    // ───────── Perfil público y amigos ─────────
+    // El perfil público (profiles) es lo único que un rider muestra a los demás: @usuario, nombre y avatar.
+    // El @usuario es único: usernames/{usuario} apunta a su dueño y solo existe mientras su perfil lo use.
+    function usernameOk(u) { return u is string && u.matches('^[a-z0-9_.]{3,20}$'); }
+    function profileShape(d) {
+      return d.keys().hasOnly(['username', 'name', 'moto', 'color', 'showStatus']) && d.keys().hasAll(['username', 'name', 'moto', 'color', 'showStatus'])
+        && usernameOk(d.username) && text(d, 'name', 60) && d.showStatus is bool
+        && d.moto in ['deportiva', 'naked', 'scooter', 'electrica', 'casco']
+        && d.color in ['orange', 'cyan', 'green', 'red', 'ink', 'amber'];
+    }
+    function friends(a, b) { return exists(path('friendships', a + '_' + b)) || exists(path('friendships', b + '_' + a)); }
+    function blockedBetween(a, b) { return exists(path('blocks', a + '_' + b)) || exists(path('blocks', b + '_' + a)); }
+
+    match /profiles/{id} {
+      allow read: if signedIn();
+      allow create: if signedIn() && uid() == id && role() == 'm' && profileShape(request.resource.data)
+        && getAfter(path('usernames', request.resource.data.username)).data.uid == uid();
+      // Cambiar de @usuario exige reservar el nuevo y liberar el anterior en el mismo lote.
+      allow update: if signedIn() && uid() == id && profileShape(request.resource.data)
+        && (request.resource.data.username == resource.data.username
+            || (getAfter(path('usernames', request.resource.data.username)).data.uid == uid()
+                && !existsAfter(path('usernames', resource.data.username))));
+      allow delete: if signedIn() && uid() == id;
+    }
+    match /usernames/{u} {
+      allow get: if signedIn();
+      allow create: if signedIn() && usernameOk(u) && request.resource.data.keys().hasOnly(['uid']) && request.resource.data.uid == uid()
+        && getAfter(path('profiles', uid())).data.username == u;
+      allow delete: if signedIn() && resource.data.uid == uid()
+        && (!existsAfter(path('profiles', uid())) || getAfter(path('profiles', uid())).data.username != u);
+    }
+
+    // Solicitud de amistad: ID "{de}_{para}". Con los datos reales de los dos perfiles, sin repetir ni invertir una
+    // pendiente, nunca entre amigos ni con bloqueos de por medio, y con límite de frecuencia.
+    match /friend_requests/{id} {
+      allow read: if signedIn() && (resource.data.from == uid() || resource.data.to == uid());
+      allow create: if signedIn()
+        && request.resource.data.from == uid() && request.resource.data.to != uid()
+        && id == uid() + '_' + request.resource.data.to
+        && request.resource.data.keys().hasOnly(['from', 'to', 'fromName', 'fromUsername', 'fromMoto', 'fromColor', 'toName', 'toUsername', 'createdAt'])
+        && request.resource.data.fromUsername == get(path('profiles', uid())).data.username
+        && request.resource.data.toUsername == get(path('profiles', request.resource.data.to)).data.username
+        && text(request.resource.data, 'fromName', 60) && str(request.resource.data, 'toName', 60)
+        && str(request.resource.data, 'fromMoto', 20) && str(request.resource.data, 'fromColor', 20) && request.resource.data.createdAt is int
+        && !friends(uid(), request.resource.data.to)
+        && !blockedBetween(uid(), request.resource.data.to)
+        && !exists(path('friend_requests', request.resource.data.to + '_' + uid()))
+        && stamped('friend');
+      // La rechaza quien la recibe o la cancela quien la envía. Aceptarla también la borra (ver friendships).
+      allow delete: if signedIn() && (resource.data.from == uid() || resource.data.to == uid());
+    }
+
+    // Amistad: ID "{a}_{b}" con a < b. Solo la crea quien recibió la solicitud, borrándola en el mismo lote.
+    function acceptOk(m) {
+      return (m[0] == uid() && exists(path('friend_requests', m[1] + '_' + uid())) && !existsAfter(path('friend_requests', m[1] + '_' + uid())))
+        || (m[1] == uid() && exists(path('friend_requests', m[0] + '_' + uid())) && !existsAfter(path('friend_requests', m[0] + '_' + uid())));
+    }
+    match /friendships/{id} {
+      allow read: if signedIn() && uid() in resource.data.members;
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['members', 'since']) && request.resource.data.since is int
+        && request.resource.data.members is list && request.resource.data.members.size() == 2
+        && request.resource.data.members[0] < request.resource.data.members[1]
+        && id == request.resource.data.members[0] + '_' + request.resource.data.members[1]
+        && acceptOk(request.resource.data.members);
+      allow delete: if signedIn() && uid() in resource.data.members;
+    }
+
+    // Bloqueo: privado de quien bloquea.
+    match /blocks/{id} {
+      allow read: if signedIn() && resource.data.blocker == uid();
+      allow create: if signedIn() && request.resource.data.blocker == uid() && request.resource.data.blocked != uid()
+        && id == uid() + '_' + request.resource.data.blocked
+        && request.resource.data.keys().hasOnly(['blocker', 'blocked', 'blockedName', 'blockedUsername', 'createdAt'])
+        && str(request.resource.data, 'blockedName', 60) && str(request.resource.data, 'blockedUsername', 20) && request.resource.data.createdAt is int;
+      allow delete: if signedIn() && resource.data.blocker == uid();
+    }
+
+    // Estado (en línea / en rodada): solo lo leen los amigos. Hora del servidor y como máximo un latido cada 30 s,
+    // salvo que cambie el estado.
+    match /status/{id} {
+      allow get: if signedIn() && (uid() == id || friends(uid(), id));
+      allow create, update: if signedIn() && uid() == id
+        && request.resource.data.keys().hasOnly(['state', 'rodada', 'updatedAt'])
+        && request.resource.data.state in ['online', 'riding'] && str(request.resource.data, 'rodada', 80)
+        && request.resource.data.updatedAt == request.time
+        && (resource == null || request.time > resource.data.updatedAt + duration.value(30, 's')
+            || request.resource.data.state != resource.data.state || request.resource.data.rodada != resource.data.rodada);
       allow delete: if signedIn() && uid() == id;
     }
 

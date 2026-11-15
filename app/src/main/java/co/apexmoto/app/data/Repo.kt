@@ -13,6 +13,8 @@ import co.apexmoto.app.legal.RequestType
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.AuthCredential
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.DocumentReference
+import com.google.firebase.firestore.FieldPath
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
@@ -22,6 +24,7 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.tasks.await
 import org.json.JSONArray
 import org.json.JSONObject
@@ -45,6 +48,12 @@ class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth, private val consen
 
     private inline fun <reified T : Any> Query.live(): Flow<List<T>> = callbackFlow {
         val reg = addSnapshotListener { s, _ -> if (s != null) trySend(s.toObjects(T::class.java)) }
+        awaitClose { reg.remove() }
+    }
+
+    /** Un documento en vivo. Si no existe o las reglas no dejan leerlo, emite null. */
+    private inline fun <reified T : Any> DocumentReference.liveDoc(): Flow<T?> = callbackFlow {
+        val reg = addSnapshotListener { s, e -> trySend(if (e == null && s != null && s.exists()) s.toObject(T::class.java) else null) }
         awaitClose { reg.remove() }
     }
 
@@ -138,6 +147,8 @@ class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth, private val consen
         val n = name.trim().take(60)
         if (n.isBlank()) error("Escribe tu nombre")
         col("users").document(u.id).update("name", n).await()
+        // El perfil público lleva el mismo nombre (si la persona no tiene perfil, no existe y no pasa nada).
+        runCatching { col("profiles").document(u.id).update("name", n).await() }
         return u.copy(name = n)
     }
 
@@ -175,6 +186,13 @@ class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth, private val consen
         out.put("cupones", many("coupons", "userId"))
         out.put("sos", many("sos", "fromId"))
         out.put("rutas_guardadas", many("routes", "userId"))
+        out.put("perfil_publico", one("profiles"))
+        out.put("estado_para_amigos", one("status"))
+        out.put("solicitudes_de_amistad_enviadas", many("friend_requests", "from"))
+        out.put("solicitudes_de_amistad_recibidas", many("friend_requests", "to"))
+        out.put("bloqueos", many("blocks", "blocker"))
+        val friends = runCatching { col("friendships").whereArrayContains("members", uid).get().await().documents }.getOrDefault(emptyList())
+        out.put("amistades", JSONArray().also { a -> friends.forEach { a.put(clean(it.data)) } })
         val chats = runCatching { col("chats").whereArrayContains("members", uid).get().await().documents }.getOrDefault(emptyList())
         out.put("mensajes_enviados", JSONArray().also { a -> chats.filter { it.getString("fromId") == uid }.forEach { a.put(clean(it.data)) } })
         return out.toString(2)
@@ -198,8 +216,117 @@ class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth, private val consen
             }
         }
         runCatching { col("providers").document(u.id).delete().await() }
+        runCatching { deleteSocial(u.id) }
         col("users").document(u.id).delete().await()
         fu.delete().await()
+    }
+
+    /** Borra el perfil público, el @usuario, las amistades, las solicitudes, los bloqueos y el estado de la persona. */
+    private suspend fun deleteSocial(uid: String) {
+        val p = col("profiles").document(uid).get().await()
+        if (p.exists()) {
+            val b = db.batch()
+            b.delete(p.reference)
+            p.getString("username")?.takeIf { it.isNotBlank() }?.let { b.delete(col("usernames").document(it)) }
+            b.commit().await()
+        }
+        for (q in listOf(col("friendships").whereArrayContains("members", uid), col("friend_requests").whereEqualTo("from", uid),
+            col("friend_requests").whereEqualTo("to", uid), col("blocks").whereEqualTo("blocker", uid))) {
+            q.get().await().documents.chunked(400).forEach { ch -> val b = db.batch(); ch.forEach { b.delete(it.reference) }; b.commit().await() }
+        }
+        runCatching { col("status").document(uid).delete().await() }
+    }
+
+    // ───────── Perfil público y amigos ─────────
+    fun profile(uid: String) = col("profiles").document(uid).liveDoc<Profile>()
+
+    /** Perfiles públicos por uid, en grupos de 30 (el límite de whereIn). */
+    fun profiles(ids: List<String>): Flow<List<Profile>> {
+        val unique = ids.distinct()
+        if (unique.isEmpty()) return flowOf(emptyList())
+        val parts = unique.chunked(30).map { c -> col("profiles").whereIn(FieldPath.documentId(), c).live<Profile>() }
+        return combine(parts) { arr -> arr.flatMap { it } }
+    }
+
+    /** Busca un rider por su @usuario exacto. No hay listados: solo se encuentra a quien uno ya conoce. */
+    suspend fun findProfile(username: String): Profile? {
+        val u = username.trim().removePrefix("@").lowercase()
+        if (!USERNAME.matches(u)) return null
+        val uid = col("usernames").document(u).get().await().getString("uid") ?: return null
+        return col("profiles").document(uid).get().await().toObject(Profile::class.java)
+    }
+
+    /** Crea o actualiza el perfil. Si cambia el @usuario, en el mismo lote se reserva el nuevo y se libera el anterior. */
+    suspend fun saveProfile(uid: String, old: Profile?, p: Profile): Profile {
+        val username = p.username.trim().removePrefix("@").lowercase()
+        if (!USERNAME.matches(username)) error("El @usuario debe tener de 3 a 20 caracteres: letras minúsculas sin tilde, números, punto o guion bajo.")
+        val name = p.name.trim().take(60)
+        if (name.isBlank()) error("Escribe tu nombre")
+        val changed = old?.username != username
+        if (changed) {
+            val taken = col("usernames").document(username).get().await()
+            if (taken.exists() && taken.getString("uid") != uid) error("Ese @usuario ya lo tiene otra persona. Prueba otro.")
+        }
+        val b = db.batch()
+        b.set(col("profiles").document(uid), mapOf("username" to username, "name" to name, "moto" to p.moto, "color" to p.color, "showStatus" to p.showStatus))
+        if (changed) {
+            b.set(col("usernames").document(username), mapOf("uid" to uid))
+            if (old != null && old.username.isNotBlank()) b.delete(col("usernames").document(old.username))
+        }
+        b.commit().await()
+        return p.copy(id = uid, username = username, name = name)
+    }
+
+    fun friendships(uid: String) = col("friendships").whereArrayContains("members", uid).live<Friendship>()
+    fun friendRequestsTo(uid: String) = col("friend_requests").whereEqualTo("to", uid).live<FriendRequest>()
+    fun friendRequestsFrom(uid: String) = col("friend_requests").whereEqualTo("from", uid).live<FriendRequest>()
+    fun blocks(uid: String) = col("blocks").whereEqualTo("blocker", uid).live<Block>()
+    /** Estado de un amigo. Si no son amigos (o lo tiene apagado), las reglas no lo dejan leer y llega null. */
+    fun presence(uid: String) = col("status").document(uid).liveDoc<Presence>()
+
+    suspend fun sendFriendRequest(me: Profile, to: Profile) {
+        if (me.id == to.id) error("Ese perfil es el tuyo.")
+        val b = db.batch()
+        b.set(col("friend_requests").document("${me.id}_${to.id}"), mapOf(
+            "from" to me.id, "to" to to.id, "fromName" to me.name, "fromUsername" to me.username, "fromMoto" to me.moto, "fromColor" to me.color,
+            "toName" to to.name, "toUsername" to to.username, "createdAt" to now()))
+        b.stamp(me.id, "friend")
+        b.commit().await()
+    }
+
+    /** Aceptar crea la amistad y borra la solicitud en el mismo lote: las reglas exigen las dos cosas juntas. */
+    suspend fun acceptFriend(r: FriendRequest) {
+        val (a, z) = listOf(r.from, r.to).sorted()
+        val b = db.batch()
+        b.set(col("friendships").document("${a}_$z"), mapOf("members" to listOf(a, z), "since" to now()))
+        b.delete(col("friend_requests").document(r.id))
+        b.commit().await()
+    }
+
+    /** Rechazar (quien la recibió) o cancelar (quien la envió). */
+    suspend fun deleteFriendRequest(r: FriendRequest) { col("friend_requests").document(r.id).delete().await() }
+    suspend fun unfriend(me: String, other: String) { col("friendships").document(pairId(me, other)).delete().await() }
+
+    /** Bloquear: en el mismo lote se borran la amistad y las solicitudes que haya entre los dos. */
+    suspend fun block(me: String, other: Profile, areFriends: Boolean, pending: List<FriendRequest>) {
+        val b = db.batch()
+        b.set(col("blocks").document("${me}_${other.id}"), mapOf("blocker" to me, "blocked" to other.id, "blockedName" to other.name,
+            "blockedUsername" to other.username, "createdAt" to now()))
+        if (areFriends) b.delete(col("friendships").document(pairId(me, other.id)))
+        pending.filter { (it.from == me && it.to == other.id) || (it.from == other.id && it.to == me) }.forEach { b.delete(col("friend_requests").document(it.id)) }
+        b.commit().await()
+    }
+    suspend fun unblock(b: Block) { col("blocks").document(b.id).delete().await() }
+
+    /** Latido del estado para los amigos: "online", o "riding" con el nombre de la rodada activa. */
+    suspend fun heartbeat(uid: String, rodada: String) {
+        col("status").document(uid).set(mapOf("state" to if (rodada.isBlank()) "online" else "riding", "rodada" to rodada.take(80),
+            "updatedAt" to FieldValue.serverTimestamp())).await()
+    }
+
+    suspend fun setShowStatus(p: Profile, on: Boolean) {
+        col("profiles").document(p.id).update("showStatus", on).await()
+        if (!on) runCatching { col("status").document(p.id).delete().await() }
     }
 
     // ───────── Comercios ─────────
@@ -457,5 +584,7 @@ class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth, private val consen
     private companion object {
         /** Rol "Guía de rutas", retirado. Solo puede aparecer en cuentas creadas antes del 2026-11-15. */
         const val LEGACY_GUIDE = "d"
+        /** @usuario: 3 a 20 caracteres en minúscula. Las reglas de Firestore exigen lo mismo. */
+        val USERNAME = Regex("^[a-z0-9_.]{3,20}$")
     }
 }

@@ -79,6 +79,10 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.delay
 import co.apexmoto.app.BuildConfig
 import co.apexmoto.app.core.C
 import co.apexmoto.app.data.AppUser
@@ -143,6 +147,17 @@ private fun RootContent(vm: AppViewModel) {
 @Composable
 fun MainScaffold(vm: AppViewModel, u: AppUser) {
     val nav = rememberNavController()
+    // Estado para los amigos: un latido cada 3 minutos, solo con la app en primer plano y si la persona lo permite.
+    val profile by vm.myProfile.collectAsState()
+    val owner = LocalLifecycleOwner.current
+    val showStatus = u.role == Role.RIDER && profile?.showStatus == true
+    val riding = vm.ridingName
+    LaunchedEffect(showStatus, riding) {
+        if (!showStatus) return@LaunchedEffect
+        owner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            while (true) { runCatching { vm.repo.heartbeat(u.id, riding) }; delay(180_000) }
+        }
+    }
     val tabs = tabsFor(u.role)
     val start = tabs.first().route
     val route = nav.currentBackStackEntryAsState().value?.destination?.route
@@ -157,7 +172,7 @@ fun MainScaffold(vm: AppViewModel, u: AppUser) {
             // Rider
             composable("rut") { RoutesScreen(vm, nav, u) }
             composable("com") { VenuesScreen(vm, nav, u) }
-            composable("grp") { CommunityScreen(vm, u) }
+            composable("grp") { CommunityScreen(vm, nav, u) }
             composable("rent") { RentScreen(vm, nav) }
             composable("tal") { WorkshopScreen(vm, nav, u) }
             // Comercio

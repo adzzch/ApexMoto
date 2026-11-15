@@ -31,7 +31,7 @@ En **todas** las fases se incluyen las reglas de Firestore con sus pruebas, la a
 - [ ] Entregarla a los amigos y correr el [plan de pruebas](plan-de-pruebas.md).
 - [ ] Recomendado antes de la prueba cerrada: que un abogado revise los textos ([legal/revision-abogado.md](legal/revision-abogado.md)). Es obligatorio antes de abrir al público.
 
-### Fase 1 · Perfil y amigos, estilo Steam
+### Fase 1 · Perfil y amigos, estilo Steam (hecha)
 
 - @usuario y avatar de moto (silueta y color).
 - Agregar amigos por @usuario o con un enlace que se comparte por WhatsApp. Aceptar, rechazar, eliminar y bloquear.

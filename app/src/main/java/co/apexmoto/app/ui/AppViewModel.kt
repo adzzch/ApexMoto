@@ -94,6 +94,23 @@ class AppViewModel(val container: AppContainer) : ViewModel() {
     val sos = byUser { if (it.role == Role.WORKSHOP) repo.sosForWorkshop(it.id) else repo.sosMine(it.id) }
     val savedRoutes = byUser { repo.routesOf(it.id) }
 
+    // Amigos
+    /** Perfil público propio; null mientras no lo haya creado. */
+    val myProfile: StateFlow<Profile?> = user.flatMapLatest { u -> if (u == null) flowOf(null) else repo.profile(u.id) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+    val friendships = byUser { repo.friendships(it.id) }
+    val friendReqIn = byUser { repo.friendRequestsTo(it.id) }
+    val friendReqOut = byUser { repo.friendRequestsFrom(it.id) }
+    val blocks = byUser { repo.blocks(it.id) }
+    /** Perfiles públicos de los amigos. */
+    val friendProfiles: StateFlow<List<Profile>> = combine(user, friendships) { u, f -> u to f }
+        .flatMapLatest { (u, f) -> if (u == null) flowOf(emptyList()) else repo.profiles(f.mapNotNull { fr -> fr.members.firstOrNull { it != u.id } }) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    /** Pestaña abierta en Comunidad: "rodadas" o "amigos". */
+    var communityTab by mutableStateOf("rodadas")
+    /** Nombre de la rodada activa en la que participa la persona ("" si ninguna): va en su estado para los amigos. */
+    var ridingName by mutableStateOf("")
+
     // Sesión
     private suspend fun afterAuth() {
         val u = repo.currentUser()

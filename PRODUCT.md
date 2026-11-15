@@ -40,7 +40,7 @@ Lo que ApexMoto puede decir y una app de mapas o un grupo de chat no puede decir
 ## Capabilities and Constraints
 
 - **Stack:** Kotlin + Jetpack Compose (Material 3), Firebase Auth (correo, Google, teléfono) y Firestore, mapas OpenStreetMap (osmdroid), rutas y guiado con OpenRouteService. Hoy las rutas se calculan con el perfil `driving-car`.
-- **Módulos:** rutas (Ruta IA, presupuesto, rutas guardadas), comercios (mapa, menú, pedidos, cupones), comunidad de rodadas, renta de moto con planes de protección (Básica, Estándar, Premium; no son un seguro) y extras, taller móvil S.O.S., chat, perfil y configuración.
+- **Módulos:** rutas (Ruta IA, presupuesto, rutas guardadas), comercios (mapa, menú, pedidos, cupones), comunidad de rodadas, amigos (perfil público con @usuario y avatar de moto, solicitudes, bloqueos y estado), renta de moto con planes de protección (Básica, Estándar, Premium; no son un seguro) y extras, taller móvil S.O.S., chat, perfil y configuración.
 - **Etapa:** proyecto personal / MVP. Se prepara una prueba cerrada con amigos que cubre todos los roles. Las reglas de Firestore son de producción y tienen pruebas.
 - **Dos ambientes (compromiso):** *Pruebas* (desarrollo y presentaciones; los datos demo solo existen aquí y una franja lo indica) y *Productivo* (la app real, vacía al empezar). Cada uno con su proyecto de Firebase. Ver `docs/desarrollo.md`.
 - **Legal (compromiso):** casillas separadas para términos y para datos personales, registro inmutable de cada aceptación, no se recogen documentos ni biometría, la ubicación solo se usa con aviso aceptado. Los planes de "protección" de la renta no son un seguro y así debe decirse. Ver `docs/legal/`.

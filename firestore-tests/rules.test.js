@@ -388,3 +388,75 @@ test('cualquier colección no declarada está cerrada', async () => {
   await assertFails(setDoc(doc(db(R), 'otra', 'x'), { a: 1 }));
   await assertFails(getDoc(doc(db(A), 'otra', 'x')));
 });
+
+// ───────── Perfil público y amigos (fase 1) ─────────
+const prof = (username, extra = {}) => ({ username, name: 'Rider', moto: 'naked', color: 'orange', showStatus: true, ...extra });
+const UN = { [R]: 'rider_uno', [X]: 'rider_dos' };
+async function seedProfiles() {
+  await env.withSecurityRulesDisabled(async (c) => {
+    const d = c.firestore();
+    for (const u of [R, X]) { await setDoc(doc(d, 'profiles', u), prof(UN[u])); await setDoc(doc(d, 'usernames', UN[u]), { uid: u }); }
+  });
+}
+const freq = (from, to, extra = {}) => ({ from, to, fromName: 'Rider', fromUsername: UN[from], fromMoto: 'naked', fromColor: 'orange', toName: 'Rider', toUsername: UN[to], createdAt: 1, ...extra });
+const saveProfile = (uid, username, extra = {}, dropOld = null) => { const d = db(uid); const b = writeBatch(d);
+  b.set(doc(d, 'profiles', uid), prof(username, extra)); b.set(doc(d, 'usernames', username), { uid });
+  if (dropOld) b.delete(doc(d, 'usernames', dropOld)); return b.commit(); };
+
+test('perfil: el @usuario se reserva junto con el perfil y nadie toma uno ocupado', async () => {
+  await seedProfiles();
+  await register('n1', 'm');
+  await assertFails(setDoc(doc(db('n1'), 'profiles', 'n1'), prof('nuevo_rider')));                 // sin reservar el @usuario
+  await assertFails(saveProfile('n1', 'Mayusculas'));                                               // formato inválido
+  await assertFails(saveProfile('n1', 'rider_uno'));                                                // ya es de otra persona
+  await assertFails(saveProfile(S, 'mi_negocio'));                                                  // un comercio no tiene perfil de rider
+  await assertSucceeds(saveProfile('n1', 'nuevo_rider'));
+});
+test('perfil: cambiar de @usuario libera el anterior; el perfil lo lee cualquiera con sesión', async () => {
+  await seedProfiles();
+  await assertFails(saveProfile(R, 'rider_nuevo'));                                                 // sin liberar rider_uno
+  await assertSucceeds(saveProfile(R, 'rider_nuevo', {}, 'rider_uno'));
+  await assertSucceeds(getDoc(doc(db(X), 'profiles', R)));
+  await assertFails(getDoc(doc(db(null), 'profiles', R)));
+  await assertFails(updateDoc(doc(db(X), 'profiles', R), { name: 'Hackeado' }));
+});
+test('amistad: solicitud con los datos reales, sin duplicar ni invertir, y con sello', async () => {
+  await seedProfiles();
+  await assertFails(setDoc(doc(db(R), 'friend_requests', `${R}_${X}`), freq(R, X)));                // sin sello
+  await assertFails(stamped(R, 'friend', (b, d) => b.set(doc(d, 'friend_requests', `${R}_${X}`), freq(R, X, { fromUsername: 'rider_dos' }))));
+  await assertFails(stamped(R, 'friend', (b, d) => b.set(doc(d, 'friend_requests', `${R}_${R}`), freq(R, R))));
+  await assertSucceeds(stamped(R, 'friend', (b, d) => b.set(doc(d, 'friend_requests', `${R}_${X}`), freq(R, X))));
+  await assertFails(stamped(X, 'friend', (b, d) => b.set(doc(d, 'friend_requests', `${X}_${R}`), freq(X, R))));   // ya hay una al revés
+  await assertFails(getDoc(doc(db(S), 'friend_requests', `${R}_${X}`)));
+  await assertSucceeds(getDoc(doc(db(X), 'friend_requests', `${R}_${X}`)));
+});
+test('amistad: solo quien recibió la solicitud la acepta, y la solicitud se consume', async () => {
+  await seedProfiles();
+  await env.withSecurityRulesDisabled((c) => setDoc(doc(c.firestore(), 'friend_requests', `${R}_${X}`), freq(R, X)));
+  const pair = [R, X].sort(); const fid = pair.join('_');
+  const accept = (who, consume) => { const d = db(who); const b = writeBatch(d);
+    b.set(doc(d, 'friendships', fid), { members: pair, since: 1 }); if (consume) b.delete(doc(d, 'friend_requests', `${R}_${X}`)); return b.commit(); };
+  await assertFails(accept(R, true));                                                              // quien la envió no se acepta solo
+  await assertFails(accept(X, false));                                                             // hay que borrar la solicitud
+  await assertSucceeds(accept(X, true));
+  await assertSucceeds(getDoc(doc(db(R), 'friendships', fid)));
+  await assertFails(getDoc(doc(db(S), 'friendships', fid)));
+  await assertSucceeds(deleteDoc(doc(db(R), 'friendships', fid)));                                 // cualquiera de los dos termina la amistad
+});
+test('amistad: con un bloqueo no hay solicitudes, y el bloqueo es privado', async () => {
+  await seedProfiles();
+  await assertSucceeds(setDoc(doc(db(R), 'blocks', `${R}_${X}`), { blocker: R, blocked: X, blockedName: 'Rider', blockedUsername: 'rider_dos', createdAt: 1 }));
+  await assertFails(stamped(X, 'friend', (b, d) => b.set(doc(d, 'friend_requests', `${X}_${R}`), freq(X, R))));
+  await assertFails(getDoc(doc(db(X), 'blocks', `${R}_${X}`)));
+  await assertFails(setDoc(doc(db(X), 'blocks', `${R}_${S}`), { blocker: R, blocked: S, blockedName: '', blockedUsername: '', createdAt: 1 }));
+});
+test('estado: solo los amigos lo ven, y se escribe con la hora del servidor', async () => {
+  await seedProfiles();
+  const fid = [R, X].sort().join('_');
+  await env.withSecurityRulesDisabled((c) => setDoc(doc(c.firestore(), 'friendships', fid), { members: [R, X].sort(), since: 1 }));
+  await assertFails(setDoc(doc(db(R), 'status', R), { state: 'online', rodada: '', updatedAt: past(1) }));
+  await assertSucceeds(setDoc(doc(db(R), 'status', R), { state: 'online', rodada: '', updatedAt: serverTimestamp() }));
+  await assertSucceeds(getDoc(doc(db(X), 'status', R)));
+  await assertFails(getDoc(doc(db(S), 'status', R)));
+  await assertFails(setDoc(doc(db(X), 'status', R), { state: 'online', rodada: '', updatedAt: serverTimestamp() }));
+});

@@ -60,15 +60,29 @@ fun ProfileScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
         confirmButton = { TextButton({ confirmClear = false; vm.act("Datos demo borrados") { vm.repo.clearDemo() } }) { Text("Borrar") } },
         dismissButton = { TextButton({ confirmClear = false }) { Text("Cancelar") } },
     )
+    val profile by vm.myProfile.collectAsState()
     Screen {
         Card2(index = 0) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Avatar(u.name, 60.dp); Spacer(Modifier.width(14.dp))
+                val p = profile
+                if (p != null) MotoAvatar(p.moto, p.color, 60.dp) else Avatar(u.name, 60.dp)
+                Spacer(Modifier.width(14.dp))
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(u.name, fontFamily = Chivo, fontWeight = FontWeight.ExtraBold, fontSize = 21.sp)
+                    if (p != null) Lbl("@${p.username}", CyanDeep)
                     Pill(Role.label(u.role), OrangeSoft, OrangeDark)
                     if (u.email.isNotBlank()) Lbl(u.email)
                 }
+            }
+        }
+        if (u.role == Role.RIDER) Card2 {
+            val p = profile
+            if (p == null) {
+                IconLine(Icons.Filled.People, "Crea tu perfil de rider para agregar amigos y unirte al mapa de las rodadas.", CyanDeep, bold = false)
+                Btn("Crear mi perfil de rider", Modifier.fillMaxWidth(), Icons.Filled.Badge, kind = BK.Ghost) { vm.communityTab = "amigos"; nav.navigate("grp") }
+            } else {
+                SwitchRow("Mostrar mi estado a mis amigos", "En línea o en rodada. Nadie más lo ve.", p.showStatus) { on -> vm.act { vm.repo.setShowStatus(p, on) } }
+                Btn("Mis amigos", Modifier.fillMaxWidth(), Icons.Filled.People, kind = BK.Ghost) { vm.communityTab = "amigos"; nav.navigate("grp") }
             }
         }
         if (orders.isNotEmpty()) {

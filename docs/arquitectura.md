@@ -37,7 +37,7 @@ Ruta base: `app/src/main/java/co/apexmoto/app/`
 |---|---|
 | `ApexApp.kt`, `MainActivity.kt` | Aplicación, contenedor de dependencias (`AppContainer`), preferencias, punto de entrada |
 | `auth/SignIn.kt` | Google Sign-In (Credential Manager) y verificación por SMS |
-| `data/Models.kt` | Modelos: `AppUser`, `Venue`, `Bike`, `Rodada`, `ServiceRequest` (renta), `Order`, `Coupon`, `Sos`, `ChatMessage`, `SavedRoute`, y roles (`Role`) |
+| `data/Models.kt` | Modelos: `AppUser`, `Venue`, `Bike`, `Rodada`, `ServiceRequest` (renta), `Order`, `Coupon`, `Sos`, `ChatMessage`, `SavedRoute`; amigos: `Profile`, `FriendRequest`, `Friendship`, `Block`, `Presence`; y roles (`Role`) |
 | `data/Repo.kt` | Acceso a Firestore y Auth: perfiles, comercios, motos, pedidos, S.O.S., chat, aceptaciones, datos demo |
 | `legal/Legal.kt` | Catálogo versionado de documentos (`Legal.DOCS`), registro de aceptaciones, solicitudes de privacidad, `ConsentRecorder` |
 | `maps/Maps.kt` | `RoutesClient` (OpenRouteService) y `LocationHelper` |
@@ -49,6 +49,7 @@ Ruta base: `app/src/main/java/co/apexmoto/app/`
 | `ui/Root.kt` | Navegación, barra por rol (`tabsFor`), pantalla de ingreso y elección de rol |
 | `ui/Rider*.kt` | Rutas, comercios y mapa, renta y comunidad, taller S.O.S. del rider |
 | `ui/Commerce.kt`, `ui/Taller.kt`, `ui/Owner.kt` | Espacios de comercio, taller mecánico y dueño de moto |
+| `ui/Friends.kt` | Amigos: avatares de moto (`Avatars`, `MotoAvatar`), perfil público, búsqueda por @usuario, solicitudes, bloqueos y estado |
 | `ui/NavigationScreen.kt` | Guiado giro a giro: ubicación, voz es-CO, recálculo a más de 150 m |
 | `ui/Legal.kt` | Casillas de aceptación, reaceptación, aviso de ubicación, derechos del titular, eliminar cuenta |
 | `ui/Common.kt`, `ui/Misc.kt` | Componentes compartidos; chat, perfil y configuración |

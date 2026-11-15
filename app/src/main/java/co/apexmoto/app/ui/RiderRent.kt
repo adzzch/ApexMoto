@@ -44,10 +44,20 @@ import co.apexmoto.app.ui.theme.*
 
 // ───────────────── Comunidad / rodadas ─────────────────
 @Composable
-fun CommunityScreen(vm: AppViewModel, u: AppUser) {
+fun CommunityScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
+    val reqIn by vm.friendReqIn.collectAsState()
+    Screen {
+        Segmented(listOf(Triple("rodadas", "Rodadas", Icons.Filled.Groups),
+            Triple("amigos", if (reqIn.isEmpty()) "Amigos" else "Amigos · ${reqIn.size}", Icons.Filled.People)), vm.communityTab) { vm.communityTab = it }
+        if (vm.communityTab == "amigos") FriendsPane(vm, u) else RodadasPane(vm, nav, u)
+    }
+}
+
+@Composable
+private fun ColumnScope.RodadasPane(vm: AppViewModel, nav: NavController, u: AppUser) {
     val rodadas by vm.rodadas.collectAsState()
     var create by remember { mutableStateOf(false) }
-    Screen {
+    run {
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
             H("Rodadas", Icons.Filled.Groups)
             Sub("Salidas en grupo con cupos limitados. Únete o arma la tuya.")

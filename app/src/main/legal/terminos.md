@@ -1,6 +1,6 @@
 # Términos y Condiciones de ApexMoto
 
-**Versión 1.0.0 · Vigente desde: [COMPLETAR: fecha de publicación]**
+**Versión 1.1.0 · Vigente desde: [COMPLETAR: fecha de publicación]**
 
 Estos términos regulan el uso de la aplicación ApexMoto. Al crear tu cuenta marcas una casilla en la que declaras que los leíste y los aceptas. Si no estás de acuerdo, no uses la aplicación.
 
@@ -94,6 +94,8 @@ Podemos suspender o cerrar una cuenta que incumpla estas reglas. Antes de cerrar
 
 - Las rodadas las organizan los propios usuarios. ApexMoto no las organiza, no las supervisa y no responde por lo que ocurra en ellas.
 - Cada participante conduce bajo su propia responsabilidad y debe cumplir las normas de tránsito.
+- Tu @usuario y tu avatar son públicos para los demás usuarios. No uses el nombre de otra persona, marcas ajenas ni palabras ofensivas; podemos pedirte que lo cambies o retirarlo.
+- Puedes agregar amigos, eliminarlos y bloquear a quien quieras. Quien está bloqueado no puede enviarte solicitudes ni ver tu estado.
 
 ## 11. Rutas, mapas y guiado
 

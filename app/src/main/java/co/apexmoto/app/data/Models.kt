@@ -1,6 +1,8 @@
 package co.apexmoto.app.data
 
 import com.google.firebase.firestore.DocumentId
+import com.google.firebase.firestore.ServerTimestamp
+import java.util.Date
 
 /**
  * Roles. El de "Guía de rutas" ("d") se retiró el 2026-11-15: ApexMoto no ofrece guías pagados ni transporte de
@@ -97,3 +99,38 @@ data class SavedRoute(
     @DocumentId var id: String = "", var userId: String = "", var name: String = "", var corridor: String = "", var km: Int = 0,
     var mins: Int = 0, var stops: List<SavedStop> = emptyList(), var createdAt: Long = 0,
 )
+
+// ───────── Amigos (fase 1) ─────────
+/** Perfil público de un rider (colección profiles): lo único que ven los demás. El @usuario es único (colección usernames). */
+data class Profile(
+    @DocumentId var id: String = "", var username: String = "", var name: String = "",
+    /** Avatar: silueta de moto (ver Avatars.MOTOS) y color (Avatars.COLORS). Sin fotos. */
+    var moto: String = "naked", var color: String = "orange",
+    /** Si es false no se publica el estado (en línea / en rodada) a los amigos. */
+    var showStatus: Boolean = true,
+)
+
+/** Solicitud de amistad pendiente. ID = "{from}_{to}". Se borra al aceptarla, rechazarla o cancelarla. */
+data class FriendRequest(
+    @DocumentId var id: String = "", var from: String = "", var to: String = "",
+    var fromName: String = "", var fromUsername: String = "", var fromMoto: String = "", var fromColor: String = "",
+    var toName: String = "", var toUsername: String = "", var createdAt: Long = 0,
+)
+
+/** Amistad entre dos riders. ID = "{a}_{b}" con a < b; members = [a, b]. */
+data class Friendship(@DocumentId var id: String = "", var members: List<String> = emptyList(), var since: Long = 0)
+
+/** Bloqueo. ID = "{blocker}_{blocked}". Quien está bloqueado no puede enviar solicitudes ni ver el estado. */
+data class Block(
+    @DocumentId var id: String = "", var blocker: String = "", var blocked: String = "",
+    var blockedName: String = "", var blockedUsername: String = "", var createdAt: Long = 0,
+)
+
+/** Estado que ven los amigos (colección status). updatedAt es la hora del servidor del último latido. */
+data class Presence(
+    @DocumentId var id: String = "", var state: String = "online", var rodada: String = "",
+    @ServerTimestamp var updatedAt: Date? = null,
+)
+
+/** ID de una amistad: los dos uid ordenados. */
+fun pairId(a: String, b: String) = if (a < b) "${a}_$b" else "${b}_$a"
