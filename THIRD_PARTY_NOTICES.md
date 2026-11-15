@@ -2,7 +2,7 @@
 
 ApexMoto incluye o usa los componentes siguientes. Cada uno conserva su licencia; la licencia propietaria del repositorio ([LICENSE](LICENSE)) no los cubre.
 
-> Las versiones salen de [`gradle/libs.versions.toml`](gradle/libs.versions.toml). Si cambias una dependencia, actualiza esta tabla **y** el texto que ve el usuario en [`app/src/main/assets/legal/licencias.md`](app/src/main/assets/legal/licencias.md) (cambiar ese texto exige subir su versión; ver [`docs/legal/README.md`](docs/legal/README.md), sección 4).
+> Las versiones salen de [`gradle/libs.versions.toml`](gradle/libs.versions.toml). Si cambias una dependencia, actualiza esta tabla **y** el texto que ve el usuario en [`app/src/main/legal/licencias.md`](app/src/main/legal/licencias.md) (cambiar ese texto exige subir su versión; ver [`docs/legal/README.md`](docs/legal/README.md), sección 4).
 
 ## Librerías (se distribuyen dentro del APK)
 

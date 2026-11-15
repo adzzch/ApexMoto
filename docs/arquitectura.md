@@ -1,6 +1,6 @@
 # Arquitectura
 
-Un solo módulo Android (`:app`), paquete `co.apexmoto.app`, sin servidor propio. La app habla directo con Firebase; **las reglas de Firestore son la capa de servidor** ([seguridad.md](seguridad.md)).
+Un solo módulo Android (`:app`). El código vive en el paquete `co.apexmoto.app`; las apps instaladas se llaman `co.apexmoto.dev` (pruebas) y `co.apexmoto.prd` (real). No hay servidor propio. La app habla directo con Firebase; **las reglas de Firestore son la capa de servidor** ([seguridad.md](seguridad.md)).
 
 ## 1. Vista general
 
@@ -37,7 +37,7 @@ Ruta base: `app/src/main/java/co/apexmoto/app/`
 |---|---|
 | `ApexApp.kt`, `MainActivity.kt` | Aplicación, contenedor de dependencias (`AppContainer`), preferencias, punto de entrada |
 | `auth/SignIn.kt` | Google Sign-In (Credential Manager) y verificación por SMS |
-| `data/Models.kt` | Modelos: `AppUser`, `Venue`, `Bike`, `Driver`, `Rodada`, `ServiceRequest`, `Order`, `Coupon`, `Sos`, `ChatMessage`, `SavedRoute`, y roles (`Role`) |
+| `data/Models.kt` | Modelos: `AppUser`, `Venue`, `Bike`, `Rodada`, `ServiceRequest` (renta), `Order`, `Coupon`, `Sos`, `ChatMessage`, `SavedRoute`, y roles (`Role`) |
 | `data/Repo.kt` | Acceso a Firestore y Auth: perfiles, comercios, motos, pedidos, S.O.S., chat, aceptaciones, datos demo |
 | `legal/Legal.kt` | Catálogo versionado de documentos (`Legal.DOCS`), registro de aceptaciones, solicitudes de privacidad, `ConsentRecorder` |
 | `maps/Maps.kt` | `RoutesClient` (OpenRouteService) y `LocationHelper` |
@@ -48,13 +48,17 @@ Ruta base: `app/src/main/java/co/apexmoto/app/`
 | `core/Util.kt` | Utilidades (formato de COP, etc.) |
 | `ui/Root.kt` | Navegación, barra por rol (`tabsFor`), pantalla de ingreso y elección de rol |
 | `ui/Rider*.kt` | Rutas, comercios y mapa, renta y comunidad, taller S.O.S. del rider |
-| `ui/Commerce.kt`, `ui/Taller.kt`, `ui/Owner.kt` | Espacios de comercio, taller mecánico, dueño de moto y guía |
+| `ui/Commerce.kt`, `ui/Taller.kt`, `ui/Owner.kt` | Espacios de comercio, taller mecánico y dueño de moto |
 | `ui/NavigationScreen.kt` | Guiado giro a giro: ubicación, voz es-CO, recálculo a más de 150 m |
 | `ui/Legal.kt` | Casillas de aceptación, reaceptación, aviso de ubicación, derechos del titular, eliminar cuenta |
 | `ui/Common.kt`, `ui/Misc.kt` | Componentes compartidos; chat, perfil y configuración |
 | `ui/theme/Theme.kt` | Paleta y tipografías de marca (las pantallas no definen colores propios) |
 
-Variantes de compilación: `src/debug/` y `src/release/` aportan cada una su `AppCheckInstaller` (token de depuración en debug, Play Integrity en release).
+Variantes de compilación:
+
+- **Ambiente** (`productFlavors`): `pruebas` (paquete `co.apexmoto.dev`, `BuildConfig.PRUEBAS = true`) y `prod` (`co.apexmoto.prd`). El `namespace` (paquete del código, `R` y `BuildConfig`) sigue siendo `co.apexmoto.app`. Cada uno lee su `google-services.json` de `src/pruebas/` o `src/prod/`. Con `PRUEBAS` se muestran las herramientas de datos demo, el diagnóstico de la clave de rutas y la franja "Ambiente de pruebas" (`ApexRoot`). `src/pruebas/res/` cambia el nombre y el color del ícono.
+- **Tipo** (`buildTypes`): `src/debug/` y `src/release/` aportan cada uno su `AppCheckInstaller` (token de depuración en debug, Play Integrity en release).
+- **Textos legales:** se escriben en `src/main/legal/` y la tarea `fill<Variante>LegalTexts` los copia a los assets con los datos de `legal.properties` (ver [desarrollo.md](desarrollo.md) §6).
 
 ## 3. Roles y navegación
 
@@ -63,12 +67,11 @@ El rol se elige al registrarse (o en el primer ingreso con Google o teléfono) y
 | Rol | Código | Pestañas |
 |---|---|---|
 | Rider | `m` | Rutas, Comercios, Comunidad, Rentar, Taller |
-| Guía de rutas | `d` | Las del rider + Salidas |
 | Comercio | `c` | Resumen, Pedidos, Menú, Negocio, Canjes |
 | Taller mecánico | `t` | Resumen, Atenciones, Servicios, Mi taller, Canjes |
 | Dueño de moto | `o` | Mi flota, Solicitudes, Ingresos |
 
-Solo rider ↔ guía se puede cambiar después; los demás roles no son editables por el usuario (lo imponen las reglas).
+El rol no se puede cambiar después (lo imponen las reglas). El rol "Guía de rutas" (`d`) se retiró el 2026-11-15: `Repo.currentUser()` pasa esas cuentas a rider, que es el único cambio de rol que permiten las reglas.
 
 ## 4. Flujo de datos
 
@@ -88,11 +91,11 @@ El prototipo original era `apexmoto.html`. Correspondencia:
 | Login (correo, Google, teléfono) y elección de rol | `ui/Root.kt` (`AuthScreen`, `RoleSelectScreen`), `auth/SignIn.kt`, `data/Repo.kt` |
 | Rutas: Ruta IA y presupuesto | `ui/RiderRoutes.kt`, `maps/RoutePlanner.kt` |
 | Comercios, menú, pedidos, cupones | `ui/RiderVenues.kt`, `ui/Commerce.kt` |
-| Comunidad (rodadas), renta y guía | `ui/RiderRent.kt`, `ui/Owner.kt` |
+| Comunidad (rodadas) y renta | `ui/RiderRent.kt`, `ui/Owner.kt` |
 | Taller móvil S.O.S. | `ui/RiderWorkshop.kt`, `ui/Taller.kt` |
-| Dueño de moto y guía: flota, solicitudes, ganancias | `ui/Owner.kt` |
+| Dueño de moto: flota, solicitudes, ingresos | `ui/Owner.kt` |
 | Chat, perfil, configuración | `ui/Misc.kt` |
-| Legal y privacidad | `legal/Legal.kt`, `ui/Legal.kt`, `core/BusinessDays.kt`, `assets/legal/*.md` |
+| Legal y privacidad | `legal/Legal.kt`, `ui/Legal.kt`, `core/BusinessDays.kt`, `src/main/legal/*.md` |
 | Mapas, rutas y guiado | `maps/*.kt`, `ui/NavigationScreen.kt` |
 
 ## 6. Limitaciones conocidas

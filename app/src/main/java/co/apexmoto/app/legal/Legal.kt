@@ -14,8 +14,9 @@ import java.util.Date
 import java.util.Locale
 
 /**
- * Un documento legal versionado. El texto vive en assets/legal/<asset> y viaja dentro del APK:
- * se puede leer sin señal y lo que la persona acepta es exactamente lo que vio (se guarda su hash).
+ * Un documento legal versionado. El texto se escribe en app/src/main/legal/<asset>; al compilar se completan los datos
+ * del responsable (legal.properties) y viaja dentro del APK como assets/legal/<asset>: se puede leer sin señal y lo que
+ * la persona acepta es exactamente lo que vio (se guarda su hash).
  *
  * Al cambiar un texto: sube [version], archiva el texto anterior en docs/legal/historial/ y agrega la
  * versión nueva a la lista de versiones válidas de firestore.rules. Ver docs/legal/README.md.
@@ -28,7 +29,8 @@ object Legal {
     const val TRACKING = "rastreo"
     const val REFUNDS = "reembolsos"
     const val LOCATION = "ubicacion"
-    const val GUIDE = "declaracion-guia"
+    // "declaracion-guia" se retiró con el rol de guía (2026-11-15). firestore.rules la sigue reconociendo solo para no
+    // invalidar los perfiles de prueba que la aceptaron.
     const val OWNER = "declaracion-propietario"
     const val LICENSES = "licencias"
 
@@ -40,8 +42,6 @@ object Legal {
         LegalDoc(REFUNDS, "Cancelaciones, retracto y reembolsos", "1.0.0", "reembolsos.md", ""),
         LegalDoc(TRACKING, "Identificadores, analítica y rastreo", "1.0.0", "rastreo.md", ""),
         LegalDoc(LOCATION, "Uso de la ubicación", "1.0.0", "ubicacion.md", "Autorizo el uso de mi ubicación para lo que explica este aviso."),
-        LegalDoc(GUIDE, "Condiciones para guías", "1.0.0", "declaracion-guia.md",
-            "Declaro que cumplo las Condiciones para guías: licencia, SOAT y revisión vigentes, y no transporto pasajeros."),
         LegalDoc(OWNER, "Condiciones para dueños de moto", "1.0.0", "declaracion-propietario.md",
             "Declaro que cumplo las Condiciones para dueños: soy propietario o estoy autorizado, y la moto tiene SOAT y revisión vigentes."),
         LegalDoc(LICENSES, "Licencias de terceros", "1.0.0", "licencias.md", ""),
@@ -55,7 +55,6 @@ object Legal {
     /** Lo que cada rol debe tener aceptado, en su versión vigente, para usar la aplicación. */
     fun requiredFor(role: String): List<LegalDoc> = buildList {
         add(doc(TERMS)); add(doc(PRIVACY))
-        if (role == Role.DRIVER) add(doc(GUIDE))
         if (role == Role.OWNER) add(doc(OWNER))
     }
 
@@ -80,7 +79,6 @@ object AcceptMethod {
     const val REGISTER = "casilla_registro"
     const val FIRST_LOGIN = "casilla_primer_ingreso"
     const val REACCEPT = "casilla_reaceptacion"
-    const val ROLE = "casilla_cambio_de_rol"
     const val LOCATION = "boton_aviso_ubicacion"
 }
 

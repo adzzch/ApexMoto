@@ -79,6 +79,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import co.apexmoto.app.BuildConfig
 import co.apexmoto.app.core.C
 import co.apexmoto.app.data.AppUser
 import co.apexmoto.app.data.PendingProfile
@@ -97,15 +98,29 @@ fun tabsFor(role: String): List<NavTab> = when (role) {
     Role.WORKSHOP -> listOf(NavTab("tpan", Icons.Filled.Dashboard, "Resumen"), NavTab("tsos", Icons.Filled.Sos, "Atenciones"),
         NavTab("tsrv", Icons.Filled.Handyman, "Servicios"), NavTab("tneg", Icons.Filled.Store, "Mi taller"), NavTab("ccan", Icons.Filled.QrCodeScanner, "Canjes"))
     Role.OWNER -> listOf(NavTab("ofl", Icons.Filled.Garage, "Mi flota"), NavTab("oreq", Icons.Filled.Inbox, "Solicitudes"), NavTab("oing", Icons.Filled.Payments, "Ingresos"))
-    else -> buildList {
-        add(NavTab("rut", Icons.Filled.Route, "Rutas")); add(NavTab("com", Icons.Filled.Storefront, "Comercios"))
-        add(NavTab("grp", Icons.Filled.Groups, "Comunidad")); add(NavTab("rent", Icons.Filled.TwoWheeler, "Rentar")); add(NavTab("tal", Icons.Filled.Build, "Taller"))
-        if (role == Role.DRIVER) add(NavTab("dreq", Icons.Filled.SportsMotorsports, "Salidas"))
-    }
+    else -> listOf(NavTab("rut", Icons.Filled.Route, "Rutas"), NavTab("com", Icons.Filled.Storefront, "Comercios"),
+        NavTab("grp", Icons.Filled.Groups, "Comunidad"), NavTab("rent", Icons.Filled.TwoWheeler, "Rentar"), NavTab("tal", Icons.Filled.Build, "Taller"))
 }
 
 @Composable
 fun ApexRoot(vm: AppViewModel) {
+    // La versión de pruebas lleva una franja fija arriba, en todas las pantallas, para no confundirla con la app real.
+    if (BuildConfig.PRUEBAS) Column(Modifier.fillMaxSize().background(Color.White).statusBarsPadding()) {
+        PruebasStrip()
+        Box(Modifier.weight(1f).fillMaxWidth()) { RootContent(vm) }
+    } else RootContent(vm)
+}
+
+@Composable
+private fun PruebasStrip() {
+    Box(Modifier.fillMaxWidth().background(CyanDeep).padding(vertical = 4.dp), contentAlignment = Alignment.Center) {
+        Text("AMBIENTE DE PRUEBAS · DATOS DE EJEMPLO", color = Color.White, fontFamily = JetBrainsMono, fontWeight = FontWeight.SemiBold,
+            fontSize = 10.sp, letterSpacing = 0.6.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+@Composable
+private fun RootContent(vm: AppViewModel) {
     val user by vm.user.collectAsState()
     val snack = remember { SnackbarHostState() }
     LaunchedEffect(Unit) { vm.messages.collect { snack.showSnackbar(it) } }
@@ -139,13 +154,12 @@ fun MainScaffold(vm: AppViewModel, u: AppUser) {
         containerColor = Bg,
     ) { pad ->
         NavHost(nav, startDestination = start, modifier = Modifier.padding(pad)) {
-            // Rider / conductor
+            // Rider
             composable("rut") { RoutesScreen(vm, nav, u) }
             composable("com") { VenuesScreen(vm, nav, u) }
             composable("grp") { CommunityScreen(vm, u) }
-            composable("rent") { RentScreen(vm, nav, u) }
+            composable("rent") { RentScreen(vm, nav) }
             composable("tal") { WorkshopScreen(vm, nav, u) }
-            composable("dreq") { DriverTripsScreen(vm, nav, u) }
             // Comercio
             composable("cpan") { ShopDashboard(vm, u) }
             composable("cped") { ShopOrdersScreen(vm, nav, u) }
@@ -160,13 +174,11 @@ fun MainScaffold(vm: AppViewModel, u: AppUser) {
             // Dueño de moto
             composable("ofl") { OwnerFleetScreen(vm, u) }
             composable("oreq") { OwnerRequestsScreen(vm, nav, u) }
-            composable("oing") { EarningsScreen(vm, u) }
+            composable("oing") { EarningsScreen(vm) }
             // Comunes
             composable("profile") { ProfileScreen(vm, nav, u) }
             composable("settings") { SettingsScreen(vm) }
             composable("legal") { LegalCenterScreen(vm, u) }
-            composable("dsv") { DriverServiceScreen(vm, u) }
-            composable("ding") { EarningsScreen(vm, u) }
             composable("navigate") { NavigationScreen(vm) }
             composable("menu/{id}") { b -> MenuScreen(vm, nav, u, b.arguments?.getString("id").orEmpty()) }
             composable("bike/{id}") { b -> BikeDetailScreen(vm, nav, u, b.arguments?.getString("id").orEmpty()) }
@@ -178,7 +190,7 @@ fun MainScaffold(vm: AppViewModel, u: AppUser) {
     }
 }
 
-private fun spaceFor(role: String) = when (role) { Role.SHOP -> "Espacio Negocio"; Role.OWNER -> "Espacio Dueño"; Role.DRIVER -> "Espacio Guía"; Role.WORKSHOP -> "Espacio Taller"; else -> "Espacio Rider" }
+private fun spaceFor(role: String) = when (role) { Role.SHOP -> "Espacio Negocio"; Role.OWNER -> "Espacio Dueño"; Role.WORKSHOP -> "Espacio Taller"; else -> "Espacio Rider" }
 
 /** Encabezado de marca: logo, nombre y "Espacio · sección". En pantallas internas muestra Volver y el título. */
 @Composable
@@ -248,8 +260,6 @@ private fun titleFor(route: String?) = when {
     route == "profile" -> "Mi perfil"
     route == "settings" -> "Configuración"
     route == "legal" -> "Legal y privacidad"
-    route == "dsv" -> "Mi servicio"
-    route == "ding" -> "Ganancias"
     else -> "ApexMoto"
 }
 
@@ -373,7 +383,7 @@ fun AuthScreen(vm: AppViewModel) {
                                     enabled = name.isNotBlank() && emailOk && pwOk && pw2 == pw && legalOk(Role.RIDER)) { register(Role.RIDER) }
                             }
                             AuthStep.Partner -> {
-                                StepTitle("Únete como aliado", "Para negocios, talleres, dueños de moto y guías.", onBack = { step = AuthStep.Register })
+                                StepTitle("Únete como aliado", "Para negocios, talleres y dueños de moto.", onBack = { step = AuthStep.Register })
                                 Lbl("¿Qué tipo de aliado eres?")
                                 RoleGrid(role, PartnerRoles) { role = it }
                                 AnimatedVisibility(Role.hasVenue(role)) {
@@ -633,7 +643,7 @@ private fun OtpField(code: String, onChange: (String) -> Unit) {
 }
 
 /** Tipos de aliado: negocios y personas que ofrecen servicios a los riders. */
-private val PartnerRoles = listOf(Role.SHOP, Role.WORKSHOP, Role.OWNER, Role.DRIVER)
+private val PartnerRoles = listOf(Role.SHOP, Role.WORKSHOP, Role.OWNER)
 
 /** Formas de usar ApexMoto, en tarjetas de 2 columnas. */
 @Composable
@@ -642,10 +652,9 @@ private fun RoleGrid(role: String, show: List<String>, onPick: (String) -> Unit)
         listOf(Role.RIDER, "Rider", "Rutas, comercios, comunidad y renta."),
         listOf(Role.SHOP, "Comercio aliado", "Publica tu menú y recibe pedidos."),
         listOf(Role.OWNER, "Dueño de moto", "Renta tus motos a otros riders."),
-        listOf(Role.DRIVER, "Guía de rutas", "Acompaña a otros riders en tu moto."),
         listOf(Role.WORKSHOP, "Taller mecánico", "Atiende S.O.S. y publica tus servicios."),
     )
-    val icons = mapOf(Role.RIDER to Icons.Filled.TwoWheeler, Role.SHOP to Icons.Filled.Storefront, Role.OWNER to Icons.Filled.Garage, Role.DRIVER to Icons.Filled.SportsMotorsports, Role.WORKSHOP to Icons.Filled.Handyman)
+    val icons = mapOf(Role.RIDER to Icons.Filled.TwoWheeler, Role.SHOP to Icons.Filled.Storefront, Role.OWNER to Icons.Filled.Garage, Role.WORKSHOP to Icons.Filled.Handyman)
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         roles.filter { it[0] in show }.sortedBy { show.indexOf(it[0]) }.chunked(2).forEach { pair ->
             Row(Modifier.height(IntrinsicSize.Max), horizontalArrangement = Arrangement.spacedBy(8.dp)) {

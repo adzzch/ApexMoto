@@ -25,8 +25,7 @@ Revisión de cada formulario de la app. "Se queda" significa que el dato es nece
 | Dueño | Modelo, cilindraje, ciudad, precio | Se queda | Oferta |
 | Dueño | Vencimiento de SOAT y de revisión | Agregado | Sin ellos la moto no puede circular; el rider debe saberlo |
 | Dueño | Placa, tarjeta de propiedad | No se piden | La colección de motos es visible para todos los usuarios; se verifican al entregar |
-| Guía | Moto, zona, tarifa, presentación, servicios | Se queda | Oferta |
-| Guía | Servicios "Instructor" y "Escolta" | Eliminados | Actividades reguladas (ver revision-abogado.md) |
+| Guía | Todo el perfil (moto, zona, tarifa, presentación, servicios) | Eliminado con el rol (2026-11-15) | ApexMoto no ofrece guías ni transporte de pasajeros (ver revision-abogado.md, A.2) |
 | Aliados | Nombre o razón social, documento, dirección, teléfono | Agregado, privado | Obligación del art. 53 de la Ley 1480. Solo lo ven el titular y el administrador |
 | Comercio, taller | Ubicación del local | Se queda | Dato del negocio, no de la persona |
 
@@ -45,8 +44,8 @@ La app no los recoge. Si más adelante se necesita verificar identidad (foto de 
 |---|---|---|
 | Perfil | Mientras exista la cuenta | Se borra al eliminar la cuenta (automático) |
 | Coordenadas del S.O.S. | Hasta que termina o se cancela | Automático; las reglas lo exigen |
-| Rutas guardadas, negocio, motos, perfil de guía, identificación del oferente | Hasta eliminar la cuenta | Automático |
-| Pedidos, rentas, salidas, S.O.S. | 5 años | **Manual** |
+| Rutas guardadas, negocio, motos, identificación del oferente | Hasta eliminar la cuenta | Automático |
+| Pedidos, rentas, S.O.S. | 5 años | **Manual** |
 | Chats | 1 año | **Manual** |
 | Aceptaciones y solicitudes de privacidad | 10 años tras el cierre | **Manual** |
 

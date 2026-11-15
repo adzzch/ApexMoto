@@ -139,89 +139,23 @@ fun OwnerRequestsScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
     }
 }
 
-/** Ingresos del dueño (rentas) o ganancias del conductor (servicios finalizados). */
+/** Ingresos del dueño: sus rentas confirmadas. */
 @Composable
-fun EarningsScreen(vm: AppViewModel, u: AppUser) {
+fun EarningsScreen(vm: AppViewModel) {
     val reqs by vm.reqTo.collectAsState()
-    val isDriver = u.role == Role.DRIVER
-    val done = reqs.filter { if (isDriver) it.type == "drv" && it.status == "fin" else it.type == "rent" && it.status in listOf("ok", "ride", "fin") }
-    val total = done.sumOf { if (isDriver) it.amount else it.total }
+    val done = reqs.filter { it.type == "rent" && it.status in listOf("ok", "ride", "fin") }
     Screen {
-        H(if (isDriver) "Ganancias" else "Ingresos")
+        H("Ingresos")
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            StatCard(cop(total), if (isDriver) "Servicios finalizados" else "Rentas confirmadas", Modifier.weight(1.4f), Green, 0)
+            StatCard(cop(done.sumOf { it.total }), "Rentas confirmadas", Modifier.weight(1.4f), Green, 0)
             StatCard("${done.size}", "Operaciones", Modifier.weight(1f), CyanDeep, 1)
         }
         if (done.isEmpty()) Empty("Todavía no tienes movimientos.")
         done.sortedByDescending { it.createdAt }.forEach { r ->
             Card2 { Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) { Text(r.itemName, fontWeight = FontWeight.Bold); Sub("${r.fromName} · ${prettyDate(r.dateFrom)}") }
-                Num(cop(if (isDriver) r.amount else r.total), Green, 15)
+                Num(cop(r.total), Green, 15)
             } }
-        }
-    }
-}
-
-// ───────────────── Conductor guía ─────────────────
-@Composable
-fun DriverTripsScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
-    val reqs by vm.reqTo.collectAsState()
-    val list = reqs.filter { it.type == "drv" }.sortedByDescending { it.createdAt }
-    Screen {
-        H("Salidas solicitadas")
-        if (list.isEmpty()) Empty("Cuando un rider te contrate, la salida aparecerá aquí.")
-        list.forEachIndexed { i, r ->
-            Card2(index = i) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) { Text("${r.fromName} · ${r.service}", fontWeight = FontWeight.Bold); Sub("${prettyDate(r.dateFrom)} · ${r.days} día(s)"); Sub("Encuentro: ${r.meet}") }
-                    StatusPill(REQ_ST[r.status] ?: r.status, r.status)
-                }
-                Num(cop(r.amount), OrangeDark, 16)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    when (r.status) {
-                        "p" -> {
-                            Btn("Aceptar", Modifier.weight(1f), Icons.Filled.Check) { vm.act("Salida aceptada") { vm.repo.setRequestStatus(r.id, "ok") } }
-                            Btn("Rechazar", Modifier.weight(1f), kind = BK.Danger) { vm.act { vm.repo.setRequestStatus(r.id, "no") } }
-                        }
-                        "ok" -> Btn("Voy al punto de encuentro", Modifier.weight(1f)) { vm.act { vm.repo.setRequestStatus(r.id, "go") } }
-                        "go" -> Btn("Iniciar ruta", Modifier.weight(1f), Icons.Filled.Navigation) { vm.act { vm.repo.setRequestStatus(r.id, "ride") } }
-                        "ride" -> Btn("Finalizar servicio", Modifier.weight(1f), Icons.Filled.Check) { vm.act("Servicio finalizado") { vm.repo.setRequestStatus(r.id, "fin") } }
-                    }
-                    if (r.status !in listOf("no", "can")) Btn("Chat", Modifier.weight(1f), Icons.Filled.Chat, kind = BK.Ghost) { nav.chat("req_${r.id}", r.fromName, r.fromId) }
-                }
-                if (r.status == "can") Sub(if (r.cancelKind == "retracto") "El rider ejerció su derecho de retracto: devuélvele todo lo que haya pagado, en máximo 30 días." else "El rider canceló la solicitud.")
-            }
-        }
-    }
-}
-
-@Composable
-fun DriverServiceScreen(vm: AppViewModel, u: AppUser) {
-    val drivers by vm.drivers.collectAsState()
-    val d = drivers.firstOrNull { it.ownerId == u.id }
-    if (d == null) { Screen { Empty("Cargando tu perfil de guía…") }; return }
-    var bike by remember(d.id) { mutableStateOf(d.bike) }; var zone by remember(d.id) { mutableStateOf(d.zone) }
-    var rate by remember(d.id) { mutableStateOf(d.rate.toString()) }; var bio by remember(d.id) { mutableStateOf(d.bio) }
-    // No se ofrecen "Instructor" (la enseñanza de conducción exige un centro autorizado) ni "Escolta" (puede confundirse con
-    // vigilancia privada, que es una actividad regulada). Lo ya guardado con esos nombres deja de publicarse al guardar.
-    val all = listOf("Ruta guiada", "Acompañamiento", "Fotografía")
-    var services by remember(d.id) { mutableStateOf(d.services.filter { it in all }.toSet()) }; var online by remember(d.id) { mutableStateOf(d.online) }
-    Screen {
-        Card2 {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Avatar(u.name, 52.dp); Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f)) { Text(u.name, fontFamily = Chivo, fontWeight = FontWeight.ExtraBold, fontSize = 19.sp); Row(verticalAlignment = Alignment.CenterVertically) { Stars(d.rating); Spacer(Modifier.width(8.dp)); Lbl("${d.reviews} reseñas") } }
-                Ping(online)
-            }
-        }
-        SwitchRow(if (online) "En línea" else "Fuera de línea", "Los riders solo ven guías en línea", online) { online = it }
-        Field("Moto que usas", bike, { bike = it }); Field("Zona", zone, { zone = it })
-        Field("Tarifa por día (COP)", rate, { rate = it.filter(Char::isDigit) }, kb = KeyboardType.Number)
-        Field("Presentación", bio, { bio = it }, lines = 3)
-        Lbl("Servicios")
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) { all.forEach { s -> Chip(s, s in services) { services = if (s in services) services - s else services + s } } }
-        Btn("Guardar", Modifier.fillMaxWidth(), Icons.Filled.Check, enabled = services.isNotEmpty() && (rate.toLongOrNull() ?: 0) > 0) {
-            vm.act("Perfil actualizado") { vm.repo.saveDriver(d.copy(name = u.name, bike = bike, zone = zone, rate = rate.toLong(), bio = bio, services = services.toList(), online = online)) }
         }
     }
 }

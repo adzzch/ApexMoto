@@ -14,7 +14,7 @@ En las ventas a distancia, como las que se hacen por una aplicación, puedes des
 
 - **Plazo:** 5 días hábiles contados desde que se celebró el contrato del servicio (o desde la entrega, si es un bien).
 - **Efecto:** se te devuelve todo lo que pagaste, sin descuentos ni retenciones, en máximo 30 días calendario.
-- **Cómo ejercerlo:** en la aplicación, en Perfil → Mis rentas, o en Rentar → Mis servicios con guía, con el botón "Cancelar". Si estás dentro del plazo y el servicio no ha empezado, la aplicación lo registra como retracto, con fecha y hora.
+- **Cómo ejercerlo:** en la aplicación, en Perfil → Mis rentas, con el botón "Cancelar". Si estás dentro del plazo y el servicio no ha empezado, la aplicación lo registra como retracto, con fecha y hora.
 
 **Cuándo no aplica el retracto** (excepciones del mismo artículo 47):
 
@@ -39,20 +39,13 @@ En las ventas a distancia, como las que se hacen por una aplicación, puedes des
 - Una vez recibes la moto, el servicio empezó: no hay retracto. Los días no usados se devuelven solo si el dueño lo acepta.
 - Si el dueño cancela, o la moto no está en las condiciones anunciadas (incluidos SOAT o revisión técnico-mecánica vencidos), el reembolso es total.
 
-**Salida con guía**
-
-- Aplica el retracto si cancelas dentro de los 5 días hábiles siguientes a la solicitud aceptada y antes de la hora de encuentro: reembolso total.
-- Fuera de ese plazo y antes de la salida, se aplican las condiciones que el guía haya informado. Si no informó ninguna, el reembolso es total.
-- Iniciada la salida no hay retracto.
-- Si el guía cancela o no se presenta, el reembolso es total.
-
 **Asistencia en carretera (S.O.S.)**
 
 - Puedes cancelar sin costo mientras ningún taller haya aceptado, y también después, mientras el taller no haya empezado a atenderte. Si el taller ya iba en camino puede cobrarte el desplazamiento, si te lo informó.
 - Cuando empieza la atención no hay retracto, porque el servicio ya se está prestando.
 - Las reparaciones y los repuestos tienen la garantía legal a cargo del taller.
 
-## 4. Para los aliados (comercio, dueño, guía y taller)
+## 4. Para los aliados (comercio, dueño y taller)
 
 - Deben informar sus condiciones de cancelación antes de que el rider confirme. Lo que no se informa no se puede cobrar.
 - Deben devolver el dinero dentro de los plazos de esta política y de la ley.

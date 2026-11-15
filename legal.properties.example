@@ -1,0 +1,19 @@
+# Datos del responsable que completan los textos legales (app/src/main/legal/).
+# Copia este archivo como legal.properties en la raíz del proyecto (no se sube al repositorio) y llena cada valor.
+# La versión prod no compila si falta alguno. En la de pruebas, los que falten se ven como [COMPLETAR: …].
+# Escribe tildes y eñes normalmente: el archivo se lee en UTF-8.
+
+# Fecha desde la que rigen los textos. Ejemplo: 20 de noviembre de 2026
+fecha_publicacion=
+# Razón social o nombre completo del responsable del tratamiento de datos
+responsable=
+# NIT o cédula del responsable
+documento=
+# Dirección de notificaciones (en Cali, Valle del Cauca, Colombia)
+direccion=
+# Correo de atención al usuario (peticiones, quejas y reclamos)
+correo_atencion=
+# Correo para temas de datos personales
+correo_privacidad=
+# Teléfono de contacto
+telefono=

@@ -9,6 +9,7 @@ import {
 } from 'firebase/firestore';
 
 let env;
+// G es una cuenta creada con el rol de guía, que se retiró el 2026-11-15: sirve para probar que solo puede pasar a rider.
 const R = 'rider1', X = 'rider2', S = 'shop1', O = 'owner1', G = 'guide1', T = 'taller1', T2 = 'taller2', A = 'admin1';
 const HASH = 'a'.repeat(64);
 const db = (uid) => (uid ? env.authenticatedContext(uid) : env.unauthenticatedContext()).firestore();
@@ -32,11 +33,9 @@ function register(uid, role, docs = ['terminos', 'privacidad']) {
 
 const venue = (ownerId, extra = {}) => ({ ownerId, name: 'Parrilla', desc: '', promo: '', menu: [], types: ['food'], lat: 3.45, lng: -76.53, rating: 5.0, reviews: 0, visits: 0, ...extra });
 const bike = (ownerId, extra = {}) => ({ ownerId, name: 'XRE 300', cc: 300, pricePerDay: 160000, city: 'Cali', specs: [], rating: 5.0, trips: 0, instant: false, delivery: false, available: true, booked: [], soatUntil: '2099-01-01', rtmUntil: '2099-01-01', lastReq: '', ...extra });
-const driver = (ownerId, extra = {}) => ({ ownerId, name: 'Guía', bike: 'XRE', zone: 'Cali', rate: 200000, rating: 5.0, reviews: 0, services: ['Ruta guiada'], bio: '', online: true, lastRatingReq: '', ...extra });
 const sos = (fromId, extra = {}) => ({ fromId, fromName: 'Rider', kind: 'flat', kindName: 'Pinchazo', locationText: 'Km 12 vía al mar', lat: 3.5, lng: -76.6, note: '', price: 35000, status: 'new', providerId: '', providerName: '', eta: 0, createdAt: 1, acceptedAt: 0, doneAt: 0, ...extra });
 const order = (fromId, ownerId, extra = {}) => ({ venueId: 'v1', venueName: 'Parrilla', ownerId, fromId, fromName: 'Rider', items: [{ name: 'Churrasco', qty: 1, price: 42000 }], total: 42000, eta: '30 min', note: '', status: 'new', createdAt: 1, ...extra });
-const rent = (fromId, extra = {}) => ({ type: 'rent', fromId, fromName: 'Rider', toId: O, itemId: 'b1', itemName: 'XRE 300', days: 2, amount: 320000, total: 320000, dateFrom: '2030-01-10', dateTo: '2030-01-11', plan: 'Básica', extras: [], delivery: false, status: 'p', meet: '', service: '', driverName: '', rated: 0, createdAt: 1, licenseDeclared: true, licenseCat: 'A2', cancelKind: '', cancelledAt: 0, ...extra });
-const guide = (fromId, extra = {}) => ({ ...rent(fromId), type: 'drv', toId: G, itemId: G, itemName: 'Ruta guiada', dateFrom: '2030-01-10', dateTo: '', meet: 'Peaje Cencar', service: 'Ruta guiada', driverName: 'Guía', licenseDeclared: false, licenseCat: '', ...extra });
+const rent = (fromId, extra = {}) => ({ type: 'rent', fromId, fromName: 'Rider', toId: O, itemId: 'b1', itemName: 'XRE 300', days: 2, amount: 320000, total: 320000, dateFrom: '2030-01-10', dateTo: '2030-01-11', plan: 'Básica', extras: [], delivery: false, status: 'p', rated: 0, createdAt: 1, licenseDeclared: true, licenseCat: 'A2', cancelKind: '', cancelledAt: 0, ...extra });
 
 /** Escribe la acción y su sello de límite de uso en un lote, igual que la app. */
 function stamped(uid, kind, fill) {
@@ -71,7 +70,7 @@ beforeEach(async () => {
     await setDoc(doc(d, 'venues', 'v1'), venue(S));
     await setDoc(doc(d, 'bikes', 'b1'), bike(O));
     await setDoc(doc(d, 'bikes', 'b2'), bike(O, { instant: true }));
-    await setDoc(doc(d, 'drivers', G), driver(G));
+    await setDoc(doc(d, 'drivers', G), { ownerId: G, name: 'Guía', rating: 5.0, reviews: 0 });   // perfil viejo que quedó en la base
   });
 });
 
@@ -85,11 +84,10 @@ test('registro: perfil + aceptaciones en un lote funciona', async () => {
 test('registro: aceptar solo los términos (sin autorizar datos) no alcanza', async () => {
   await assertFails(register('n1', 'm', ['terminos']));
 });
-test('registro: guía y dueño necesitan además la declaración de su rol', async () => {
-  await assertFails(register('n1', 'd'));
-  await assertSucceeds(register('n2', 'd', ['terminos', 'privacidad', 'declaracion-guia']));
-  await assertFails(register('n3', 'o'));
-  await assertSucceeds(register('n4', 'o', ['terminos', 'privacidad', 'declaracion-propietario']));
+test('registro: el dueño necesita además su declaración; el rol de guía ya no existe', async () => {
+  await assertFails(register('n1', 'o'));
+  await assertSucceeds(register('n2', 'o', ['terminos', 'privacidad', 'declaracion-propietario']));
+  await assertFails(register('n3', 'd', ['terminos', 'privacidad', 'declaracion-guia']));
 });
 test('aceptación: la fecha debe ser la hora del servidor, no la del teléfono', async () => {
   const d = db('n1');
@@ -127,17 +125,18 @@ test('perfil: una aceptación no se puede retirar', async () => {
 });
 
 // ───────── Roles y privacidad de usuarios ─────────
-test('rol: un rider no puede volverse comercio, taller o dueño por su cuenta', async () => {
-  for (const r of ['c', 't', 'o']) await assertFails(updateDoc(doc(db(R), 'users', R), { role: r }));
-});
-test('rol: rider pasa a guía solo con la declaración registrada, y puede volver', async () => {
-  const d = db(R);
-  await assertFails(updateDoc(doc(d, 'users', R), { role: 'd' }));
-  const b = writeBatch(d);
+test('rol: un rider no puede volverse comercio, taller, dueño ni guía por su cuenta', async () => {
+  for (const r of ['c', 't', 'o', 'd']) await assertFails(updateDoc(doc(db(R), 'users', R), { role: r }));
+  // Ni siquiera con la declaración del guía registrada en el mismo lote.
+  const d = db(R); const b = writeBatch(d);
   b.update(doc(d, 'users', R), { role: 'd', legal: { ...BASE, 'declaracion-guia': '1.0.0' } });
-  b.set(doc(d, 'legal_acceptances', accId(R, 'declaracion-guia')), acceptance(R, 'declaracion-guia', { method: 'casilla_cambio_de_rol' }));
-  await assertSucceeds(b.commit());
-  await assertSucceeds(updateDoc(doc(d, 'users', R), { role: 'm' }));
+  b.set(doc(d, 'legal_acceptances', accId(R, 'declaracion-guia')), acceptance(R, 'declaracion-guia'));
+  await assertFails(b.commit());
+});
+test('rol: una cuenta del rol de guía (retirado) solo puede pasar a rider, y no volver', async () => {
+  await assertFails(updateDoc(doc(db(G), 'users', G), { role: 'c' }));
+  await assertSucceeds(updateDoc(doc(db(G), 'users', G), { role: 'm' }));
+  await assertFails(updateDoc(doc(db(G), 'users', G), { role: 'd' }));
 });
 test('usuarios: nadie lee el perfil (correo o celular) de otra persona ni lista usuarios', async () => {
   await assertFails(getDoc(doc(db(X), 'users', R)));
@@ -281,7 +280,7 @@ test('cupones: los canjea una sola vez el comercio dueño', async () => {
   await assertFails(updateDoc(doc(db(S), 'coupons', 'c1'), { used: true, usedAt: 3 }));
 });
 
-// ───────── Renta, guía, reservas y calificaciones ─────────
+// ───────── Renta y reservas ─────────
 const newReq = (uid, id, data) => stamped(uid, 'request', (b, d) => b.set(doc(d, 'requests', id), data));
 test('renta: exige declaración de licencia, SOAT y revisión vigentes, y el dueño real', async () => {
   await assertFails(newReq(R, 'q1', rent(R, { licenseDeclared: false })));
@@ -325,26 +324,14 @@ test('solicitudes: el aliado avanza paso a paso; un tercero no las ve', async ()
   await assertSucceeds(updateDoc(doc(db(O), 'requests', 'q1'), { status: 'ok' }));
   await assertSucceeds(updateDoc(doc(db(O), 'requests', 'q1'), { status: 'ride' }));
 });
-test('guía: la solicitud va al guía real y nace pendiente', async () => {
-  await assertFails(newReq(R, 'g1', guide(R, { toId: X })));
-  await assertFails(newReq(R, 'g2', guide(R, { status: 'ok' })));
-  await assertSucceeds(newReq(R, 'g3', guide(R)));
-});
-test('calificación: una vez, solo quien contrató y con el servicio finalizado', async () => {
-  await env.withSecurityRulesDisabled(async (c) => {
-    await setDoc(doc(c.firestore(), 'requests', 'fin'), guide(R, { status: 'fin' }));
-    await setDoc(doc(c.firestore(), 'requests', 'pend'), guide(R, { status: 'ok' }));
-    await updateDoc(doc(c.firestore(), 'drivers', G), { rating: 4.0, reviews: 1 });
-  });
-  const rate = (who, rid, stars, rating) => { const d = db(who); const b = writeBatch(d);
-    b.update(doc(d, 'drivers', G), { rating, reviews: 2, lastRatingReq: rid }); b.update(doc(d, 'requests', rid), { rated: stars }); return b.commit(); };
-  await assertFails(updateDoc(doc(db(R), 'drivers', G), { rating: 5.0, reviews: 999 }));       // inflar a mano
-  await assertFails(rate(R, 'pend', 5, 4.5));                                                   // servicio sin terminar
-  await assertFails(rate(X, 'fin', 5, 4.5));                                                    // no contrató
-  await assertFails(rate(R, 'fin', 5, 5.0));                                                    // promedio mal calculado
-  await assertSucceeds(rate(R, 'fin', 5, 4.5));
-  await assertFails(rate(R, 'fin', 5, 4.67));                                                   // segunda vez
-  await assertFails(updateDoc(doc(db(G), 'drivers', G), { rating: 5.0 }));                      // el guía no se califica
+test('guía (rol retirado): sin perfiles, sin solicitudes, sin calificaciones y sin datos de oferente', async () => {
+  await assertFails(getDoc(doc(db(R), 'drivers', G)));                                         // el perfil viejo ya no se lee
+  await assertFails(updateDoc(doc(db(G), 'drivers', G), { name: 'Otro' }));
+  await assertFails(setDoc(doc(db(R), 'drivers', R), { ownerId: R, name: 'Nuevo guía' }));
+  await assertFails(newReq(R, 'g1', rent(R, { type: 'drv', toId: G, itemId: G })));              // solo hay solicitudes de renta
+  await env.withSecurityRulesDisabled((c) => setDoc(doc(c.firestore(), 'requests', 'fin'), rent(R, { status: 'fin' })));
+  await assertFails(updateDoc(doc(db(R), 'requests', 'fin'), { rated: 5 }));                    // nadie se califica desde la solicitud
+  await assertFails(setDoc(doc(db(G), 'providers', G), prov));
 });
 test('motos: solo un dueño publica; sin SOAT y revisión no queda disponible', async () => {
   await assertFails(setDoc(doc(db(R), 'bikes', 'n1'), bike(R)));

@@ -1,0 +1,130 @@
+# Plan de pruebas por rol
+
+Sirve para la **prueba cerrada con personas reales** en el ambiente productivo: la app "ApexMoto" (variante `prod`), que arranca vacía. El objetivo es comprobar que cada rol funciona de punta a punta y anotar todo lo que falle o confunda.
+
+Cada paso dice quién lo hace y qué debe pasar. Marca la casilla si salió bien. Si algo falla, anótalo en el [registro de hallazgos](#registro-de-hallazgos) con una captura de pantalla.
+
+## Antes de empezar
+
+- **App:** el APK `apexmotov1.1.apk` de la variante `prodDebug` (cómo generarlo: [desarrollo.md](desarrollo.md) §3.2). En el celular hay que permitir la instalación de apps de origen desconocido.
+- **Reglas:** `firestore.rules` publicadas en el proyecto productivo.
+- **Cuentas:** mínimo cinco, una por rol y dos riders: **Rider 1**, **Rider 2**, **Comercio**, **Taller** y **Dueño de moto**. Una persona puede manejar dos cuentas en dos celulares, o en el mismo celular cerrando sesión entre una y otra.
+- **Datos:** cada quien usa sus propios datos. No se registra a otras personas ni se usan negocios reales sin su permiso.
+- **Ubicación:** los recorridos de S.O.S. y de guiado necesitan GPS y datos móviles; mejor hacerlos al aire libre.
+
+## Quién participa en cada recorrido
+
+| Recorrido | Rider | Comercio | Taller | Dueño |
+|---|:-:|:-:|:-:|:-:|
+| R1. Registro e ingreso | ✓ | ✓ | ✓ | ✓ |
+| R2. El aliado prepara su negocio | | ✓ | ✓ | |
+| R3. Pedido | ✓ | ✓ | | |
+| R4. Cupón | ✓ | ✓ | | |
+| R5. El dueño publica su moto | ✓ | | | ✓ |
+| R6. Renta | ✓ | | | ✓ |
+| R7. Cancelación y retracto | ✓ | | | ✓ |
+| R8. S.O.S. | ✓ | ✓ | ✓ | |
+| R9. Rodada | ✓ (los dos) | | | |
+| R10. Rutas y guiado | ✓ | | | |
+| R11. Legal y privacidad | ✓ | ✓ | ✓ | ✓ |
+| R12. Eliminar la cuenta | ✓ | | | |
+
+## Recorridos
+
+### R1. Registro e ingreso
+
+- [ ] **Rider 1:** Crear cuenta con correo y una contraseña segura. Las casillas de términos y de datos personales empiezan sin marcar, y sin las dos no deja crear la cuenta. → Entra a "Espacio Rider".
+- [ ] **Comercio:** "¿Tienes un negocio, taller o motos? Únete como aliado" → Comercio aliado → nombre del negocio y zona. → Entra a "Espacio Negocio".
+- [ ] **Taller:** igual, eligiendo Taller mecánico. → Entra a "Espacio Taller".
+- [ ] **Dueño:** igual, eligiendo Dueño de moto. Aparece una casilla más, la de condiciones para dueños. → Entra a "Espacio Dueño".
+- [ ] **Rider 2:** entrar con Google (o con número de celular y el código por SMS). → Antes de entrar pide el nombre y las casillas.
+- [ ] **Cualquiera:** cerrar sesión y volver a entrar. → Entra directo, sin pedir otra vez las casillas.
+- [ ] **Cualquiera:** "Olvidé mi contraseña". → Llega un correo para cambiarla.
+
+### R2. El aliado prepara su negocio
+
+- [ ] **Comercio:** Negocio → nombre, descripción y promoción; fijar la ubicación tocando el mapa o con "Usar mi ubicación actual"; "Guardar cambios". → Los riders lo ven en Comercios y en el mapa.
+- [ ] **Comercio:** Menú → agregar dos o tres productos con precio en pesos. → Aparecen en el menú que ve el rider, con formato `$42.000`.
+- [ ] **Taller:** Mi taller → ubicación, tipos de emergencia que atiende y radio. Dejar activado "Recibiendo S.O.S.". → Los riders lo ven en Comercios → Gasolina & Talleres.
+- [ ] **Taller:** Servicios → revisar el catálogo y cambiar un precio. → Se guarda.
+
+### R3. Pedido
+
+- [ ] **Rider 1:** Comercios → el negocio del Comercio → "Ver menú y pedir" → agregar productos → "Enviar pedido". → El pedido queda "Enviado".
+- [ ] **Comercio:** Pedidos → "Aceptar y preparar" → "Marcar listo" → "Entregado". → El rider ve cada cambio: Preparando, ¡Listo!, Entregado.
+- [ ] **Los dos:** mientras se prepara, abrir el chat del pedido y escribirse. → Cada uno ve los mensajes del otro.
+- [ ] **Rider 1:** hacer otro pedido y cancelarlo mientras sigue "Enviado". → Queda "Cancelado". Un pedido ya aceptado no se puede cancelar desde la app.
+- [ ] **Comercio:** rechazar un tercer pedido. → El rider lo ve "Rechazado".
+
+### R4. Cupón
+
+- [ ] **Rider 1:** en Comercios, tocar el botón de cupón del negocio. → Aparece un código `APX-XXXX`.
+- [ ] **Comercio:** Canjes → escribir el código → "Canjear". → "Cupón canjeado para" y el nombre del rider.
+- [ ] **Comercio:** canjear el mismo código otra vez. → Dice que ya fue canjeado.
+
+### R5. El dueño publica su moto
+
+- [ ] **Dueño:** Mi flota → Agregar → modelo, cilindraje, precio por día, ciudad, tipo y fechas de SOAT y revisión técnico-mecánica → Guardar. Sin las dos fechas no deja guardar. → La moto queda "Disponible".
+- [ ] **Rider 1:** Rentar. → La moto aparece, con su precio por día.
+
+### R6. Renta
+
+- [ ] **Rider 1:** Rentar → elegir fechas → la moto → en Requisitos marcar la declaración de licencia (A1 hasta 125 c. c., A2 para más) → elegir protección y extras → "Solicitar". → En Perfil → Mis rentas queda "Pendiente".
+- [ ] **Dueño:** Solicitudes → ve la solicitud y el aviso de verificar la licencia → Aceptar. → El rider la ve "Aceptada" y esas fechas dejan de estar disponibles para otros.
+- [ ] **Los dos:** chat de la renta. → Funciona en los dos sentidos.
+- [ ] **Dueño:** "Entregué la moto" → "Recibí la moto". → La renta pasa a "En ruta" y luego a "Finalizada", y aparece en Ingresos.
+- [ ] **Rider 2:** pedir la misma moto en otras fechas. **Dueño:** Rechazar. → El rider la ve "Rechazada".
+
+### R7. Cancelación y retracto
+
+- [ ] **Rider 1:** solicitar una renta y cancelarla el mismo día. → La app explica que es un retracto (dentro de los 5 días hábiles) y lo registra. El dueño ve que el rider ejerció su derecho de retracto.
+- [ ] **Rider 1:** una renta que ya está "En ruta" no muestra el botón de cancelar.
+
+### R8. S.O.S.
+
+- [ ] **Rider 1:** Taller → "Pedir taller móvil" → tipo de emergencia → ubicación (la primera vez aparece el aviso de ubicación; también se puede escribir dónde está) → "Enviar S.O.S.". → Queda "Buscando taller".
+- [ ] **Taller:** ve el S.O.S. disponible si está dentro de su radio y atiende ese tipo → "Aceptar · llego en … min". → El rider ve "Taller asignado".
+- [ ] **Taller:** "Voy en camino" → "Llegué, empezar atención" → "Marcar resuelto". → El rider ve cada paso y al final "Resuelto".
+- [ ] **Los dos:** "Chat con el taller". → Funciona en los dos sentidos.
+- [ ] **Rider 2:** enviar un S.O.S. y cancelarlo antes de que lo atiendan. → Queda "Cancelado".
+- [ ] **Rider 2:** enviar dos S.O.S. seguidos. → El segundo no sale hasta que pasa un minuto.
+- [ ] **Comercio:** no ve ningún S.O.S.
+
+### R9. Rodada
+
+- [ ] **Rider 1:** Comunidad → "Crear rodada" → nombre, cuándo, cupos, punto de encuentro y estilo → "Publicar rodada". → Aparece en la lista.
+- [ ] **Rider 2:** "Unirme" y luego "Salir". → Los cupos libres cambian. Cuando se llena, ya no deja unirse.
+
+### R10. Rutas y guiado
+
+- [ ] **Rider 1:** Rutas → escribir lo que quiere (por ejemplo "asado barato cerca a Calima") → generar la ruta. → Muestra paradas y presupuesto en pesos.
+- [ ] **Rider 1:** "Guardar ruta". → Aparece en Mis rutas guardadas, y se puede borrar.
+- [ ] **Rider 1:** "Iniciar guiado" al aire libre. → Pide la ubicación con su aviso, lee las instrucciones en voz alta y recalcula si se desvía.
+
+### R11. Legal y privacidad
+
+- [ ] **Todos:** Perfil → Legal y privacidad → abrir cada documento. → Muestran los datos del responsable; en ningún texto aparece `[COMPLETAR`.
+- [ ] **Todos:** "Ver y descargar mis datos" → "Compartir o guardar". → Sale un archivo con los datos de la cuenta.
+- [ ] **Uno:** "Enviar solicitud" (por ejemplo, una consulta). → Queda con número de radicado y fecha límite de respuesta.
+- [ ] **Todos:** Registro de aceptaciones. → Están términos y privacidad, y ubicación si la aceptó.
+- [ ] **Aliados:** completar "Datos del oferente". → Se guardan y nadie más los ve.
+- [ ] **Uno:** cambiar su nombre. → Los demás lo ven con el nombre nuevo en pedidos y chats nuevos.
+
+### R12. Eliminar la cuenta (al final)
+
+- [ ] **Rider 2:** Legal y privacidad → "Eliminar mi cuenta". → Si el ingreso no es reciente, pide cerrar sesión y volver a entrar; luego elimina la cuenta y vuelve a la pantalla de ingreso.
+
+## Qué observar además
+
+- Si algo no se entiende sin que nadie lo explique.
+- Cómo se comporta con señal débil o sin datos.
+- Si se puede usar con una mano y con guantes, y si se lee al sol.
+- Mensajes de error raros o pantallas que se quedan cargando.
+
+## Registro de hallazgos
+
+| # | Fecha | Recorrido y paso | Rol | Qué pasó | Qué esperabas | Gravedad (alta, media o baja) | Captura |
+|---|---|---|---|---|---|---|---|
+| 1 | | | | | | | |
+
+Cuando una fase de la [hoja de ruta](hoja-de-ruta.md) agregue funciones (amigos, mapa del grupo, pedidos con hora…), se agregan aquí sus recorridos.

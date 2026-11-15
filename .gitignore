@@ -5,7 +5,9 @@
 .DS_Store
 /build/
 /app/build/
-/app/google-services.json
+# Configuración de Firebase de cada ambiente (app/src/pruebas/ y app/src/prod/) y datos del responsable
+google-services.json
+/legal.properties
 
 # Pruebas de reglas de Firestore
 /firestore-tests/node_modules/

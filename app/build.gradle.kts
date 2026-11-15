@@ -17,6 +17,12 @@ val orsKey: String = localProps.getProperty("ORS_API_KEY", "")
 // App Check (antifraude). Se activa con APP_CHECK_ENABLED=true en local.properties, después de registrar la app
 // en la consola de Firebase. Ver docs/seguridad.md.
 val appCheck: Boolean = localProps.getProperty("APP_CHECK_ENABLED", "false").toBoolean()
+// Datos del responsable para los textos legales. Se leen de legal.properties, que no se sube al repositorio
+// (plantilla: legal.properties.example). Ver "Textos legales" al final de este archivo.
+val legalProps = Properties().apply {
+    val f = rootProject.file("legal.properties")
+    if (f.exists()) f.reader(Charsets.UTF_8).use { load(it) }
+}
 
 android {
     namespace = "co.apexmoto.app"
@@ -31,6 +37,26 @@ android {
         buildConfigField("String", "ORS_API_KEY", "\"$orsKey\"")
         buildConfigField("boolean", "APP_CHECK_ENABLED", "$appCheck")
     }
+    // Dos ambientes, cada uno con su propio proyecto de Firebase y su google-services.json en app/src/<ambiente>/:
+    //  · pruebas: desarrollo y presentaciones. Trae las herramientas de datos demo y una franja que lo identifica.
+    //  · prod: la app real, que arranca vacía. No compila si los textos legales no tienen todos los datos del responsable.
+    // Como tienen paquetes distintos (co.apexmoto.dev y co.apexmoto.prd), las dos se pueden instalar a la vez.
+    // El namespace del código sigue siendo co.apexmoto.app (ahí se generan R y BuildConfig).
+    flavorDimensions += "ambiente"
+    productFlavors {
+        create("pruebas") {
+            dimension = "ambiente"
+            isDefault = true
+            applicationId = "co.apexmoto.dev"   // así quedó registrada en el proyecto de pruebas (ApexMoto-dev)
+            versionNameSuffix = "-pruebas"
+            buildConfigField("boolean", "PRUEBAS", "true")
+        }
+        create("prod") {
+            dimension = "ambiente"
+            applicationId = "co.apexmoto.prd"   // así quedó registrada en el proyecto productivo (ApexMoto-prd)
+            buildConfigField("boolean", "PRUEBAS", "false")
+        }
+    }
     buildFeatures { compose = true; buildConfig = true }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -38,7 +64,7 @@ android {
     }
     kotlinOptions { jvmTarget = "17" }
     packaging { resources { excludes += "/META-INF/{AL2.0,LGPL2.1}" } }
-    // El APK sale con nombre y versión: apexmotov1.1.apk (y apexmotov1.1-release.apk en release).
+    // El APK sale con nombre y versión: apexmotov1.1.apk (prod), apexmotov1.1-pruebas.apk (pruebas) y "-release" en release.
     applicationVariants.all {
         val variant = this
         outputs.all {
@@ -74,14 +100,61 @@ dependencies {
     implementation(libs.googleid)
 }
 
-// Una versión de publicación no puede salir con datos del responsable sin completar en los documentos legales.
-val checkLegalPlaceholders by tasks.registering {
-    val docs = fileTree("src/main/assets/legal") { include("*.md") }
-    inputs.files(docs)
-    doLast {
-        val pending = docs.files.filter { it.readText().contains("[COMPLETAR") }.map { it.name }.sorted()
-        if (pending.isNotEmpty()) throw GradleException(
-            "Documentos legales con datos por completar ([COMPLETAR: ...]): ${pending.joinToString()}. Complétalos antes de generar la versión de publicación.")
+// ───────── Textos legales ─────────
+// Los textos viven en src/main/legal/ con marcadores [COMPLETAR: …]. Al compilar se copian a los assets de cada
+// variante con los datos de legal.properties, así el repositorio no guarda datos personales del responsable.
+// En prod y en cualquier versión de publicación faltar un dato hace fallar la compilación: nadie debe recibir unos
+// términos sin responsable. En pruebas los marcadores que falten se ven tal cual.
+val legalMarkers = mapOf(
+    "fecha de publicación" to "fecha_publicacion",
+    "razón social o nombre completo del responsable" to "responsable",
+    "NIT o cédula" to "documento",
+    "dirección, Cali, Valle del Cauca, Colombia" to "direccion",
+    "correo de atención" to "correo_atencion",
+    "correo de privacidad" to "correo_privacidad",
+    "teléfono" to "telefono",
+)
+
+/** Copia los textos legales a assets/legal/ y reemplaza cada [COMPLETAR: …] por su valor de legal.properties. */
+abstract class FillLegalTexts : DefaultTask() {
+    @get:InputDirectory @get:PathSensitive(PathSensitivity.RELATIVE) abstract val templates: DirectoryProperty
+    /** Texto del marcador → clave en legal.properties. */
+    @get:Input abstract val markers: MapProperty<String, String>
+    @get:Input abstract val values: MapProperty<String, String>
+    /** true: falla si queda algún marcador sin valor. */
+    @get:Input abstract val strict: Property<Boolean>
+    @get:OutputDirectory abstract val outputDir: DirectoryProperty
+
+    @TaskAction
+    fun fill() {
+        val out = outputDir.get().asFile.resolve("legal")
+        out.deleteRecursively(); out.mkdirs()
+        val known = markers.get(); val given = values.get()
+        val missing = sortedSetOf<String>()
+        val marker = Regex("""\[COMPLETAR: ([^\]]+)]""")
+        templates.get().asFile.listFiles().orEmpty().filter { it.isFile && it.extension == "md" }.forEach { f ->
+            val text = marker.replace(f.readText(Charsets.UTF_8)) { m ->
+                val key = known[m.groupValues[1]]
+                val value = key?.let { given[it] }?.trim().orEmpty()
+                if (value.isNotEmpty()) value
+                else { missing += key ?: "\"${m.groupValues[1]}\" (marcador sin clave en legalMarkers)"; m.value }
+            }
+            out.resolve(f.name).writeText(text, Charsets.UTF_8)
+        }
+        if (strict.get() && missing.isNotEmpty()) throw GradleException(
+            "Faltan datos del responsable en los textos legales: ${missing.joinToString()}. " +
+                "Complétalos en legal.properties (plantilla: legal.properties.example).")
     }
 }
-tasks.matching { it.name == "preReleaseBuild" }.configureEach { dependsOn(checkLegalPlaceholders) }
+
+androidComponents {
+    onVariants { variant ->
+        val fill = tasks.register<FillLegalTexts>("fill${variant.name.replaceFirstChar { it.uppercase() }}LegalTexts") {
+            templates.set(layout.projectDirectory.dir("src/main/legal"))
+            markers.set(legalMarkers)
+            values.set(legalProps.stringPropertyNames().associateWith { legalProps.getProperty(it) })
+            strict.set(variant.flavorName == "prod" || variant.buildType == "release")
+        }
+        variant.sources.assets?.addGeneratedSourceDirectory(fill, FillLegalTexts::outputDir)
+    }
+}

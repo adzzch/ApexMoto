@@ -61,7 +61,7 @@ object Retract {
 
     /**
      * Aplica si el plazo no ha vencido y el servicio no ha empezado (excepción 1 del art. 47).
-     * [serviceDate] es la fecha ISO de inicio (día de recogida de la moto o de la salida).
+     * [serviceDate] es la fecha ISO de inicio (día de recogida de la moto).
      */
     fun applies(createdAtMillis: Long, serviceDate: String, started: Boolean): Boolean {
         if (started || createdAtMillis <= 0) return false

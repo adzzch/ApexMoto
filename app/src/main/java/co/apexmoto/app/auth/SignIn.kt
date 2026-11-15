@@ -22,6 +22,8 @@ class SignInCancelled : Exception()
 /** Inicio de sesión con Google mediante Credential Manager. Devuelve el ID token para Firebase. */
 class GoogleSignIn {
     suspend fun idToken(activityCtx: Context): String {
+        // Los recursos quedan registrados con el paquete de cada ambiente (co.apexmoto.dev / co.apexmoto.prd), así que
+        // se buscan con packageName aunque el código viva en co.apexmoto.app (comprobado con aapt2 el 2026-11-15).
         val resId = activityCtx.resources.getIdentifier("default_web_client_id", "string", activityCtx.packageName)
         if (resId == 0) error(
             "Falta el ID de cliente web de Google. En Firebase agrega el SHA-1, activa Google en Authentication y " +

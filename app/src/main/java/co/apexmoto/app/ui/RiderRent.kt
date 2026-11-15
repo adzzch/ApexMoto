@@ -102,17 +102,12 @@ fun CommunityScreen(vm: AppViewModel, u: AppUser) {
     }
 }
 
-// ───────────────── Rentar: motos y conductores ─────────────────
+// ───────────────── Rentar motos ─────────────────
 fun bikeTint(b: Bike) = when (b.category) { "Deportiva" -> OrangeSoft; "Turismo" -> CyanTint; "Urbana" -> Surf3; else -> GreenTint }
 
 @Composable
-fun RentScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
-    Screen {
-        Segmented(listOf(Triple("moto", "Solo moto", Icons.Filled.TwoWheeler), Triple("cond", "Guía de rutas", Icons.Filled.SportsMotorsports)), vm.rentMode) { vm.rentMode = it }
-        AnimatedContent(vm.rentMode, label = "rent", transitionSpec = { fadeIn(tween(240)) togetherWith fadeOut(tween(120)) }) { mode ->
-            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) { if (mode == "moto") BikesList(vm, nav) else DriversList(vm, nav, u) }
-        }
-    }
+fun RentScreen(vm: AppViewModel, nav: NavController) {
+    Screen { BikesList(vm, nav) }
 }
 
 @Composable
@@ -270,85 +265,3 @@ fun BikeDetailScreen(vm: AppViewModel, nav: NavController, u: AppUser, id: Strin
     }
 }
 
-@Composable
-private fun ColumnScope.DriversList(vm: AppViewModel, nav: NavController, u: AppUser) {
-    val drivers by vm.drivers.collectAsState()
-    val mine by vm.reqFrom.collectAsState()
-    var hire by remember { mutableStateOf<Driver?>(null) }
-    var rate by remember { mutableStateOf<ServiceRequest?>(null) }
-    var cancel by remember { mutableStateOf<ServiceRequest?>(null) }
-    cancel?.let { r -> CancelRequestDialog(vm, r) { cancel = null } }
-    Card2(tone = Surf1) { IconLine(Icons.Filled.Info, "El guía va en su propia moto y tú en la tuya. No es un servicio de transporte.", CyanDeep, bold = false) }
-    if (vm.preRoute.isNotBlank()) Card2(tone = Surf1, border = CyanSoft) { IconLine(Icons.Filled.Route, "Buscas guía para: ${vm.preRoute}", CyanDeep) }
-    val online = drivers.filter { it.online && it.ownerId != u.id }
-    if (online.isEmpty()) Empty("No hay guías en línea ahora mismo.", Icons.Filled.SportsMotorsports)
-    online.forEachIndexed { i, d ->
-        Card2(index = i) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box { Avatar(d.name, 48.dp); Box(Modifier.align(Alignment.BottomEnd).clip(CircleShape).background(Color.White).padding(2.dp)) { Ping() } }
-                Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(d.name, style = MaterialTheme.typography.titleMedium.copy(fontSize = 17.sp, fontWeight = FontWeight.ExtraBold))
-                    Lbl("${d.bike} · ${d.zone}")
-                }
-                Column(horizontalAlignment = Alignment.End) { Num(cop(d.rate), OrangeDark, 16); Lbl("por día") }
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) { Stars(d.rating); Spacer(Modifier.width(8.dp)); Lbl("${d.reviews} reseñas") }
-            if (d.bio.isNotBlank()) Text(d.bio, style = MaterialTheme.typography.bodyMedium)
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) { d.services.forEach { Pill(it, CyanSoft, CyanDeep) } }
-            Btn("Contratar", Modifier.fillMaxWidth(), Icons.Filled.SportsMotorsports) { hire = d }
-        }
-    }
-    val svc = mine.filter { it.type == "drv" }.sortedByDescending { it.createdAt }
-    if (svc.isNotEmpty()) {
-        H("Mis salidas con guía")
-        svc.forEach { r ->
-            Card2 {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) { Text("${r.driverName} · ${r.service}", fontWeight = FontWeight.Bold); Lbl("${prettyDate(r.dateFrom)} · ${r.days} día(s) · ${cop(r.amount)}") }
-                    StatusPill(REQ_ST[r.status] ?: r.status, r.status)
-                }
-                if (r.cancelKind == "retracto") Sub("Retracto ejercido: la devolución es total.")
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (r.status !in listOf("no", "can") && r.toId.isNotBlank()) Btn("Chat", Modifier.weight(1f), Icons.Filled.Chat, kind = BK.Ghost) { nav.chat("req_${r.id}", r.driverName, r.toId) }
-                    if (r.status == "fin" && r.rated == 0) Btn("Calificar", Modifier.weight(1f), Icons.Filled.Star) { rate = r }
-                    if (canCancel(r)) Btn("Cancelar", Modifier.weight(1f), Icons.Filled.Close, kind = BK.Danger) { cancel = r }
-                }
-            }
-        }
-    }
-    hire?.let { d ->
-        var service by remember { mutableStateOf(d.services.firstOrNull() ?: "Ruta guiada") }
-        var meet by remember { mutableStateOf("") }; var date by remember { mutableStateOf(vm.rentFrom) }; var days by remember { mutableStateOf("1") }
-        val n = days.toIntOrNull()?.coerceAtLeast(1) ?: 1
-        Sheet({ hire = null }) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Avatar(d.name, 44.dp); Spacer(Modifier.width(12.dp))
-                Column { Text("Contratar a ${d.name}", fontFamily = Chivo, fontWeight = FontWeight.ExtraBold, fontSize = 19.sp); Lbl("${cop(d.rate)} por día") }
-            }
-            Lbl("Servicio")
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) { d.services.forEach { s -> Chip(s, service == s, accent = Cyan) { service = s } } }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                DateField("Fecha", date, today(), Modifier.weight(1f)) { date = it }
-                Field("Días", days, { days = it.filter(Char::isDigit) }, Modifier.weight(0.6f), kb = androidx.compose.ui.text.input.KeyboardType.Number)
-            }
-            Field("Punto de encuentro", meet, { meet = it }, hint = "Ej: Estación Terpel, salida a Buga")
-            Row(verticalAlignment = Alignment.CenterVertically) { Lbl("Total", modifier = Modifier.weight(1f)); Num(cop(animatedMoney(n * d.rate)), OrangeDark, 20) }
-            Sub("Cada uno conduce su moto, con licencia, SOAT y revisión vigentes. Le pagas directamente al guía.")
-            Btn("Enviar solicitud", Modifier.fillMaxWidth(), Icons.AutoMirrored.Filled.Send, enabled = meet.isNotBlank()) {
-                val req = ServiceRequest(type = "drv", fromId = u.id, fromName = u.name, toId = d.ownerId, itemId = d.id, itemName = vm.preRoute.ifBlank { service },
-                    days = n, amount = n * d.rate, total = n * d.rate, dateFrom = date, meet = meet, service = service, driverName = d.name)
-                hire = null; vm.preRoute = ""
-                vm.act("Solicitud enviada a ${d.name}") { vm.repo.createRequest(req) }
-            }
-        }
-    }
-    rate?.let { r ->
-        Sheet({ rate = null }) {
-            Text("¿Cómo te fue con ${r.driverName}?", fontFamily = Chivo, fontWeight = FontWeight.ExtraBold, fontSize = 20.sp)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                (1..5).forEach { n -> IconButton({ rate = null; vm.act("¡Gracias por calificar!") { vm.repo.rateDriver(r, n) } }, Modifier.size(52.dp)) { Icon(Icons.Filled.Star, "$n estrellas", Modifier.size(36.dp), tint = OrangeDark) } }
-            }
-        }
-    }
-}

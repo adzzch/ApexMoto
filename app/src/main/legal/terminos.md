@@ -26,7 +26,7 @@ ApexMoto **no** es:
 - Una aseguradora ni un intermediario de seguros.
 - Una agencia de viajes ni un operador turístico.
 
-Cada contrato que nace en la aplicación (un pedido, una renta, una salida guiada, una atención de taller) se celebra directamente entre el usuario que lo solicita y el aliado que lo acepta. ApexMoto no es parte de ese contrato.
+Cada contrato que nace en la aplicación (un pedido, una renta, una atención de taller) se celebra directamente entre el usuario que lo solicita y el aliado que lo acepta. ApexMoto no es parte de ese contrato.
 
 ## 3. Quién puede usar la aplicación
 
@@ -37,10 +37,9 @@ Cada contrato que nace en la aplicación (un pedido, una renta, una salida guiad
 
 ## 4. Roles
 
-- **Rider:** planea rutas, pide en comercios, solicita renta de motos, salidas guiadas y asistencia en carretera, y participa en rodadas.
+- **Rider:** planea rutas, pide en comercios, solicita renta de motos y asistencia en carretera, y participa en rodadas.
 - **Comercio aliado:** publica su negocio y su menú, recibe pedidos y canjea cupones.
 - **Dueño de moto:** publica sus motos para arrendarlas a riders.
-- **Guía:** acompaña a riders en su propia moto durante una ruta.
 - **Taller mecánico:** atiende solicitudes de asistencia en carretera (S.O.S.) y publica sus servicios.
 
 ## 5. Reglas comunes de uso
@@ -48,6 +47,8 @@ Cada contrato que nace en la aplicación (un pedido, una renta, una salida guiad
 No está permitido:
 
 - Ofrecer o solicitar transporte de pasajeros o de carga (mototaxi, domicilios, parrillero pago).
+- Cobrar por participar en una rodada o por guiarla. Las rodadas son salidas entre usuarios, sin ánimo de lucro.
+- Ofrecer enseñanza de conducción o servicios de vigilancia o escolta de seguridad.
 - Publicar información falsa, engañosa o de terceros sin permiso.
 - Usar la aplicación para actividades ilegales, acosar a otros usuarios o enviar mensajes no solicitados.
 - Manipular calificaciones, cupones, reservas o precios.
@@ -59,7 +60,7 @@ Podemos suspender o cerrar una cuenta que incumpla estas reglas. Antes de cerrar
 ## 6. Precios y pagos
 
 - Todos los precios se muestran en pesos colombianos (COP) y los fija cada aliado.
-- En esta versión, ApexMoto **no recauda ni procesa pagos**. El valor de cada pedido, renta, salida o atención se paga directamente al aliado, por el medio que acuerden.
+- En esta versión, ApexMoto **no recauda ni procesa pagos**. El valor de cada pedido, renta o atención se paga directamente al aliado, por el medio que acuerden.
 - Antes de confirmar verás el resumen de lo que solicitas y su valor total.
 - Si en el futuro se habilitan pagos dentro de la aplicación, se informará en una nueva versión de estos términos, que deberás aceptar.
 
@@ -82,71 +83,64 @@ Podemos suspender o cerrar una cuenta que incumpla estas reglas. Antes de cerrar
 - **Planes de protección:** los planes Básica, Estándar y Premium que aparecen al reservar son condiciones de responsabilidad que el dueño ofrece al rider. **No son un seguro** ni están respaldados por una aseguradora, y ApexMoto no los garantiza. Pide al dueño el detalle de lo que cubren antes de aceptar.
 - Está prohibido subarrendar la moto, usarla para transporte de pasajeros o de carga, para competencias, o sacarla del país.
 
-## 9. Salidas con guía
-
-- El guía es una persona independiente que acompaña al rider **en su propia moto** y le muestra la ruta. No transporta al rider ni a terceros, no presta servicio de transporte y no es empleado de ApexMoto.
-- Cada persona conduce su propio vehículo, con su propia licencia, SOAT y revisión técnico-mecánica vigentes, y asume los riesgos de conducir.
-- El guía declara que cumple los requisitos legales para la actividad que ofrece.
-- No se permite ofrecer por la aplicación enseñanza de conducción ni servicios de vigilancia o escolta de seguridad.
-
-## 10. Asistencia en carretera (S.O.S.)
+## 9. Asistencia en carretera (S.O.S.)
 
 - El S.O.S. envía tu solicitud a los talleres aliados cercanos. ApexMoto **no garantiza** que un taller acepte, ni el tiempo de llegada, ni el resultado de la reparación.
 - La tarifa que ves es una estimación. El valor final lo acuerdas con el taller.
 - El taller es el único responsable del servicio que presta y de la garantía de sus reparaciones y repuestos.
 - **El S.O.S. no reemplaza a los servicios de emergencia.** Si hay heridos o peligro, llama primero al 123.
 
-## 11. Rodadas y comunidad
+## 10. Rodadas y comunidad
 
 - Las rodadas las organizan los propios usuarios. ApexMoto no las organiza, no las supervisa y no responde por lo que ocurra en ellas.
 - Cada participante conduce bajo su propia responsabilidad y debe cumplir las normas de tránsito.
 
-## 12. Rutas, mapas y guiado
+## 11. Rutas, mapas y guiado
 
 - Los mapas provienen de OpenStreetMap y las rutas de OpenRouteService. Pueden tener errores o estar desactualizados.
 - El guiado es una ayuda. Las señales de tránsito, el estado de la vía y las indicaciones de las autoridades siempre prevalecen.
 - No manipules el teléfono mientras conduces.
 
-## 13. Calificaciones y contenidos
+## 12. Calificaciones y contenidos
 
 - Las calificaciones deben reflejar experiencias reales.
 - Conservas los derechos sobre lo que publicas y nos autorizas a mostrarlo dentro de la aplicación mientras tu cuenta exista.
 - Podemos retirar contenido que incumpla estos términos o la ley.
 
-## 14. Propiedad intelectual
+## 13. Propiedad intelectual
 
 La marca ApexMoto, el diseño y el código de la aplicación pertenecen al responsable. Los mapas, las fuentes tipográficas, los íconos y las librerías de terceros se usan bajo sus respectivas licencias, que puedes consultar en "Licencias de terceros" dentro de la aplicación.
 
-## 15. Alcance de la responsabilidad de ApexMoto
+## 14. Alcance de la responsabilidad de ApexMoto
 
 - Respondemos por el funcionamiento de la plataforma y por nuestras propias obligaciones como portal de contacto: identificar a los oferentes, darte información clara y atender tus peticiones, quejas y reclamos.
 - No respondemos por el cumplimiento, la calidad o la seguridad de los productos y servicios de los aliados, ni por los hechos de otros usuarios, sin perjuicio de los derechos que la ley reconoce a los consumidores, que no se limitan con estos términos.
 - No garantizamos que la aplicación esté disponible sin interrupciones.
 
-## 16. Derechos del consumidor, retracto y reversión
+## 15. Derechos del consumidor, retracto y reversión
 
 - Las condiciones de cancelación, retracto y reembolso están en la **Política de cancelaciones, retracto y reembolsos**, que hace parte de estos términos.
 - Para presentar una queja o un reclamo contra un aliado puedes pedirnos sus datos de identificación y contacto.
 
-## 17. Datos personales
+## 16. Datos personales
 
 El tratamiento de tus datos se rige por la **Política de Privacidad**, que autorizas por separado al registrarte.
 
-## 18. Peticiones, quejas y reclamos
+## 17. Peticiones, quejas y reclamos
 
 - Dentro de la aplicación: Perfil → Legal y privacidad → Enviar una solicitud.
 - Por correo: [COMPLETAR: correo de atención].
 - Te responderemos en un máximo de 15 días hábiles.
 - También puedes acudir a la Superintendencia de Industria y Comercio (www.sic.gov.co).
 
-## 19. Cambios a estos términos
+## 18. Cambios a estos términos
 
 Cada versión tiene un número y una fecha. Cuando cambien de forma importante, la aplicación te pedirá aceptarlos de nuevo antes de seguir usándola. Guardamos el registro de la versión que aceptaste y de la fecha.
 
-## 20. Cierre de la cuenta
+## 19. Cierre de la cuenta
 
 Puedes eliminar tu cuenta en cualquier momento desde Perfil → Legal y privacidad → Eliminar mi cuenta. Las obligaciones pendientes con otros usuarios se mantienen.
 
-## 21. Ley aplicable
+## 20. Ley aplicable
 
 Estos términos se rigen por las leyes de la República de Colombia. Como consumidor puedes acudir a los jueces de tu domicilio o a la Superintendencia de Industria y Comercio.

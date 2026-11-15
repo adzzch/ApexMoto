@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Versión de pruebas: otro nombre y otro color de ícono para no confundirla con la app real. -->
+    <string name="app_name">ApexMoto Pruebas</string>
+</resources>
