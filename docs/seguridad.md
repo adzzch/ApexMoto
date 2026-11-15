@@ -59,7 +59,7 @@ npm install          # una vez
 npm test             # necesita Java 21 o superior en el PATH
 ```
 
-En esta máquina hay un JDK 21 en `C:\Users\USUARIO\.jdks\jbr-21.0.11`. El JDK 25 que trae Android Studio no sirve para Gradle 8.7.
+Necesitas JDK 21 o superior; el daemon de Gradle del proyecto también usa JDK 21 (ver [desarrollo.md](desarrollo.md)).
 
 Publicar las reglas: copiar `firestore.rules` en la consola de Firebase → Firestore → Reglas, o `npx firebase deploy --only firestore:rules --project apexmotoxz` desde `firestore-tests` (pide iniciar sesión).
 
