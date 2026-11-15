@@ -39,7 +39,7 @@ import java.util.Locale
  * sigue tu ubicación en vivo, avanza las instrucciones, avisa por voz y recalcula si te sales del camino.
  */
 @Composable
-fun NavigationScreen(vm: AppViewModel) {
+fun NavigationScreen(vm: AppViewModel, nav: androidx.navigation.NavController) {
     val ctx = LocalContext.current
     val c = vm.container
     val session = vm.navSession
@@ -59,6 +59,9 @@ fun NavigationScreen(vm: AppViewModel) {
     fun askLocation() { if (!vm.locationConsented) disclose = true else launcher.launch(perms) }
     if (disclose) LocationDisclosure(onAccept = { disclose = false; vm.acceptLocation(); launcher.launch(perms) }, onDismiss = { disclose = false })
     var plan by remember { mutableStateOf<RoutePlan?>(null) }
+    /** Cuándo se calculó la ruta: las horas de llegada a cada parada se cuentan desde ahí. */
+    var planAt by remember { mutableLongStateOf(0L) }
+    val venues by vm.venues.collectAsState()
     var error by remember { mutableStateOf<String?>(null) }
     var loading by remember { mutableStateOf(true) }
     var guiding by remember { mutableStateOf(false) }
@@ -75,7 +78,7 @@ fun NavigationScreen(vm: AppViewModel) {
         loading = true; error = null
         try {
             val rem = stops.drop(reached)
-            plan = c.routes.route(from, rem.last(), rem.dropLast(1)); idx = 0
+            plan = c.routes.route(from, rem.last(), rem.dropLast(1)); idx = 0; planAt = System.currentTimeMillis()
         } catch (e: CancellationException) {
             throw e   // la pantalla se cerró o el cálculo se reemplazó por otro: no es un error para mostrar
         } catch (e: Exception) {
@@ -113,6 +116,15 @@ fun NavigationScreen(vm: AppViewModel) {
         }
     }
     LaunchedEffect(guiding) { if (!guiding) mapState.resetRotation() }
+    // Hora estimada de llegada a cada comercio de la ruta: el menú la usa para proponer la hora del pedido.
+    LaunchedEffect(plan) {
+        val p = plan ?: return@LaunchedEffect
+        var acc = 0L
+        session.stops.drop(reached).forEachIndexed { i, s ->
+            acc += p.legs.getOrNull(i)?.second ?: return@forEachIndexed
+            if (s.venueId.isNotBlank()) vm.arrivals[s.venueId] = planAt + acc * 1000
+        }
+    }
 
     val steps = plan?.steps.orEmpty()
     LaunchedEffect(idx, guiding) {
@@ -170,6 +182,24 @@ fun NavigationScreen(vm: AppViewModel) {
                     error != null -> Text(error!!, color = Red, style = MaterialTheme.typography.bodySmall)
                     plan != null -> Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Stat(fmtDist(plan!!.distanceM.toDouble()), "distancia", Modifier.weight(1f)); Stat(fmtDur(plan!!.durationS), "tiempo estimado", Modifier.weight(1f))
+                    }
+                }
+                // Próximas paradas con lo que falta y, en los comercios con menú, el acceso directo para pedir con hora.
+                val legs = plan?.legs.orEmpty()
+                val upcoming = session.stops.drop(reached)
+                if (!loading && legs.size == upcoming.size && upcoming.isNotEmpty()) {
+                    var accD = 0; var accT = 0
+                    upcoming.forEachIndexed { i, s ->
+                        accD += legs[i].first; accT += legs[i].second
+                        val venue = venues.firstOrNull { it.id == s.venueId }
+                        val canOrder = venue != null && venue.ownerId.isNotBlank() && venue.open && venue.menu.any { it.on && it.cat != "Servicios" }
+                        if (i < 3 && (upcoming.size > 1 || canOrder)) Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text(s.name, fontWeight = FontWeight.Bold, maxLines = 1)
+                                Lbl("${fmtDist(accD.toDouble())} · ${fmtDur(accT)} · llegas a eso de las ${hhmm(planAt + accT * 1000L)}")
+                            }
+                            if (canOrder) Btn("Pedir", small = true, icon = Icons.Filled.RestaurantMenu, kind = BK.Ghost) { nav.navigate("menu/${venue!!.id}") }
+                        }
                     }
                 }
                 originNote?.let { Text(it, color = OrangeDark, style = MaterialTheme.typography.labelMedium) }

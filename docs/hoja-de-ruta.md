@@ -46,7 +46,7 @@ En **todas** las fases se incluyen las reglas de Firestore con sus pruebas, la a
 - Mapa en vivo con la moto de cada miembro, solo mientras la rodada está activa. Un S.O.S. de cualquiera se ve en rojo para todos.
 - Aviso de ubicación 1.1: con quién se comparte, cada cuánto y cuándo se borra.
 
-### Fase 3 · Pedidos en ruta con hora de entrega
+### Fase 3 · Pedidos en ruta con hora de entrega (hecha)
 
 - Al navegar, cada restaurante de la ruta muestra cuántos km y minutos faltan.
 - Al pedir se escoge "listo a las…", nunca antes de la hora estimada de llegada. El comercio ve los pedidos ordenados por hora.

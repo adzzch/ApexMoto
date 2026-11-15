@@ -38,6 +38,13 @@ import co.apexmoto.app.maps.LatLng
 import co.apexmoto.app.maps.MapMarker
 import co.apexmoto.app.maps.OsmMap
 
+/** "listo a las 1:40 p. m. (en 25 min)" para pedidos con hora; los de antes muestran el tiempo que escribió el rider. */
+fun readyLabel(o: Order): String {
+    if (o.readyAt <= 0) return "llega en ${o.eta}"
+    val mins = (o.readyAt - System.currentTimeMillis()) / 60_000
+    return "listo a las ${hhmm(o.readyAt)}" + if (mins in 1..240) " (en $mins min)" else ""
+}
+
 /** Comercio del usuario (el primero cuyo ownerId coincide). */
 @Composable
 private fun myVenue(vm: AppViewModel, u: AppUser): Venue? { val vs by vm.venues.collectAsState(); return vs.firstOrNull { it.ownerId == u.id } }
@@ -68,12 +75,14 @@ fun ShopDashboard(vm: AppViewModel, u: AppUser) {
             StatCard("${v.visits}", "Moteros con GPS", Modifier.weight(1f), CyanDeep, 3)
             StatCard("${coupons.count { it.used }}/${coupons.size}", "Cupones canjeados", Modifier.weight(1f), OrangeDark, 4)
         }
+        H("Reseñas", Icons.Filled.Star)
+        Card2 { RatingLine(v.rating, v.reviews); ReviewsList(vm, "venue", v.id) }
         H("Últimos pedidos", Icons.Filled.ReceiptLong)
         val recent = orders.sortedByDescending { it.createdAt }.take(4)
         if (recent.isEmpty()) Empty("Todavía no hay pedidos.", Icons.Filled.ReceiptLong)
         recent.forEachIndexed { i, o ->
             Card2(index = 5 + i) { Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) { Text(o.fromName, fontWeight = FontWeight.Bold); Lbl("${o.items.sumOf { it.qty }} producto(s) · llega en ${o.eta}") }
+                Column(Modifier.weight(1f)) { Text(o.fromName, fontWeight = FontWeight.Bold); Lbl("${o.items.sumOf { it.qty }} producto(s) · ${readyLabel(o)}") }
                 Num(cop(o.total), Ink, 14); Spacer(Modifier.width(8.dp)); StatusPill(ORD_ST[o.status] ?: o.status, o.status)
             } }
         }
@@ -89,10 +98,17 @@ fun ShopOrdersScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
     Screen {
         H("Pedidos")
         if (orders.isEmpty()) Empty("Cuando un rider haga un pedido aparecerá aquí.")
-        orders.sortedByDescending { it.createdAt }.forEachIndexed { i, o ->
+        // Primero los pedidos en curso, por la hora a la que los quieren listos; después los demás, del más reciente al más viejo.
+        val open = orders.filter { it.status in listOf("new", "prep", "ready") }.sortedBy { if (it.readyAt > 0) it.readyAt else it.createdAt }
+        val closed = orders.filter { it.status !in listOf("new", "prep", "ready") }.sortedByDescending { it.createdAt }
+        (open + closed).forEachIndexed { i, o ->
             Card2(index = i) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) { Text(o.fromName, fontWeight = FontWeight.Bold); Sub("Llega en ${o.eta}") }
+                    Column(Modifier.weight(1f)) {
+                        Text(o.fromName, fontWeight = FontWeight.Bold)
+                        if (o.readyAt > 0 && o.status in listOf("new", "prep")) IconLine(Icons.Filled.Schedule, readyLabel(o).replaceFirstChar { it.uppercase() }, OrangeDark)
+                        else Sub(readyLabel(o).replaceFirstChar { it.uppercase() })
+                    }
                     StatusPill(ORD_ST[o.status] ?: o.status, o.status)
                 }
                 o.items.forEach { Sub("${it.qty} × ${it.name} · ${cop(it.qty * it.price)}") }

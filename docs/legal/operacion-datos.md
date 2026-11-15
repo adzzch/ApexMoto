@@ -22,6 +22,8 @@ Revisión de cada formulario de la app. "Se queda" significa que el dato es nece
 | Rider | Declaración de licencia y categoría | Agregado | Requisito para conducir (Ley 769). Se guarda un sí y la categoría, sin foto ni número |
 | Rider | Ubicación en el S.O.S. | Se queda, opcional | Para que el taller llegue. Se borra al terminar |
 | Rider | Nota del pedido y del S.O.S. | Se queda, opcional | Texto libre con límite de tamaño |
+| Rider | Hora a la que quiere el pedido listo | Agregado | Para que el comercio lo prepare a tiempo |
+| Rider | Reseñas: estrellas, comentario y nombre | Agregado, opcional | Públicas para los usuarios; se borran al eliminar la cuenta |
 | Rider | Perfil público: @usuario, nombre visible, avatar (moto y color) | Agregado, opcional | Para usar Amigos. Sin fotos. Lo ve cualquier usuario con sesión que busque el @usuario exacto |
 | Rider | Solicitudes, amistades y bloqueos | Agregado | Función de Amigos. Se borran al eliminar la cuenta |
 | Rider | Estado (en línea o en rodada) y hora de la última actividad | Agregado, se puede apagar | Solo lo ven los amigos; se reemplaza en cada latido |

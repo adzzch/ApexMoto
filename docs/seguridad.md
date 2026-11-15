@@ -19,10 +19,11 @@ La app habla directamente con Firestore; no hay servidor propio. Por eso **las r
 | `legal_acceptances` | Las propias | Solo crear, a nombre propio, con hora del servidor. Nunca modificar ni borrar |
 | `privacy_requests` | Las propias | Crear; solo un administrador responde; nadie borra |
 | `providers` | El titular y el administrador | El titular, si es aliado |
-| `venues` | Usuarios con sesión | Comercio o taller dueño (sin tocar su calificación); visitas de a una |
+| `venues` | Usuarios con sesión | Comercio o taller dueño (sin tocar su calificación); visitas de a una; el promedio solo cambia junto con una reseña nueva y con la cuenta exacta |
+| `reviews` | Usuarios con sesión; las de un rider, solo los dueños de moto y ese rider | Una por servicio terminado (ID `{tipo}_{servicio}`), de quien lo usó, 1 a 5 estrellas y comentario de 200 caracteres; la borra su autor |
 | `bikes` | Usuarios con sesión | Dueño; quien renta solo aparta o libera sus propias fechas junto con su solicitud |
 | `drivers` | Nadie | Nadie. Eran los perfiles del rol de guía, retirado el 2026-11-15 |
-| `orders` | Rider y comercio del pedido | Rider crea y cancela mientras esté "enviado"; comercio avanza paso a paso |
+| `orders` | Rider y comercio del pedido | Rider crea y cancela mientras esté "enviado", con la hora de listo entre ahora y 12 h; comercio avanza paso a paso |
 | `requests` | Las dos partes | Solo de renta. Rider crea y cancela antes de empezar; el dueño avanza paso a paso |
 | `coupons` | Rider y comercio | Rider crea; comercio canjea una vez |
 | `sos` | El rider; talleres mientras busca taller; luego solo el taller asignado | Rider crea y cancela; taller acepta a su nombre y avanza; coordenadas en cero al terminar |
@@ -58,7 +59,7 @@ La app habla directamente con Firestore; no hay servidor propio. Por eso **las r
 
 ## 3. Pruebas de las reglas
 
-`firestore-tests/rules.test.js`: 55 pruebas contra el emulador. Cada una afirma una garantía concreta, tanto lo que debe funcionar como lo que debe rechazarse.
+`firestore-tests/rules.test.js`: 57 pruebas contra el emulador. Cada una afirma una garantía concreta, tanto lo que debe funcionar como lo que debe rechazarse.
 
 ```bash
 cd firestore-tests

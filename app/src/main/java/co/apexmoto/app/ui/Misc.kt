@@ -46,6 +46,14 @@ fun ProfileScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
     var confirmClear by remember { mutableStateOf(false) }
     var cancel by remember { mutableStateOf<ServiceRequest?>(null) }
     cancel?.let { r -> CancelRequestDialog(vm, r) { cancel = null } }
+    val myReviews by vm.myReviews.collectAsState()
+    var reviewOrder by remember { mutableStateOf<Order?>(null) }
+    reviewOrder?.let { o ->
+        ReviewSheet("¿Cómo te fue en ${o.venueName}?", { reviewOrder = null }) { stars, comment ->
+            vm.act("¡Gracias por tu reseña!") { vm.repo.submitReview(Review(kind = "order", serviceId = o.id, targetType = "venue", targetId = o.venueId,
+                authorId = u.id, authorName = u.name, stars = stars, comment = comment)) }
+        }
+    }
     if (confirmReset) AlertDialog(
         onDismissRequest = { confirmReset = false },
         title = { Text("¿Reiniciar los datos demo?") },
@@ -87,11 +95,15 @@ fun ProfileScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
         }
         if (orders.isNotEmpty()) {
             H("Mis pedidos")
+            val reviewed = myReviews.map { it.id }.toSet()
             orders.sortedByDescending { it.createdAt }.take(6).forEach { o ->
-                Card2 { Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) { Text(o.venueName, fontWeight = FontWeight.Bold); Sub("${cop(o.total)} · ${o.items.sumOf { it.qty }} ítems") }
-                    StatusPill(ORD_ST[o.status] ?: o.status, o.status)
-                } }
+                Card2 {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) { Text(o.venueName, fontWeight = FontWeight.Bold); Sub("${cop(o.total)} · ${o.items.sumOf { it.qty }} ítems") }
+                        StatusPill(ORD_ST[o.status] ?: o.status, o.status)
+                    }
+                    if (o.status == "done" && "order_${o.id}" !in reviewed) Btn("Calificar", Modifier.fillMaxWidth(), Icons.Filled.Star, kind = BK.Ghost, small = true) { reviewOrder = o }
+                }
             }
         }
         val rent = reqs.filter { it.type == "rent" }

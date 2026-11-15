@@ -32,10 +32,12 @@ import org.json.JSONObject
 /** Coordenada propia (sin depender de Google Maps). */
 data class LatLng(val latitude: Double, val longitude: Double)
 
-data class NavStop(val name: String, val lat: Double, val lng: Double)
+/** Parada del guiado. venueId: el comercio de esa parada, si lo hay (para pedir desde el guiado). */
+data class NavStop(val name: String, val lat: Double, val lng: Double, val venueId: String = "")
 data class NavSession(val title: String, val stops: List<NavStop>)
 data class RouteStep(val text: String, val distanceM: Int, val start: LatLng)
-data class RoutePlan(val distanceM: Int, val durationS: Int, val points: List<LatLng>, val steps: List<RouteStep>)
+/** legs: (metros, segundos) de cada tramo, desde el origen hasta cada parada en orden. */
+data class RoutePlan(val distanceM: Int, val durationS: Int, val points: List<LatLng>, val steps: List<RouteStep>, val legs: List<Pair<Int, Int>> = emptyList())
 
 /**
  * Cliente de OpenRouteService (https://openrouteservice.org). Gratuito con clave de correo, sin tarjeta.
@@ -76,6 +78,7 @@ class RoutesClient(private val apiKey: String) {
         val sum = r.getJSONObject("summary")
         val steps = mutableListOf<RouteStep>()
         val segs = r.optJSONArray("segments") ?: JSONArray()
+        val legs = (0 until segs.length()).map { segs.getJSONObject(it).let { s -> s.optDouble("distance").toInt() to s.optDouble("duration").toInt() } }
         for (i in 0 until segs.length()) {
             val st = segs.getJSONObject(i).optJSONArray("steps") ?: continue
             for (j in 0 until st.length()) {
@@ -85,7 +88,7 @@ class RoutesClient(private val apiKey: String) {
                 steps += RouteStep(forRider(s.optString("instruction")).ifBlank { "Continúa por la vía" }, s.optDouble("distance").toInt(), start)
             }
         }
-        return RoutePlan(sum.optDouble("distance").toInt(), sum.optDouble("duration").toInt(), points, steps)
+        return RoutePlan(sum.optDouble("distance").toInt(), sum.optDouble("duration").toInt(), points, steps, legs)
     }
 
     /** Decodifica un "encoded polyline" (precisión 5). */

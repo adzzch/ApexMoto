@@ -25,7 +25,8 @@ Solo pedimos los datos necesarios para cada función.
 
 **Rider**
 
-- Pedidos, solicitudes de renta, cupones y rutas guardadas.
+- Pedidos (con la hora a la que quieres tenerlos listos), solicitudes de renta, cupones y rutas guardadas.
+- **Reseñas** que publicas: estrellas, comentario y tu nombre.
 - Declaración de que tienes licencia de conducción vigente y su categoría. No pedimos foto ni número de la licencia.
 - En un S.O.S.: el tipo de emergencia, la descripción del lugar y, si la compartes, tu ubicación en ese momento.
 - Mensajes de chat con el aliado de cada servicio.
@@ -78,7 +79,7 @@ No usamos tus datos para publicidad de terceros ni los vendemos. Si queremos env
 ## 6. Con quién compartimos datos
 
 - **Con la otra parte de cada servicio:** el comercio ve tu nombre y tu pedido; el dueño de la moto ve tu nombre y los datos de la solicitud; el taller ve tu nombre, el tipo de emergencia y el lugar. Tú ves el nombre público del aliado.
-- **Con otros usuarios:** tu perfil público (nombre, @usuario y avatar) lo puede ver cualquier usuario con sesión iniciada que busque tu @usuario exacto; no publicamos listados de personas. Tu estado solo lo ven tus amigos. Nadie ve tu correo ni tu celular.
+- **Con otros usuarios:** tu perfil público (nombre, @usuario y avatar) lo puede ver cualquier usuario con sesión iniciada que busque tu @usuario exacto; no publicamos listados de personas. Tu estado solo lo ven tus amigos. Tus reseñas, con tu nombre, las ven todos los usuarios. Nadie ve tu correo ni tu celular.
 - **Con proveedores que tratan datos por encargo nuestro:** Google (Firebase Authentication y Cloud Firestore) para las cuentas y la base de datos; OpenRouteService (HeiGIT gGmbH, Alemania) para calcular rutas; los servidores de mapas de OpenStreetMap y OpenTopoMap, que reciben tu dirección IP y las zonas del mapa que consultas.
 - **Con autoridades**, cuando lo exija una norma o una orden.
 - **Con un consumidor que lo pida para reclamar**, entregamos los datos de identificación del oferente con el que contrató, como lo exige la ley.
@@ -96,6 +97,7 @@ Los servidores de Google y de los proveedores de mapas y rutas pueden estar fuer
 - **Estado para tus amigos:** se reemplaza en cada actividad y se borra al apagarlo o al eliminar la cuenta.
 - **Ubicación en el mapa del grupo:** hasta que dejas de compartir, sales de la rodada o la rodada termina.
 - **Rodadas:** las que creaste se borran al eliminar la cuenta; de las demás sales automáticamente.
+- **Reseñas:** hasta que elimines la cuenta, cuando se borran.
 - **Pedidos, rentas y atenciones:** hasta 5 años después del servicio, para atender reclamos y obligaciones legales.
 - **Mensajes de chat:** hasta 1 año después del servicio.
 - **Registro de aceptaciones y solicitudes de privacidad:** hasta 10 años después del cierre de la cuenta, como prueba de la autorización.

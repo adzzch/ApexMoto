@@ -29,6 +29,7 @@ Cada paso dice quién lo hace y qué debe pasar. Marca la casilla si salió bien
 | R11. Legal y privacidad | ✓ | ✓ | ✓ | ✓ |
 | R13. Amigos | ✓ (los dos) | | | |
 | R14. Mapa del grupo | ✓ (los dos) | | | |
+| R15. Pedido en ruta y reseñas | ✓ | ✓ | | |
 | R12. Eliminar la cuenta | ✓ | | | |
 
 ## Recorridos
@@ -52,7 +53,7 @@ Cada paso dice quién lo hace y qué debe pasar. Marca la casilla si salió bien
 
 ### R3. Pedido
 
-- [ ] **Rider 1:** Comercios → el negocio del Comercio → "Ver menú y pedir" → agregar productos → "Enviar pedido". → El pedido queda "Enviado".
+- [ ] **Rider 1:** Comercios → el negocio del Comercio → "Ver menú y pedir" → agregar productos → escoger la hora en "¿Para qué hora lo quieres listo?" → "Enviar pedido". → El pedido queda "Enviado" y el comercio lo ve con "Listo a las …".
 - [ ] **Comercio:** Pedidos → "Aceptar y preparar" → "Marcar listo" → "Entregado". → El rider ve cada cambio: Preparando, ¡Listo!, Entregado.
 - [ ] **Los dos:** mientras se prepara, abrir el chat del pedido y escribirse. → Cada uno ve los mensajes del otro.
 - [ ] **Rider 1:** hacer otro pedido y cancelarlo mientras sigue "Enviado". → Queda "Cancelado". Un pedido ya aceptado no se puede cancelar desde la app.
@@ -137,6 +138,14 @@ Cada paso dice quién lo hace y qué debe pasar. Marca la casilla si salió bien
 - [ ] **Rider 2:** salir de ApexMoto con el botón de inicio. → Al rato deja de actualizarse ("hace … min").
 - [ ] **Un amigo de Rider 1 que no está en la rodada:** en Amigos ve "En rodada: …", pero no ve el mapa.
 - [ ] **Rider 1:** "Terminar rodada". → El mapa desaparece para todos y la rodada queda "Terminada".
+
+### R15. Pedido desde el guiado y reseñas
+
+- [ ] **Rider 1:** Comercios → el negocio del Comercio → "Guiar en la app". → En el panel de abajo aparece la parada con km, minutos, "llegas a eso de las …" y el botón "Pedir".
+- [ ] **Rider 1:** "Pedir". → El menú propone "Cuando llegue" con la hora de llegada y no deja escoger una hora anterior.
+- [ ] **Comercio:** Pedidos. → Los pedidos en curso salen ordenados por la hora a la que los quieren listos. Llevar el pedido hasta "Entregado".
+- [ ] **Rider 1:** Perfil → Mis pedidos → "Calificar" → estrellas y comentario. → En el negocio se ven la reseña y el promedio, y "Calificar" desaparece.
+- [ ] **Rider 2:** abrir el negocio. → Ve la reseña de Rider 1 con su nombre. Un negocio sin reseñas dice "Nuevo".
 
 ### R12. Eliminar la cuenta (al final)
 

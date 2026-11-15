@@ -5,6 +5,7 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y 
 ## [Sin publicar]
 
 ### Agregado
+- **Pedidos en ruta con hora y reseñas** (fase 3): durante el guiado se ven la distancia, el tiempo y la hora de llegada a cada parada, con un botón para pedir; el menú propone la hora de llegada y no deja pedir para antes. El comercio ordena los pedidos por esa hora. Reseñas reales (1 a 5 estrellas y comentario) de quien recibió el pedido, una vez, con el promedio validado por las reglas; "Nuevo" para comercios sin reseñas y reseñas de ejemplo en el ambiente de pruebas.
 - **Rodadas con líder y mapa del grupo** (fase 2): rodadas públicas o solo de amigos, con aprobación, invitación rápida a amigos, ruta guardada con sus paradas, líder (bandera) y quien cierra el grupo, y un mapa en vivo con la moto de cada miembro, que se pone en rojo si alguien abre un S.O.S. La ubicación es opcional, solo con la app abierta y se borra al terminar. Aviso de ubicación 1.1.0.
 - **Amigos** (fase 1): perfil público con @usuario único y avatar de moto (silueta y color, sin fotos), búsqueda por @usuario exacto, solicitudes, bloqueos y estado "en línea" o "en rodada", visible solo para los amigos y que se puede apagar. Textos legales 1.1.0 (términos y privacidad).
 - Dos ambientes (variantes `pruebas` y `prod`), cada uno con su proyecto de Firebase y su paquete (`co.apexmoto.dev` y `co.apexmoto.prd`); se instalan a la vez. La versión de pruebas se llama "ApexMoto Pruebas", tiene ícono cian y una franja "Ambiente de pruebas".

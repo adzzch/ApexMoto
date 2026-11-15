@@ -44,7 +44,7 @@ Lo que ApexMoto puede decir y una app de mapas o un grupo de chat no puede decir
 - **Etapa:** proyecto personal / MVP. Se prepara una prueba cerrada con amigos que cubre todos los roles. Las reglas de Firestore son de producción y tienen pruebas.
 - **Dos ambientes (compromiso):** *Pruebas* (desarrollo y presentaciones; los datos demo solo existen aquí y una franja lo indica) y *Productivo* (la app real, vacía al empezar). Cada uno con su proyecto de Firebase. Ver `docs/desarrollo.md`.
 - **Legal (compromiso):** casillas separadas para términos y para datos personales, registro inmutable de cada aceptación, no se recogen documentos ni biometría, la ubicación solo se usa con aviso aceptado. Los planes de "protección" de la renta no son un seguro y así debe decirse. Ver `docs/legal/`.
-- **Pendiente (no diseñar como si existiera):** pagos reales, notificaciones push, fotos de comercios y motos, reseñas y lista de pilotos de Comunidad.
+- **Pendiente (no diseñar como si existiera):** pagos reales, notificaciones push, fotos de comercios y motos y lista de pilotos de Comunidad.
 - **Solo planes gratuitos (compromiso):** nada que exija tarjeta o facturación de Google Cloud. Por eso los mapas son OpenStreetMap y las rutas OpenRouteService (plan Free). Cualquier servicio nuevo debe tener plan gratuito sin tarjeta; si no lo tiene, no entra.
 - **Mercado: Colombia, empezando por el Valle del Cauca (compromiso):** Cali y sus corredores cercanos primero. Todo en español de Colombia, todos los precios en pesos colombianos (COP, formato `$280.000`, sin decimales; nunca dólares), teléfonos con +57 por defecto y voz del guiado en es-CO.
 

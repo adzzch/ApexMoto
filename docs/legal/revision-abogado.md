@@ -44,6 +44,7 @@ Cualquier persona puede registrarse como taller y ver la ubicación de riders va
 | Términos, 8 | Daños, hurto, multas y accidentes en la renta | Distribución de riesgos, depósito, acta de entrega, validez frente a terceros |
 | Términos, 8 | Planes de protección | Ver A.1 |
 | Términos, 5 | Prohibición de cobrar por rodadas o por guiarlas | Ver A.2 |
+| Términos, 12 | Reseñas públicas con el nombre del autor | Moderación y retiro de contenido; responsabilidad por comentarios de terceros; reseñas sobre personas (renta) |
 | Términos, 9 | S.O.S. sin garantía de atención | Que no sea una exoneración abusiva (Ley 1480, arts. 42 y 43) |
 | Términos, 14 | Límite de responsabilidad | Las cláusulas que limitan la responsabilidad del productor o proveedor frente al consumidor son ineficaces (art. 43). Revisar redacción |
 | Términos, 5 | Suspensión y cierre de cuentas | Debido proceso y proporcionalidad |

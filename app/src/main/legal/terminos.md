@@ -67,6 +67,7 @@ Podemos suspender o cerrar una cuenta que incumpla estas reglas. Antes de cerrar
 ## 7. Pedidos en comercios
 
 - El pedido es una solicitud al comercio. El contrato nace cuando el comercio lo acepta.
+- Puedes indicar la hora a la que quieres tu pedido listo. Es parte de la solicitud: el comercio decide si alcanza a tenerlo y puede rechazarlo.
 - El comercio es el único responsable de la calidad, la inocuidad, el precio y la entrega de sus productos, y de cumplir las normas sanitarias y tributarias que le apliquen.
 - Los cupones los otorga cada comercio. Tienen un solo uso y no se cambian por dinero.
 
@@ -107,7 +108,8 @@ Podemos suspender o cerrar una cuenta que incumpla estas reglas. Antes de cerrar
 
 ## 12. Calificaciones y contenidos
 
-- Las calificaciones deben reflejar experiencias reales.
+- Las calificaciones deben reflejar experiencias reales. Solo puede reseñar quien usó el servicio, una vez, con 1 a 5 estrellas y un comentario opcional; tu nombre aparece junto a la reseña.
+- En las reseñas no se permiten comentarios ofensivos, datos personales de otras personas, publicidad ni reseñas a cambio de beneficios.
 - Conservas los derechos sobre lo que publicas y nos autorizas a mostrarlo dentro de la aplicación mientras tu cuenta exista.
 - Podemos retirar contenido que incumpla estos términos o la ley.
 

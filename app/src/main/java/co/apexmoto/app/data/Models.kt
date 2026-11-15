@@ -35,6 +35,8 @@ data class Venue(
     var menu: List<MenuItem> = emptyList(), var lat: Double = 0.0, var lng: Double = 0.0, var visits: Int = 0,
     // Solo talleres: qué tipos de S.O.S. atiende, hasta qué distancia y si está recibiendo S.O.S. ahora.
     var covers: List<String> = listOf("flat", "battery", "fuel", "tow", "mech"), var radiusKm: Int = 40, var sosOn: Boolean = true,
+    /** Última reseña que movió el promedio: las reglas la usan para validar la cuenta. */
+    var lastReview: String = "",
 )
 
 data class Bike(
@@ -94,6 +96,17 @@ data class Order(
     @DocumentId var id: String = "", var venueId: String = "", var venueName: String = "", var ownerId: String = "",
     var fromId: String = "", var fromName: String = "", var items: List<OrderItem> = emptyList(), var total: Long = 0,
     var eta: String = "", var note: String = "", var status: String = "new", var createdAt: Long = 0,
+    /** Hora (epoch ms) a la que el rider quiere el pedido listo. 0 = pedidos de antes, sin hora. */
+    var readyAt: Long = 0,
+)
+
+/**
+ * Reseña de un servicio terminado. ID = "{kind}_{serviceId}": una por servicio. kind: order (pedido), sos (taller),
+ * rent (el rider reseña la moto), renter (el dueño reseña al rider) o demo. targetType: venue, bike o rider.
+ */
+data class Review(
+    @DocumentId var id: String = "", var kind: String = "", var serviceId: String = "", var targetType: String = "", var targetId: String = "",
+    var authorId: String = "", var authorName: String = "", var stars: Int = 5, var comment: String = "", var createdAt: Long = 0,
 )
 
 data class Coupon(

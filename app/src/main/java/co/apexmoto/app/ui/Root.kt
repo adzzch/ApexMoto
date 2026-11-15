@@ -224,7 +224,7 @@ fun MainScaffold(vm: AppViewModel, u: AppUser) {
             composable("profile") { ProfileScreen(vm, nav, u) }
             composable("settings") { SettingsScreen(vm) }
             composable("legal") { LegalCenterScreen(vm, u) }
-            composable("navigate") { NavigationScreen(vm) }
+            composable("navigate") { NavigationScreen(vm, nav) }
             composable("rodada/{id}") { b -> RodadaScreen(vm, nav, u, b.arguments?.getString("id").orEmpty()) }
             composable("menu/{id}") { b -> MenuScreen(vm, nav, u, b.arguments?.getString("id").orEmpty()) }
             composable("bike/{id}") { b -> BikeDetailScreen(vm, nav, u, b.arguments?.getString("id").orEmpty()) }

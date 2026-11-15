@@ -34,7 +34,7 @@ function register(uid, role, docs = ['terminos', 'privacidad']) {
 const venue = (ownerId, extra = {}) => ({ ownerId, name: 'Parrilla', desc: '', promo: '', menu: [], types: ['food'], lat: 3.45, lng: -76.53, rating: 5.0, reviews: 0, visits: 0, ...extra });
 const bike = (ownerId, extra = {}) => ({ ownerId, name: 'XRE 300', cc: 300, pricePerDay: 160000, city: 'Cali', specs: [], rating: 5.0, trips: 0, instant: false, delivery: false, available: true, booked: [], soatUntil: '2099-01-01', rtmUntil: '2099-01-01', lastReq: '', ...extra });
 const sos = (fromId, extra = {}) => ({ fromId, fromName: 'Rider', kind: 'flat', kindName: 'Pinchazo', locationText: 'Km 12 vía al mar', lat: 3.5, lng: -76.6, note: '', price: 35000, status: 'new', providerId: '', providerName: '', eta: 0, createdAt: 1, acceptedAt: 0, doneAt: 0, ...extra });
-const order = (fromId, ownerId, extra = {}) => ({ venueId: 'v1', venueName: 'Parrilla', ownerId, fromId, fromName: 'Rider', items: [{ name: 'Churrasco', qty: 1, price: 42000 }], total: 42000, eta: '30 min', note: '', status: 'new', createdAt: 1, ...extra });
+const order = (fromId, ownerId, extra = {}) => ({ venueId: 'v1', venueName: 'Parrilla', ownerId, fromId, fromName: 'Rider', items: [{ name: 'Churrasco', qty: 1, price: 42000 }], total: 42000, eta: '30 min', note: '', status: 'new', createdAt: 1, readyAt: 0, ...extra });
 const rent = (fromId, extra = {}) => ({ type: 'rent', fromId, fromName: 'Rider', toId: O, itemId: 'b1', itemName: 'XRE 300', days: 2, amount: 320000, total: 320000, dateFrom: '2030-01-10', dateTo: '2030-01-11', plan: 'Básica', extras: [], delivery: false, status: 'p', rated: 0, createdAt: 1, licenseDeclared: true, licenseCat: 'A2', cancelKind: '', cancelledAt: 0, ...extra });
 
 /** Escribe la acción y su sello de límite de uso en un lote, igual que la app. */
@@ -510,4 +510,30 @@ test('estado: solo los amigos lo ven, y se escribe con la hora del servidor', as
   await assertSucceeds(getDoc(doc(db(X), 'status', R)));
   await assertFails(getDoc(doc(db(S), 'status', R)));
   await assertFails(setDoc(doc(db(X), 'status', R), { state: 'online', rodada: '', updatedAt: serverTimestamp() }));
+});
+
+// ───────── Pedidos con hora y reseñas (fase 3) ─────────
+const review = (uid, serviceId, extra = {}) => ({ kind: 'order', serviceId, targetType: 'venue', targetId: 'v1', authorId: uid, authorName: 'Rider', stars: 4, comment: 'Muy rico', createdAt: 1, ...extra });
+const rateOrder = (uid, serviceId, rating, reviews, extra = {}) => { const d = db(uid); const b = writeBatch(d);
+  b.set(doc(d, 'reviews', `order_${serviceId}`), review(uid, serviceId, extra));
+  b.update(doc(d, 'venues', 'v1'), { rating, reviews, lastReview: `order_${serviceId}` }); return b.commit(); };
+
+test('pedidos: la hora a la que se quiere listo debe estar entre ahora y 12 horas', async () => {
+  await assertFails(stamped(R, 'order', (b, d) => b.set(doc(d, 'orders', 'h1'), order(R, S, { readyAt: Date.now() + 2 * 86400000 }))));
+  await assertSucceeds(stamped(R, 'order', (b, d) => b.set(doc(d, 'orders', 'h2'), order(R, S, { readyAt: Date.now() + 45 * 60000 }))));
+});
+test('reseñas: solo quien recibió el pedido, una vez, y el promedio se calcula bien', async () => {
+  await env.withSecurityRulesDisabled(async (c) => {
+    await setDoc(doc(c.firestore(), 'orders', 'od'), order(R, S, { status: 'done' }));
+    await setDoc(doc(c.firestore(), 'orders', 'op'), order(R, S, { status: 'prep' }));
+  });
+  await assertFails(rateOrder(R, 'op', 4, 1));                                                    // aún no se entrega
+  await assertFails(rateOrder(X, 'od', 4, 1, { authorId: X }));                                    // no es su pedido
+  await assertFails(rateOrder(R, 'od', 5, 1));                                                    // promedio mal calculado
+  await assertFails(updateDoc(doc(db(R), 'venues', 'v1'), { rating: 1.0, reviews: 1, lastReview: 'nada' }));
+  await assertSucceeds(rateOrder(R, 'od', 4, 1));
+  await assertFails(setDoc(doc(db(R), 'reviews', 'order_od'), review(R, 'od')));                 // una sola vez
+  await assertSucceeds(getDoc(doc(db(X), 'reviews', 'order_od')));                                // son públicas
+  await assertFails(deleteDoc(doc(db(X), 'reviews', 'order_od')));
+  await assertSucceeds(deleteDoc(doc(db(R), 'reviews', 'order_od')));                             // su autor la borra
 });

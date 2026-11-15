@@ -106,6 +106,10 @@ class AppViewModel(val container: AppContainer) : ViewModel() {
     val friendProfiles: StateFlow<List<Profile>> = combine(user, friendships) { u, f -> u to f }
         .flatMapLatest { (u, f) -> if (u == null) flowOf(emptyList()) else repo.profiles(f.mapNotNull { fr -> fr.members.firstOrNull { it != u.id } }) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+    /** Reseñas escritas por la persona: sirven para saber qué servicios ya calificó. */
+    val myReviews = byUser { repo.myReviews(it.id) }
+    /** Hora estimada de llegada (epoch ms) a cada comercio de la ruta que se está guiando, por id del comercio. */
+    val arrivals = androidx.compose.runtime.mutableStateMapOf<String, Long>()
     /** Pestaña abierta en Comunidad: "rodadas" o "amigos". */
     var communityTab by mutableStateOf("rodadas")
     /** Nombre de la rodada activa en la que participa la persona ("" si ninguna): va en su estado para los amigos. */

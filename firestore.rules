@@ -247,7 +247,9 @@ service cloud.firestore {
         (resource.data.ownerId == uid() && request.resource.data.ownerId == uid() && venueShape(request.resource.data)
           && request.resource.data.rating == resource.data.rating && request.resource.data.reviews == resource.data.reviews)
         // Cualquier usuario suma una visita, de a una.
-        || (onlyChanges(['visits']) && request.resource.data.visits == resource.data.visits + 1)));
+        || (onlyChanges(['visits']) && request.resource.data.visits == resource.data.visits + 1)
+        // Quien publica una reseña nueva mueve el promedio, con la cuenta exacta.
+        || ratingOk(id, 'venue')));
       allow delete: if isAdmin() || (signedIn() && resource.data.ownerId == uid());
     }
 
@@ -380,6 +382,10 @@ service cloud.firestore {
         && request.resource.data.total is int && request.resource.data.total >= 0
         && str(request.resource.data, 'note', 300) && str(request.resource.data, 'eta', 20)
         && text(request.resource.data, 'fromName', 60) && str(request.resource.data, 'venueName', 80)
+        // Hora a la que el rider lo quiere listo: entre ahora y 12 horas (0 = sin hora).
+        && request.resource.data.readyAt is int
+        && (request.resource.data.readyAt == 0 || (request.resource.data.readyAt >= request.time.toMillis() - 300000
+            && request.resource.data.readyAt <= request.time.toMillis() + 43200000))
         && stamped('order');
       allow update: if signedIn() && onlyChanges(['status']) && (
         // El comercio avanza el pedido paso a paso.
@@ -419,6 +425,36 @@ service cloud.firestore {
         || (resource.data.fromId == uid() && onlyChanges(['status', 'cancelKind', 'cancelledAt'])
           && resource.data.status in ['p', 'ok'] && request.resource.data.status == 'can'
           && request.resource.data.cancelKind in ['retracto', 'cancelacion'] && request.resource.data.cancelledAt is int));
+    }
+
+    // ───────── Reseñas ─────────
+    // Una por servicio terminado (ID "{tipo}_{servicio}"), escrita por quien lo usó: estrellas de 1 a 5 y comentario opcional
+    // de 200 caracteres. Son públicas, salvo las que los dueños hacen de un rider (las ven los dueños y el propio rider).
+    function reviewShape(d) {
+      return d.keys().hasOnly(['kind', 'serviceId', 'targetType', 'targetId', 'authorId', 'authorName', 'stars', 'comment', 'createdAt'])
+        && d.authorId == uid() && text(d, 'authorName', 60) && d.stars is int && d.stars >= 1 && d.stars <= 5
+        && str(d, 'comment', 200) && d.createdAt is int && text(d, 'serviceId', 128) && text(d, 'targetId', 128);
+    }
+    function reviewOk(d) {
+      return (d.kind == 'order' && d.targetType == 'venue' && get(path('orders', d.serviceId)).data.fromId == uid()
+          && get(path('orders', d.serviceId)).data.status == 'done' && get(path('orders', d.serviceId)).data.venueId == d.targetId);
+    }
+    // El promedio (rating, reviews) de un comercio, taller o moto solo cambia junto con una reseña nueva de ese destino.
+    function ratingOk(id, type) {
+      let rid = request.resource.data.lastReview;
+      let r = getAfter(path('reviews', rid)).data;
+      let n = request.resource.data.reviews;
+      return onlyChanges(['rating', 'reviews', 'lastReview']) && !exists(path('reviews', rid))
+        && r.authorId == uid() && r.targetType == type && r.targetId == id
+        && n == resource.data.get('reviews', 0) + 1
+        && math.abs(request.resource.data.rating * n - resource.data.get('rating', 5.0) * (n - 1) - r.stars) < 0.01;
+    }
+    match /reviews/{id} {
+      allow read: if signedIn() && (resource.data.targetType != 'rider' || resource.data.targetId == uid() || resource.data.authorId == uid() || role() == 'o');
+      allow create: if isAdmin() || (signedIn() && reviewShape(request.resource.data)
+        && id == request.resource.data.kind + '_' + request.resource.data.serviceId && reviewOk(request.resource.data));
+      // Al eliminar su cuenta, la persona borra sus reseñas (llevan su nombre).
+      allow delete: if isAdmin() || (signedIn() && resource.data.authorId == uid());
     }
 
     // ───────── Cupones ─────────

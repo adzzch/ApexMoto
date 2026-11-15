@@ -193,6 +193,7 @@ class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth, private val consen
         out.put("bloqueos", many("blocks", "blocker"))
         val friends = runCatching { col("friendships").whereArrayContains("members", uid).get().await().documents }.getOrDefault(emptyList())
         out.put("amistades", JSONArray().also { a -> friends.forEach { a.put(clean(it.data)) } })
+        out.put("resenas", many("reviews", "authorId"))
         val rides = runCatching { col("rodadas").whereArrayContains("joined", uid).get().await().documents }.getOrDefault(emptyList())
         out.put("rodadas", JSONArray().also { a -> rides.forEach { d -> a.put((clean(d.data) as? JSONObject)?.put("_id", d.id) ?: JSONObject.NULL) } })
         val chats = runCatching { col("chats").whereArrayContains("members", uid).get().await().documents }.getOrDefault(emptyList())
@@ -248,6 +249,8 @@ class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth, private val consen
             .forEach { runCatching { leaveRodada(it, uid) } }
         col("rodadas").whereArrayContains("pending", uid).get().await().toObjects(Rodada::class.java).forEach { runCatching { cancelJoinRequest(it, uid) } }
         col("rodadas").whereArrayContains("invited", uid).get().await().toObjects(Rodada::class.java).forEach { runCatching { declineInvite(it, uid) } }
+        // Reseñas: llevan el nombre de la persona, así que se borran (el promedio del comercio no cambia).
+        col("reviews").whereEqualTo("authorId", uid).get().await().documents.forEach { runCatching { it.reference.delete().await() } }
     }
 
     // ───────── Perfil público y amigos ─────────
@@ -368,10 +371,12 @@ class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth, private val consen
     fun ordersFrom(uid: String) = col("orders").whereEqualTo("fromId", uid).live<Order>()
     fun ordersOfOwner(uid: String) = col("orders").whereEqualTo("ownerId", uid).live<Order>()
 
-    suspend fun placeOrder(v: Venue, u: AppUser, items: List<OrderItem>, eta: String, note: String) {
+    /** readyAt: hora (epoch ms) a la que el rider quiere el pedido listo; eta es la misma hora en texto para mostrar. */
+    suspend fun placeOrder(v: Venue, u: AppUser, items: List<OrderItem>, eta: String, readyAt: Long, note: String) {
         val b = db.batch()
         b.set(col("orders").document(), Order(venueId = v.id, venueName = v.name, ownerId = v.ownerId, fromId = u.id, fromName = u.name,
-            items = items, total = items.sumOf { it.qty * it.price }, eta = eta, note = note.trim().take(300), status = "new", createdAt = now()))
+            items = items, total = items.sumOf { it.qty * it.price }, eta = eta.take(20), note = note.trim().take(300), status = "new", createdAt = now(),
+            readyAt = readyAt))
         b.stamp(u.id, "order")
         b.commit().await()
     }
@@ -379,6 +384,32 @@ class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth, private val consen
     suspend fun setOrderStatus(id: String, st: String) { col("orders").document(id).update("status", st).await() }
     /** El rider cancela sin costo mientras el comercio no haya aceptado el pedido (Política de cancelaciones, punto 3). */
     suspend fun cancelOrder(id: String) { col("orders").document(id).update("status", "can").await() }
+
+    // ───────── Reseñas (fase 3) ─────────
+    /** Reseñas de un comercio, taller o moto. Sin índices compuestos: se ordenan en el teléfono. */
+    fun reviewsOf(targetType: String, targetId: String) = col("reviews").whereEqualTo("targetType", targetType).whereEqualTo("targetId", targetId).live<Review>()
+    fun myReviews(uid: String) = col("reviews").whereEqualTo("authorId", uid).live<Review>()
+
+    /**
+     * Publica una reseña. Si es de un comercio, taller o moto, en el mismo lote se actualiza su promedio: las reglas
+     * comprueban la cuenta, que la reseña sea nueva y que la escriba quien usó el servicio.
+     */
+    suspend fun submitReview(r: Review) {
+        val id = "${r.kind}_${r.serviceId}"
+        val b = db.batch()
+        b.set(col("reviews").document(id), mapOf("kind" to r.kind, "serviceId" to r.serviceId, "targetType" to r.targetType, "targetId" to r.targetId,
+            "authorId" to r.authorId, "authorName" to r.authorName.take(60).ifBlank { "Rider" }, "stars" to r.stars.coerceIn(1, 5),
+            "comment" to r.comment.trim().take(200), "createdAt" to now()))
+        val target = when (r.targetType) { "venue" -> col("venues").document(r.targetId); "bike" -> col("bikes").document(r.targetId); else -> null }
+        if (target != null) {
+            val snap = target.get().await()
+            val n0 = snap.getLong("reviews") ?: 0L
+            val avg0 = snap.getDouble("rating") ?: 5.0
+            val n = n0 + 1
+            b.update(target, mapOf("rating" to (avg0 * n0 + r.stars.coerceIn(1, 5)) / n, "reviews" to n, "lastReview" to id))
+        }
+        b.commit().await()
+    }
 
     // ───────── Cupones ─────────
     fun couponsOfOwner(uid: String) = col("coupons").whereEqualTo("ownerId", uid).live<Coupon>()
@@ -572,6 +603,9 @@ class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth, private val consen
                 val b = db.batch(); chunk.forEach { b.delete(it.reference) }; b.commit().await()
             }
         }
+        col("reviews").whereEqualTo("kind", "demo").get().await().documents.chunked(400).forEach { chunk ->
+            val b = db.batch(); chunk.forEach { b.delete(it.reference) }; b.commit().await()
+        }
         col("meta").document("seed").delete().await()
     }
 
@@ -663,6 +697,18 @@ class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth, private val consen
             Rodada(name = "Madrugón La Línea", whenLabel = "Domingo 5:30", captain = "@laura", meet = "Estación Terpel Armenia", style = "Aventura", seats = 8,
                 visibility = "public", approval = false),
         ).forEachIndexed { i, r -> col("rodadas").document("demo_r${i + 1}").set(r).await() }
+        // Reseñas de ejemplo (kind "demo") en los primeros comercios, para presentar la función.
+        val demoReviews = listOf(
+            Triple("Andrés P.", 5, "Parqueadero vigilado y la picada para dos rinde. Volvemos en la próxima rodada."),
+            Triple("Carolina M.", 4, "Buena vista al lago. A mediodía se llena: pide con hora desde la ruta."),
+            Triple("Julián R.", 5, "Atienden rápido a los grupos de motos."),
+        )
+        (1..3).forEach { v ->
+            demoReviews.forEachIndexed { k, (who, stars, text) ->
+                col("reviews").document("demo_dv${v}_$k").set(Review(kind = "demo", serviceId = "dv${v}_$k", targetType = "venue", targetId = "demo_v$v",
+                    authorId = "", authorName = who, stars = stars, comment = text, createdAt = now() - (k + 1) * 86_400_000L)).await()
+            }
+        }
         marker.set(mapOf("at" to now())).await()
     }
 
