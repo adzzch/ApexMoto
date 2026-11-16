@@ -233,7 +233,9 @@ fun MainScaffold(vm: AppViewModel, u: AppUser) {
     Scaffold(
         topBar = {
             Column {
-                ApexHeader(isTab, section, spaceFor(u.role), onBack = { nav.popBackStack() }, onProfile = { nav.navigate("profile") }, onSettings = { nav.navigate("settings") }, onSos = { emergency = true })
+                ApexHeader(isTab, section, spaceFor(u.role), onBack = { nav.popBackStack() }, onProfile = { nav.navigate("profile") }, onSettings = { nav.navigate("settings") },
+                    // El SOS solo se muestra en ruta: guiando o en una rodada en curso de la que es miembro.
+                    onSos = if (route == "navigate" || activeRide != null) ({ emergency = true }) else null)
                 IntercomBar(vm) { rid -> if (route != "rodada/{id}") nav.navigate("rodada/$rid") }
             }
         },
@@ -283,7 +285,7 @@ private fun spaceFor(role: String) = when (role) { Role.SHOP -> "Espacio Negocio
 
 /** Encabezado de marca: logo, nombre y "Espacio · sección". En pantallas internas muestra Volver y el título. */
 @Composable
-private fun ApexHeader(isTab: Boolean, section: String, space: String, onBack: () -> Unit, onProfile: () -> Unit, onSettings: () -> Unit, onSos: () -> Unit) {
+private fun ApexHeader(isTab: Boolean, section: String, space: String, onBack: () -> Unit, onProfile: () -> Unit, onSettings: () -> Unit, onSos: (() -> Unit)?) {
     Surface(color = Color.White) {
         Column(Modifier.statusBarsPadding()) {
             Row(Modifier.fillMaxWidth().height(64.dp).padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -295,7 +297,7 @@ private fun ApexHeader(isTab: Boolean, section: String, space: String, onBack: (
                             (fadeIn(tween(220)) + slideInVertically(tween(260)) { it / 2 }) togetherWith fadeOut(tween(120))
                         }) { sec -> Text(if (LocalConfiguration.current.screenWidthDp >= 400) "$space · $sec" else "${space.removePrefix("Espacio ")} · $sec", color = OrangeDark, fontFamily = JetBrainsMono, fontWeight = FontWeight.SemiBold, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
                     }
-                    SosHeaderButton(onSos)
+                    if (onSos != null) SosHeaderButton(onSos)
                     IconButton(onSettings) { Icon(Icons.Filled.Settings, "Configuración", tint = Muted) }
                     Box(Modifier.size(40.dp).clip(CircleShape).background(Surf4).clickable(onClickLabel = "Perfil", onClick = onProfile), contentAlignment = Alignment.Center) {
                         Icon(Icons.Filled.Person, "Perfil", tint = CyanDeep)
@@ -304,7 +306,7 @@ private fun ApexHeader(isTab: Boolean, section: String, space: String, onBack: (
                 } else {
                     IconButton(onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Volver", tint = Ink) }
                     Text(section, Modifier.weight(1f), style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    SosHeaderButton(onSos); Spacer(Modifier.width(4.dp))
+                    if (onSos != null) { SosHeaderButton(onSos); Spacer(Modifier.width(4.dp)) }
                 }
             }
             HorizontalDivider(color = Surf3)
