@@ -27,7 +27,7 @@ object C {
     val CATS = mapOf(
         "food" to Triple("Comida + Parqueo", "Aliado Apex", "Gastronomía & Descanso"),
         "cafe" to Triple("Café & Mirador", "Mirador Especial", "Café de origen & panorámica"),
-        "moto" to Triple("Gasolina & Talleres", "S.O.S Técnico", "Taller & asistencia"),
+        "moto" to Triple("Talleres", "Asistencia técnica", "Taller & asistencia"),
         "tour" to Triple("Sitios turísticos", "Sitio turístico", "Turismo & historia"),
     )
     val CUISINES = listOf("Parrilla", "Criolla", "Café", "Pizza", "Pescado", "Postres", "Saludable")
@@ -60,6 +60,6 @@ object C {
 
     val RIDE_STYLES = listOf("Turismo", "Aventura", "Deportivo", "Relajado")
 
-    /** Un S.O.S. que nadie aceptó caduca: deja de mostrarse a los talleres y se cancela (borrando la ubicación) al abrir la app. */
+    /** Una asistencia técnica que nadie aceptó caduca: deja de mostrarse a los talleres y se cancela (borrando la ubicación) al abrir la app. */
     const val SOS_TTL_MS = 6 * 60 * 60 * 1000L
 }

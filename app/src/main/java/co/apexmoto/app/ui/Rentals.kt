@@ -333,7 +333,7 @@ fun RentalSosAlert(list: List<Sos>, reqs: List<ServiceRequest>, nav: NavControll
     list.filter { it.status in listOf("new", "ok", "go", "site") }.forEach { s ->
         val r = reqs.firstOrNull { it.id == s.rentalReq }
         Card2(border = Red) {
-            IconLine(Icons.Filled.Warning, "S.O.S. de ${s.fromName}${r?.let { " con tu ${it.itemName}" }.orEmpty()}", Red)
+            IconLine(Icons.Filled.Warning, "Asistencia técnica para ${s.fromName}${r?.let { " con tu ${it.itemName}" }.orEmpty()}", Red)
             Text("${s.kindName} · ${s.locationText}", fontWeight = FontWeight.SemiBold)
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 StatusPill(SOS_ST[s.status] ?: s.status, s.status)

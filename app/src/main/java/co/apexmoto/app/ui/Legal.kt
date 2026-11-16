@@ -179,7 +179,7 @@ fun LocationDisclosure(onAccept: () -> Unit, onDismiss: () -> Unit) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("La usamos solo con la aplicación abierta, para:", color = Muted, style = MaterialTheme.typography.bodyMedium)
                 IconLine(Icons.Filled.Navigation, "Guiarte giro a giro. No guardamos tu recorrido.", Ink, bold = false)
-                IconLine(Icons.Filled.Sos, "Enviar tu punto al taller en un S.O.S. Se borra al terminar.", Ink, bold = false)
+                IconLine(Icons.Filled.Sos, "Enviar tu punto al taller cuando pides asistencia técnica. Se borra al terminar.", Ink, bold = false)
                 IconLine(Icons.Filled.Map, "Mostrarte en el mapa de comercios.", Ink, bold = false)
                 IconLine(Icons.Filled.Groups, "Mostrarte a tu grupo en una rodada en curso, solo si lo activas.", Ink, bold = false)
                 IconLine(Icons.Filled.Handyman, "Si eres taller, mostrarle al rider que vas en camino.", Ink, bold = false)

@@ -30,8 +30,15 @@ El JSON generado es una base de datos derivada y queda bajo ODbL; la app muestra
 
 ## Estado del catálogo (2026-11-15)
 
-El `colombia.json` actual trae los datos de OpenStreetMap de **22 de 33** departamentos. La lista curada (lugares famosos y rodadas) sí cubre todo el país.
+El `colombia.json` actual trae los **33 departamentos**, generado con `fetch_pbf.py` desde el extracto de Geofabrik del 2026-11-15 (Overpass no respondía).
 
-Faltan por descargar de OSM: Arauca, Bogotá D.C., Boyacá, Casanare, Chocó, Guaviare, Norte de Santander, Quindío, Risaralda, Santander y Vaupés.
+## Alternativa sin Overpass: extracto de Geofabrik
 
-Para completarlos, cuando los servidores de Overpass respondan: `python tools/places/fetch_osm.py <salida.json>` (retoma solo lo que falta si se conserva la carpeta `<salida.json>.partes`), luego `--meet` y `build_places.py`.
+Si los servidores de Overpass no responden, `fetch_pbf.py` lee el archivo de Colombia de Geofabrik (~330 MB) y escribe los mismos dos archivos, ya separados por departamento:
+
+```
+curl -L -o colombia.osm.pbf https://download.geofabrik.de/south-america/colombia-latest.osm.pbf
+pip install osmium shapely
+python tools/places/fetch_pbf.py colombia.osm.pbf osm_co.json osm_meet.json
+python tools/places/build_places.py osm_co.json osm_meet.json
+```

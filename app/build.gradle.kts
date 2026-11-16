@@ -14,6 +14,11 @@ val localProps = Properties().apply {
     if (f.exists()) f.inputStream().use { load(it) }
 }
 val orsKey: String = localProps.getProperty("ORS_API_KEY", "")
+// Intercomunicador de las rodadas (Agora): AGORA_APP_ID=... en local.properties. Sin él, el intercomunicador se oculta.
+val agoraAppId: String = localProps.getProperty("AGORA_APP_ID", "")
+// Proyecto de Agora con token: AGORA_APP_CERTIFICATE=... (la app crea el token; ver docs/seguridad.md). Vacío = modo de prueba.
+val agoraCert: String = localProps.getProperty("AGORA_APP_CERTIFICATE", "")
+val emulatorAbi: Boolean = localProps.getProperty("ABI_EMULADOR", "false").toBoolean()
 // App Check (antifraude). Se activa con APP_CHECK_ENABLED=true en local.properties, después de registrar la app
 // en la consola de Firebase. Ver docs/seguridad.md.
 val appCheck: Boolean = localProps.getProperty("APP_CHECK_ENABLED", "false").toBoolean()
@@ -32,9 +37,14 @@ android {
         applicationId = "co.apexmoto.app"
         minSdk = 26
         targetSdk = 34
+        // Agora trae ~15 MB de código nativo por procesador: solo celulares reales (ARM). Para el emulador de la PC,
+        // ABI_EMULADOR=true en local.properties agrega x86_64.
+        ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a") + (if (emulatorAbi) listOf("x86_64") else emptyList()) }
         versionCode = 2
         versionName = "1.1"
         buildConfigField("String", "ORS_API_KEY", "\"$orsKey\"")
+        buildConfigField("String", "AGORA_APP_ID", "\"$agoraAppId\"")
+        buildConfigField("String", "AGORA_APP_CERTIFICATE", "\"$agoraCert\"")
         buildConfigField("boolean", "APP_CHECK_ENABLED", "$appCheck")
     }
     // Dos ambientes, cada uno con su propio proyecto de Firebase y su google-services.json en app/src/<ambiente>/:
@@ -95,6 +105,8 @@ dependencies {
     implementation(libs.firebase.auth)
     implementation(libs.firebase.firestore)
     implementation(libs.firebase.ai)                                // Gemini con Firebase AI Logic (Ruta IA), sin clave en la app
+    implementation(libs.agora.voice)                                // Intercomunicador de voz en las rodadas
+    implementation(libs.agora.ains)                                 // Supresión de ruido (viento, motor)
     implementation(libs.firebase.installations)                     // identificador de instalación para el registro de aceptaciones
     releaseImplementation(libs.firebase.appcheck.playintegrity)     // App Check real (Play Integrity)
     debugImplementation(libs.firebase.appcheck.debug)               // App Check con token de depuración

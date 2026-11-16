@@ -272,7 +272,7 @@ fun RodadaScreen(vm: AppViewModel, nav: NavController, u: AppUser, id: String) {
             livePs.forEach { p ->
                 val ring = when { p.sos -> "#FFFFFF"; p.id == ro.leaderId -> "#D94600"; p.id == ro.sweeperId -> "#0E7490"; else -> null }
                 val role = when (p.id) { ro.leaderId -> " · líder"; ro.sweeperId -> " · cierra"; else -> "" }
-                add(MapMarker("live_${p.id}", LatLng(p.lat, p.lng), p.name + role + if (p.sos) " · S.O.S." else "", agoText(p.updatedAt),
+                add(MapMarker("live_${p.id}", LatLng(p.lat, p.lng), p.name + role + if (p.sos) " · EMERGENCIA" else "", agoText(p.updatedAt),
                     color = if (p.sos) "#D13B3B" else Avatars.hex(p.color), ring = ring, sizePx = if (p.sos) 72 else 54))
             }
         }
@@ -293,7 +293,7 @@ fun RodadaScreen(vm: AppViewModel, nav: NavController, u: AppUser, id: String) {
                 mapState.fit(livePs.map { LatLng(it.lat, it.lng) } + routePts)
             }
             if (livePs.any { it.sos }) Card2(tone = RedSoft) {
-                IconLine(Icons.Filled.Sos, "${livePs.filter { it.sos }.joinToString { it.name }} pidió auxilio. Revisa el mapa.", Red)
+                IconLine(Icons.Filled.Sos, "${livePs.filter { it.sos }.joinToString { it.name }} tiene una emergencia. Revisa el mapa y llámale.", Red)
             }
         }
 
@@ -336,6 +336,9 @@ fun RodadaScreen(vm: AppViewModel, nav: NavController, u: AppUser, id: String) {
                 Text("No voy, gracias", color = Muted)
             }
         }
+
+        if (member && ro.status != "done")
+            IntercomCard(vm, ro, u, ro.joined.associate { co.apexmoto.app.voice.Intercom.uidOf(it) to nameOf(it) })
 
         H("Miembros (${ro.joined.size})", Icons.Filled.Groups)
         ro.joined.sortedWith(compareBy<String>({ it != ro.leaderId }, { it != ro.sweeperId }, { nameOf(it).lowercase() })).forEach { mid ->

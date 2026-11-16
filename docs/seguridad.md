@@ -105,6 +105,7 @@ Publicar las reglas: son las mismas para los dos ambientes y se publican en los 
 |---|---|---|
 | Clave de OpenRouteService | `local.properties` → `BuildConfig.ORS_API_KEY` | Fuera del repositorio. Se revisó el historial de git: nunca se subió |
 | `google-services.json` | `app/src/pruebas/` y `app/src/prod/`, ignorados por git | Fuera del repositorio. No es un secreto en sentido estricto: la seguridad la dan las reglas y App Check |
+| App ID y App Certificate de Agora (intercom) | `local.properties` → `BuildConfig.AGORA_APP_ID` / `AGORA_APP_CERTIFICATE` | Fuera del repositorio, pero **dentro del APK**: la app crea el token de la llamada con el certificado. Quien desarme el APK podría crear tokens y, si conoce el id de una rodada (`apex_<id>`, aleatorio), entrar a esa llamada |
 | Claves de firma | No existen todavía | Guardarlas fuera del repositorio |
 | Datos del responsable (`legal.properties`) | Raíz del proyecto, ignorado por git | No son secretos (salen en los textos legales de la app), pero son datos personales: no se suben al repositorio |
 
@@ -143,6 +144,13 @@ Está apagado por defecto porque sin el registro en la consola solo genera error
 - Firma, R8 y ofuscación para la versión de publicación.
 - Alertas de consumo en la consola de Firebase.
 
+
+## Intercom de voz (Agora)
+
+- **Qué es:** llamada de voz por rodada, un canal por rodada (`apex_<id>`). Solo la tarjeta de miembros la ofrece, y se sale sola si la rodada termina, si la persona deja de ser miembro, al cerrar sesión o al cerrar la app desde recientes.
+- **Datos:** la voz pasa por los servidores de Agora (empresa con servidores fuera de Colombia) y no se graba. A Agora solo le llega un número derivado del uid (no el nombre ni el correo).
+- **Hueco conocido (token creado en la app):** el App Certificate va dentro del APK para que el teléfono cree el token (`voice/AgoraToken.kt`, válido 24 h). Quien lo extraiga podría crear tokens y, con el id de la rodada, entrar a la llamada. Si se filtra, se cambia en la consola de Agora (Security → certificado secundario → reemplazar). El id es aleatorio y no se publica, así que sirve para el grupo de pruebas. **Antes de abrir al público:** quitar el certificado de la app y emitir los tokens desde un servidor (Cloud Functions exige el plan Blaze, con tarjeta; alternativa gratis: Cloudflare Workers) que compruebe que quien pide el token es miembro de la rodada.
+- **Legal:** falta mencionar el intercom y a Agora como encargado en la política de privacidad (próxima versión de los textos) y en `docs/legal/revision-abogado.md`.
 
 ## Ruta IA (Gemini) — protecciones
 

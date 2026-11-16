@@ -700,7 +700,7 @@ class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth, private val consen
         val ref = col("sos").document(id)
         db.runTransaction { tx ->
             val s = tx.get(ref)
-            if (s.getString("status") != "new") throw IllegalStateException("Otro taller ya aceptó este S.O.S.")
+            if (s.getString("status") != "new") throw IllegalStateException("Otro taller ya aceptó esta asistencia.")
             tx.update(ref, mapOf("status" to "ok", "providerId" to providerId, "providerName" to providerName, "eta" to eta, "acceptedAt" to now(), "providerVenueId" to venueId))
         }.await()
     }

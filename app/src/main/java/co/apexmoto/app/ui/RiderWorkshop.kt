@@ -76,7 +76,7 @@ fun rememberLocationRequest(vm: AppViewModel, onResult: (Double, Double) -> Unit
 fun WorkshopScreen(vm: AppViewModel, nav: androidx.navigation.NavController, u: AppUser) {
     val all by vm.sos.collectAsState()
     val reqs by vm.reqFrom.collectAsState()
-    // Si va en una moto rentada, el S.O.S. lleva la renta y el dueño también lo ve (las reglas lo comprueban).
+    // Si va en una moto rentada, la asistencia lleva la renta y el dueño también lo ve (las reglas lo comprueban).
     val rental = reqs.firstOrNull { it.type == "rent" && it.status == "ride" }
     val mine = all.filter { it.fromId == u.id }.sortedByDescending { it.createdAt }
     val current = mine.firstOrNull { it.status in listOf("new", "ok", "go", "site") }
@@ -87,21 +87,23 @@ fun WorkshopScreen(vm: AppViewModel, nav: androidx.navigation.NavController, u: 
     var lat by remember { mutableStateOf(0.0) }
     var lng by remember { mutableStateOf(0.0) }
     val getLoc = rememberLocationRequest(vm) { a, b -> lat = a; lng = b; if (place.isBlank()) place = "Mi ubicación actual" }
-    // Un S.O.S. viejo que nadie aceptó se cancela solo, para que la ubicación no quede expuesta indefinidamente.
+    // Una asistencia vieja que nadie aceptó se cancela solo, para que la ubicación no quede expuesta indefinidamente.
     LaunchedEffect(current?.id, current?.status) {
         val c = current
         if (c != null && c.status == "new" && c.createdAt > 0 && System.currentTimeMillis() - c.createdAt > C.SOS_TTL_MS)
-            vm.act("Tu S.O.S. anterior caducó sin taller asignado. Puedes enviar uno nuevo.") { vm.repo.cancelSos(c.id) }
+            vm.act("Tu pedido de asistencia anterior caducó sin taller asignado. Puedes pedir otra.") { vm.repo.cancelSos(c.id) }
     }
 
+    var emergency by rememberSaveable { mutableStateOf(false) }
+    if (emergency) EmergencySheet(vm) { emergency = false }
     Screen {
         RateLastSos(vm, u, mine)
         if (current != null) {
-            Card2(border = RedSoft) {
+            Card2(border = OrangeSoft) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(44.dp).clip(CircleShape).background(RedSoft), contentAlignment = Alignment.Center) { Icon(Icons.Filled.Build, null, tint = Red) }
+                    Box(Modifier.size(44.dp).clip(CircleShape).background(OrangeSoft), contentAlignment = Alignment.Center) { Icon(Icons.Filled.Build, null, tint = OrangeDark) }
                     Spacer(Modifier.width(12.dp))
-                    Column(Modifier.weight(1f)) { H("S.O.S · ${current.kindName}"); Lbl(current.locationText) }
+                    Column(Modifier.weight(1f)) { H("Asistencia · ${current.kindName}"); Lbl(current.locationText) }
                 }
                 Steps(4, when (current.status) { "new" -> 1; "ok" -> 2; "go" -> 3; else -> 4 })
                 Row { StatusPill(SOS_ST[current.status] ?: current.status, current.status) }
@@ -111,18 +113,18 @@ fun WorkshopScreen(vm: AppViewModel, nav: androidx.navigation.NavController, u: 
                 if (current.status in listOf("ok", "go")) TallerOnTheWay(vm, current)
                 if (current.providerId.isNotBlank()) Btn("Chat con el taller", Modifier.fillMaxWidth(), Icons.Filled.Chat, kind = BK.Ghost) { nav.chat("sos_${current.id}", current.providerName, current.providerId) }
                 Row(verticalAlignment = Alignment.CenterVertically) { Lbl("Tarifa estimada", modifier = Modifier.weight(1f)); Num(cop(current.price), OrangeDark, 18) }
-                if (current.status != "site") Btn("Cancelar S.O.S.", Modifier.fillMaxWidth(), Icons.Filled.Close, kind = BK.Danger) { vm.act("S.O.S. cancelado") { vm.repo.cancelSos(current.id) } }
+                if (current.status != "site") Btn("Cancelar asistencia", Modifier.fillMaxWidth(), Icons.Filled.Close, kind = BK.Danger) { vm.act("Asistencia cancelada") { vm.repo.cancelSos(current.id) } }
             }
         } else {
             Card2 {
                 Column(Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Box(Modifier.size(64.dp).glow(Red, CircleShape, elevation = 10.dp).clip(CircleShape).background(Red), contentAlignment = Alignment.Center) {
+                    Box(Modifier.size(64.dp).glow(Orange, CircleShape, elevation = 10.dp).clip(CircleShape).background(Orange), contentAlignment = Alignment.Center) {
                         Icon(Icons.Filled.Build, null, Modifier.size(30.dp), tint = Color.White)
                     }
                     Text("¿Varado en la ruta?", fontFamily = Chivo, fontWeight = FontWeight.ExtraBold, fontSize = 22.sp)
                     Text("Un taller móvil llega hasta donde estés.", color = Muted, style = MaterialTheme.typography.bodyMedium, textAlign = TextAlign.Center)
                 }
-                AnimatedVisibility(!asking) { Btn("Pedir taller móvil", Modifier.fillMaxWidth(), Icons.Filled.Warning, kind = BK.Sos) { asking = true } }
+                AnimatedVisibility(!asking) { Btn("Pedir taller móvil", Modifier.fillMaxWidth(), Icons.Filled.Build) { asking = true } }
                 AnimatedVisibility(asking, enter = expandVertically(tween(320, easing = EaseOutExpo)) + fadeIn(), exit = shrinkVertically() + fadeOut()) {
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Lbl("¿Qué pasó?")
@@ -138,16 +140,16 @@ fun WorkshopScreen(vm: AppViewModel, nav: androidx.navigation.NavController, u: 
                         }
                         Field("¿Dónde estás?", place, { place = it }, hint = "Km 12 vía al mar, junto a la gasolinera")
                         Btn(if (lat != 0.0) "Ubicación fijada" else "Usar mi ubicación", Modifier.fillMaxWidth(), if (lat != 0.0) Icons.Filled.CheckCircle else Icons.Filled.MyLocation, kind = BK.Ghost) { getLoc() }
-                        if (lat != 0.0) Lbl("Los talleres aliados verán este punto hasta que termine el S.O.S.; después se borra.")
-                        if (rental != null) Lbl("Vas en una moto rentada (${rental.itemName}): el dueño también verá este S.O.S.", CyanDeep)
-                        Lbl("Si hay heridos o peligro, llama primero al 123.", Red)
+                        if (lat != 0.0) Lbl("Los talleres aliados verán este punto hasta que termine la asistencia; después se borra.")
+                        if (rental != null) Lbl("Vas en una moto rentada (${rental.itemName}): el dueño también verá esta asistencia.", CyanDeep)
+                        TextButton({ emergency = true }, contentPadding = PaddingValues(0.dp)) { Icon(Icons.Filled.Sos, null, Modifier.size(18.dp), tint = Red); Spacer(Modifier.width(6.dp)); Text("¿Hay heridos o peligro? Usa el SOS de emergencia", color = Red, fontWeight = FontWeight.SemiBold) }
                         Field("Detalle (opcional)", note, { note = it }, lines = 2, hint = "Ej: llanta trasera, tengo repuesto")
                         Missing(if (place.isBlank()) listOf("decir dónde estás (o usar tu ubicación y escribir una referencia)") else emptyList())
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Btn("Cancelar", Modifier.weight(0.7f), kind = BK.Ghost) { asking = false }
-                            Btn("Enviar S.O.S.", Modifier.weight(1f), Icons.Filled.Warning, kind = BK.Sos, enabled = place.isNotBlank()) {
+                            Btn("Pedir asistencia", Modifier.weight(1f), Icons.Filled.Build, enabled = place.isNotBlank()) {
                                 val k = C.SOS_KINDS.first { it.key == kind }
-                                vm.act("S.O.S. enviado") { vm.repo.createSos(Sos(fromId = u.id, fromName = u.name, kind = k.key, kindName = k.name, locationText = place, lat = lat, lng = lng, note = note, price = k.price,
+                                vm.act("Pedido de asistencia enviado") { vm.repo.createSos(Sos(fromId = u.id, fromName = u.name, kind = k.key, kindName = k.name, locationText = place, lat = lat, lng = lng, note = note, price = k.price,
                                     rentalReq = rental?.id.orEmpty(), rentalOwnerId = rental?.toId.orEmpty())) }
                                 place = ""; note = ""; lat = 0.0; lng = 0.0; asking = false
                             }

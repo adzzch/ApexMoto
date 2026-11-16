@@ -99,11 +99,11 @@ fun NavController.chat(thread: String, title: String, to: String? = null) =
 fun tabsFor(role: String): List<NavTab> = when (role) {
     Role.SHOP -> listOf(NavTab("cpan", Icons.Filled.Dashboard, "Resumen"), NavTab("cped", Icons.Filled.ReceiptLong, "Pedidos"),
         NavTab("cmenu", Icons.Filled.RestaurantMenu, "Menú"), NavTab("cneg", Icons.Filled.Storefront, "Negocio"), NavTab("ccan", Icons.Filled.QrCodeScanner, "Canjes"))
-    Role.WORKSHOP -> listOf(NavTab("tpan", Icons.Filled.Dashboard, "Resumen"), NavTab("tsos", Icons.Filled.Sos, "Atenciones"),
-        NavTab("tsrv", Icons.Filled.Handyman, "Servicios"), NavTab("tneg", Icons.Filled.Store, "Mi taller"), NavTab("ccan", Icons.Filled.QrCodeScanner, "Canjes"))
+    Role.WORKSHOP -> listOf(NavTab("tpan", Icons.Filled.Dashboard, "Resumen"), NavTab("tsos", Icons.Filled.Handyman, "Asistencias"),
+        NavTab("tsrv", Icons.Filled.Build, "Servicios"), NavTab("tneg", Icons.Filled.Store, "Mi taller"), NavTab("ccan", Icons.Filled.QrCodeScanner, "Canjes"))
     Role.OWNER -> listOf(NavTab("ofl", Icons.Filled.Garage, "Mi flota"), NavTab("oreq", Icons.Filled.Inbox, "Solicitudes"), NavTab("oing", Icons.Filled.Payments, "Ingresos"))
     else -> listOf(NavTab("rut", Icons.Filled.Route, "Rutas"), NavTab("com", Icons.Filled.Storefront, "Comercios"),
-        NavTab("grp", Icons.Filled.Groups, "Comunidad"), NavTab("rent", Icons.Filled.TwoWheeler, "Rentar"), NavTab("tal", Icons.Filled.Build, "Taller"))
+        NavTab("grp", Icons.Filled.Groups, "Comunidad"), NavTab("rent", Icons.Filled.TwoWheeler, "Rentar"), NavTab("tal", Icons.Filled.Build, "Asistencia"))
 }
 
 @Composable
@@ -168,8 +168,8 @@ fun MainScaffold(vm: AppViewModel, u: AppUser) {
         val r = rodadas.firstOrNull { it.id == sharing } ?: return@LaunchedEffect
         if (r.status != "active" || u.id !in r.joined) vm.stopSharing(u.id)
     }
-    // Taller en camino a un S.O.S.: su posición se envía como mucho cada 12 s, solo con la app abierta, y se corta sola
-    // cuando el S.O.S. deja de estar aceptado o en camino.
+    // Taller en camino a una asistencia técnica: su posición se envía como mucho cada 12 s, solo con la app abierta, y se
+    // corta sola cuando la asistencia deja de estar aceptada o en camino.
     val sharingSos = vm.sharingSos
     val sosList by vm.sos.collectAsState()
     LaunchedEffect(sosList, sharingSos) {
@@ -195,18 +195,27 @@ fun MainScaffold(vm: AppViewModel, u: AppUser) {
         owner.repeatOnLifecycle(Lifecycle.State.STARTED) {
             var last: android.location.Location? = null
             var lastAt = 0L
+            var lastSos = false
             try {
                 vm.container.location.updates().collect { loc ->
                     val now = System.currentTimeMillis()
                     val moved = last?.distanceTo(loc) ?: Float.MAX_VALUE
-                    if (now - lastAt >= 12_000 && (moved >= 20f || now - lastAt >= 60_000)) {
-                        val sos = vm.sos.value.any { it.fromId == u.id && it.status in listOf("new", "ok", "go", "site") }
+                    // "sos" en el mapa del grupo = emergencia que la persona avisó desde el botón SOS (no la asistencia técnica).
+                    val sos = vm.emergencyOn
+                    if (now - lastAt >= 12_000 && (moved >= 20f || now - lastAt >= 60_000 || sos != lastSos)) {
                         runCatching { vm.repo.shareLive(rid, u.id, loc.latitude, loc.longitude, loc.bearing.toDouble(), vm.myProfile.value, u.name, sos) }
-                            .onSuccess { last = loc; lastAt = now }
+                            .onSuccess { last = loc; lastAt = now; lastSos = sos }
                     }
                 }
             } catch (e: SecurityException) { vm.stopSharing(u.id) }
         }
+    }
+    // Intercom: si la rodada de la llamada terminó o la persona ya no es miembro, se sale de la llamada.
+    val icState by vm.container.intercom.state.collectAsState()
+    LaunchedEffect(rodadas, icState.rodadaId) {
+        val rid = icState.rodadaId ?: return@LaunchedEffect
+        val r = rodadas.firstOrNull { it.id == rid }
+        if (r != null && (r.status == "done" || u.id !in r.joined)) vm.container.intercom.leave("La rodada terminó: saliste de la llamada.")
     }
     // Invitación que llegó por enlace: solo los riders entran a rodadas.
     vm.pendingInvite?.let { code ->
@@ -218,8 +227,18 @@ fun MainScaffold(vm: AppViewModel, u: AppUser) {
     val route = nav.currentBackStackEntryAsState().value?.destination?.route
     val isTab = route == null || tabs.any { it.route == route }
     val section = if (isTab) tabs.firstOrNull { it.route == route }?.label ?: tabs.first().label else titleFor(route)
+    // S.O.S. de emergencia: siempre a un toque desde el encabezado, en cualquier pantalla.
+    var emergency by rememberSaveable { mutableStateOf(false) }
+    if (emergency) EmergencySheet(vm) { emergency = false }
     Scaffold(
-        topBar = { ApexHeader(isTab, section, spaceFor(u.role), onBack = { nav.popBackStack() }, onProfile = { nav.navigate("profile") }, onSettings = { nav.navigate("settings") }) },
+        topBar = {
+            Column {
+                ApexHeader(isTab, section, spaceFor(u.role), onBack = { nav.popBackStack() }, onProfile = { nav.navigate("profile") }, onSettings = { nav.navigate("settings") },
+                    // El SOS solo se muestra en ruta: guiando o en una rodada en curso de la que es miembro.
+                    onSos = if (route == "navigate" || activeRide != null) ({ emergency = true }) else null)
+                IntercomBar(vm) { rid -> if (route != "rodada/{id}") nav.navigate("rodada/$rid") }
+            }
+        },
         bottomBar = { if (isTab) ApexNavBar(tabs, route ?: start) { t -> nav.navigate(t) { popUpTo(start) { saveState = true }; launchSingleTop = true; restoreState = true } } },
         containerColor = Bg,
     ) { pad ->
@@ -231,7 +250,7 @@ fun MainScaffold(vm: AppViewModel, u: AppUser) {
             composable("rent") { RentScreen(vm, nav) }
             composable("tal") { WorkshopScreen(vm, nav, u) }
             // Comercio
-            composable("cpan") { ShopDashboard(vm, u) }
+            composable("cpan") { ShopDashboard(vm, u) { t -> nav.navigate(t) { popUpTo(start) { saveState = true }; launchSingleTop = true; restoreState = true } } }
             composable("cped") { ShopOrdersScreen(vm, nav, u) }
             composable("cmenu") { ShopMenuScreen(vm, u) }
             composable("cneg") { ShopBusinessScreen(vm, u) }
@@ -266,7 +285,7 @@ private fun spaceFor(role: String) = when (role) { Role.SHOP -> "Espacio Negocio
 
 /** Encabezado de marca: logo, nombre y "Espacio · sección". En pantallas internas muestra Volver y el título. */
 @Composable
-private fun ApexHeader(isTab: Boolean, section: String, space: String, onBack: () -> Unit, onProfile: () -> Unit, onSettings: () -> Unit) {
+private fun ApexHeader(isTab: Boolean, section: String, space: String, onBack: () -> Unit, onProfile: () -> Unit, onSettings: () -> Unit, onSos: (() -> Unit)?) {
     Surface(color = Color.White) {
         Column(Modifier.statusBarsPadding()) {
             Row(Modifier.fillMaxWidth().height(64.dp).padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -278,6 +297,7 @@ private fun ApexHeader(isTab: Boolean, section: String, space: String, onBack: (
                             (fadeIn(tween(220)) + slideInVertically(tween(260)) { it / 2 }) togetherWith fadeOut(tween(120))
                         }) { sec -> Text(if (LocalConfiguration.current.screenWidthDp >= 400) "$space · $sec" else "${space.removePrefix("Espacio ")} · $sec", color = OrangeDark, fontFamily = JetBrainsMono, fontWeight = FontWeight.SemiBold, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
                     }
+                    if (onSos != null) SosHeaderButton(onSos)
                     IconButton(onSettings) { Icon(Icons.Filled.Settings, "Configuración", tint = Muted) }
                     Box(Modifier.size(40.dp).clip(CircleShape).background(Surf4).clickable(onClickLabel = "Perfil", onClick = onProfile), contentAlignment = Alignment.Center) {
                         Icon(Icons.Filled.Person, "Perfil", tint = CyanDeep)
@@ -285,7 +305,8 @@ private fun ApexHeader(isTab: Boolean, section: String, space: String, onBack: (
                     Spacer(Modifier.width(4.dp))
                 } else {
                     IconButton(onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Volver", tint = Ink) }
-                    Text(section, style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(section, Modifier.weight(1f), style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    if (onSos != null) { SosHeaderButton(onSos); Spacer(Modifier.width(4.dp)) }
                 }
             }
             HorizontalDivider(color = Surf3)
@@ -300,7 +321,7 @@ private fun ApexNavBar(tabs: List<NavTab>, current: String, onGo: (String) -> Un
     val labelSize = when { perTab >= 84 -> 11.sp; perTab >= 66 -> 10.sp; else -> 9.5.sp }
     fun fits(t: String) = perTab * 1.0 >= 14 + t.length * 6.4
     // Pantallas angostas: nombres cortos equivalentes; si aun así no caben, solo la pestaña activa muestra su nombre.
-    val short = mapOf("Comunidad" to "Rodadas", "Comercios" to "Aliados", "Atenciones" to "S.O.S.", "Solicitudes" to "Pedidos", "Mi taller" to "Taller", "Mi flota" to "Flota")
+    val short = mapOf("Comunidad" to "Rodadas", "Comercios" to "Aliados", "Asistencias" to "Asist.", "Asistencia" to "Taller", "Solicitudes" to "Pedidos", "Mi taller" to "Taller", "Mi flota" to "Flota")
     fun nameOf(t: NavTab) = if (fits(t.label)) t.label else short[t.label] ?: t.label
     val allLabels = tabs.all { fits(nameOf(it)) }
     Column {
@@ -730,7 +751,7 @@ private fun RoleGrid(role: String, show: List<String>, onPick: (String) -> Unit)
         listOf(Role.RIDER, "Rider", "Rutas, comercios, comunidad y renta."),
         listOf(Role.SHOP, "Comercio aliado", "Publica tu menú y recibe pedidos."),
         listOf(Role.OWNER, "Dueño de moto", "Renta tus motos a otros riders."),
-        listOf(Role.WORKSHOP, "Taller mecánico", "Atiende S.O.S. y publica tus servicios."),
+        listOf(Role.WORKSHOP, "Taller mecánico", "Atiende pedidos de asistencia técnica y publica tus servicios."),
     )
     val icons = mapOf(Role.RIDER to Icons.Filled.TwoWheeler, Role.SHOP to Icons.Filled.Storefront, Role.OWNER to Icons.Filled.Garage, Role.WORKSHOP to Icons.Filled.Handyman)
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {

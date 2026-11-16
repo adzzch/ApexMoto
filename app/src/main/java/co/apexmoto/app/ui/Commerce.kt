@@ -50,7 +50,7 @@ fun readyLabel(o: Order): String {
 private fun myVenue(vm: AppViewModel, u: AppUser): Venue? { val vs by vm.venues.collectAsState(); return vs.firstOrNull { it.ownerId == u.id } }
 
 @Composable
-fun ShopDashboard(vm: AppViewModel, u: AppUser) {
+fun ShopDashboard(vm: AppViewModel, u: AppUser, goTab: (String) -> Unit = {}) {
     val v = myVenue(vm, u)
     val orders by vm.shopOrders.collectAsState()
     val coupons by vm.shopCoupons.collectAsState()
@@ -66,6 +66,21 @@ fun ShopDashboard(vm: AppViewModel, u: AppUser) {
                 Column(Modifier.weight(1f)) { Text(if (v.open) "Abierto" else "Cerrado", fontWeight = FontWeight.Bold); Lbl("Los riders ven tu estado en tiempo real") }
                 ApexSwitch(v.open) { on -> vm.act { vm.repo.saveVenue(v.copy(open = on)) } }
             }
+        }
+        // Qué le falta al negocio para que los riders puedan pedirle desde la app.
+        val noMenu = v.menu.none { it.on && it.cat != "Servicios" }
+        val noPlace = v.lat == 0.0
+        if (noMenu || noPlace || !v.open) Card2(tone = OrangeSoft) {
+            IconLine(Icons.Filled.Info, "Para recibir pedidos por la app te falta:")
+            if (noMenu) Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("• Subir tu menú (al menos un producto con precio, encendido)", Modifier.weight(1f), fontSize = 14.sp)
+                Btn("Menú", kind = BK.Ghost) { goTab("cmenu") }
+            }
+            if (noPlace) Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("• Marcar tu ubicación en el mapa, para que te encuentren con la guía", Modifier.weight(1f), fontSize = 14.sp)
+                Btn("Negocio", kind = BK.Ghost) { goTab("cneg") }
+            }
+            if (!v.open) Text("• Ponerte en \"Abierto\" con el interruptor de arriba", fontSize = 14.sp)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             StatCard("${orders.count { it.status == "new" }}", "Pedidos nuevos", Modifier.weight(1f), CyanDeep, 1)

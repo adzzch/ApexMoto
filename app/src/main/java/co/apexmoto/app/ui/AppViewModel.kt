@@ -133,7 +133,10 @@ class AppViewModel(val container: AppContainer) : ViewModel() {
         else toast("Activa la ubicación para compartirla con el grupo.")
     }
 
-    /** S.O.S. en el que el taller le muestra al rider dónde va (solo con la app abierta, ver MainScaffold). */
+    /** La persona avisó a su rodada de una emergencia (S.O.S.): su punto sale rojo en el mapa del grupo. */
+    var emergencyOn by mutableStateOf(false)
+
+    /** Asistencia técnica en la que el taller le muestra al rider dónde va (solo con la app abierta, ver MainScaffold). */
     var sharingSos by mutableStateOf<String?>(null); private set
 
     fun startSosSharing(id: String) {
@@ -146,6 +149,7 @@ class AppViewModel(val container: AppContainer) : ViewModel() {
     fun stopSharing(uid: String) {
         val rid = sharingRodada ?: return
         sharingRodada = null
+        emergencyOn = false
         viewModelScope.launch { repo.stopLive(rid, uid) }
     }
 
@@ -180,7 +184,7 @@ class AppViewModel(val container: AppContainer) : ViewModel() {
     fun verifyCode(verificationId: String, code: String) = signInCredential(PhoneAuthProvider.getCredential(verificationId, code.trim()))
     fun completeProfile(name: String, role: String, biz: String, corridor: String) =
         act { user.value = repo.completeProfile(name, role, biz, corridor, AcceptMethod.FIRST_LOGIN); pending = null }
-    fun logout() { repo.logout(); user.value = null; pending = null }
+    fun logout() { container.intercom.leave(); repo.logout(); user.value = null; pending = null }
 
     // Legal y privacidad
     fun acceptDocs(docs: List<LegalDoc>, method: String) = act {
@@ -199,7 +203,7 @@ class AppViewModel(val container: AppContainer) : ViewModel() {
     fun updateName(name: String) = act("Nombre actualizado") { val u = user.value ?: return@act; user.value = repo.updateName(u, name) }
     fun deleteAccount() = act {
         val u = user.value ?: return@act
-        repo.deleteAccount(u); user.value = null; pending = null
+        container.intercom.leave(); repo.deleteAccount(u); user.value = null; pending = null
         toast("Tu cuenta fue eliminada.")
     }
 

@@ -90,18 +90,18 @@ fun WorkshopDashboard(vm: AppViewModel, nav: NavController, u: AppUser) {
                 ApexSwitch(v.open) { on -> vm.act { vm.repo.saveVenue(v.copy(open = on)) } }
             }
             Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Surf0).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Filled.Sos, null, tint = if (v.sosOn) Red else Outline); Spacer(Modifier.width(10.dp))
-                Column(Modifier.weight(1f)) { Text(if (v.sosOn) "Recibiendo S.O.S." else "S.O.S. en pausa", fontWeight = FontWeight.Bold); Lbl("Hasta ${v.radiusKm} km de tu taller") }
+                Icon(Icons.Filled.Handyman, null, tint = if (v.sosOn) OrangeDark else Outline); Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) { Text(if (v.sosOn) "Recibiendo asistencias" else "Asistencias en pausa", fontWeight = FontWeight.Bold); Lbl("Hasta ${v.radiusKm} km de tu taller") }
                 ApexSwitch(v.sosOn) { on -> vm.act { vm.repo.saveVenue(v.copy(sosOn = on)) } }
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            StatCard(if (v.sosOn) "${news.size}" else "—", "S.O.S. disponibles", Modifier.weight(1f), Red, 1)
+            StatCard(if (v.sosOn) "${news.size}" else "—", "Asistencias disponibles", Modifier.weight(1f), Red, 1)
             StatCard("${active.size}", "En curso", Modifier.weight(1f), CyanDeep, 2)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             StatCard("${done.size}", "Atendidos", Modifier.weight(1f), Green, 3)
-            StatCard(cop(done.sumOf { it.price }), "Ingresos S.O.S.", Modifier.weight(1f), OrangeDark, 4)
+            StatCard(cop(done.sumOf { it.price }), "Ingresos asistencias", Modifier.weight(1f), OrangeDark, 4)
         }
         H("Reseñas", Icons.Filled.Star)
         Card2 { RatingLine(v.rating, v.reviews); ReviewsList(vm, "venue", v.id) }
@@ -115,7 +115,7 @@ fun WorkshopDashboard(vm: AppViewModel, nav: NavController, u: AppUser) {
                 Steps(4, stepOf(s.status))
             }
         }
-        if (v.sosOn && news.isNotEmpty() && active.isEmpty()) Btn("Ver ${news.size} S.O.S. disponible${if (news.size == 1) "" else "s"}", Modifier.fillMaxWidth(), Icons.Filled.Sos, kind = BK.Sos) { nav.navigate("tsos") }
+        if (v.sosOn && news.isNotEmpty() && active.isEmpty()) Btn("Ver ${news.size} asistencia${if (news.size == 1) "" else "s"} disponible${if (news.size == 1) "" else "s"}", Modifier.fillMaxWidth(), Icons.Filled.Handyman) { nav.navigate("tsos") }
     }
 }
 
@@ -158,10 +158,10 @@ fun WorkshopSosScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
                 when (t) {
                     "new" -> {
                         if (!v.sosOn) Card2(tone = Surf1, border = RedSoft) {
-                            IconLine(Icons.Filled.PauseCircle, "Tienes los S.O.S. en pausa", Red)
+                            IconLine(Icons.Filled.PauseCircle, "Tienes las asistencias en pausa", Red)
                             Sub("Actívalos para ver las emergencias de los riders cerca de tu taller.")
-                            Btn("Recibir S.O.S.", Modifier.fillMaxWidth(), Icons.Filled.Sos, kind = BK.Sos) { vm.act("Ya estás recibiendo S.O.S.") { vm.repo.saveVenue(v.copy(sosOn = true)) } }
-                        } else if (news.isEmpty()) Empty("No hay S.O.S. disponibles ahora. Te aparecerán aquí en tiempo real.", Icons.Filled.Sos)
+                            Btn("Recibir asistencias", Modifier.fillMaxWidth(), Icons.Filled.Handyman) { vm.act("Ya estás recibiendo pedidos de asistencia") { vm.repo.saveVenue(v.copy(sosOn = true)) } }
+                        } else if (news.isEmpty()) Empty("No hay pedidos de asistencia ahora. Te aparecerán aquí en tiempo real.", Icons.Filled.Handyman)
                         news.forEachIndexed { i, s ->
                             var eta by remember(s.id) { mutableIntStateOf(30) }
                             Card2(index = i, border = RedSoft) {
@@ -171,9 +171,9 @@ fun WorkshopSosScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
                                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     listOf(15, 30, 45, 60, 90).forEach { m -> Chip(if (m < 60) "$m min" else "${m / 60} h${if (m % 60 > 0) " ${m % 60}" else ""}", eta == m, accent = Cyan) { eta = m } }
                                 }
-                                if (active.isNotEmpty()) Lbl("Termina o libera el S.O.S. que estás atendiendo para aceptar otro.", Muted)
+                                if (active.isNotEmpty()) Lbl("Termina o libera la asistencia que estás atendiendo para aceptar otra.", Muted)
                                 Btn("Aceptar · llego en $eta min", Modifier.fillMaxWidth(), Icons.Filled.Check, enabled = active.isEmpty()) {
-                                    vm.act("S.O.S. aceptado. El rider ya sabe que vas en camino") { vm.repo.acceptSos(s.id, u.id, v.name, eta, v.id) }
+                                    vm.act("Asistencia aceptada. El rider ya sabe que vas en camino") { vm.repo.acceptSos(s.id, u.id, v.name, eta, v.id) }
                                     tab = "act"
                                 }
                                 if (active.isNotEmpty()) Lbl("Termina la atención en curso para aceptar otra.", Muted)
@@ -201,12 +201,12 @@ fun WorkshopSosScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                                     Btn("Chat", Modifier.weight(1f), Icons.Filled.Chat, kind = BK.Ghost) { nav.chat("sos_${s.id}", s.fromName, s.fromId) }
                                     IconBtn(Icons.Filled.Navigation, "Guiar hasta el rider", enabled = s.lat != 0.0) {
-                                        vm.navSession = NavSession("S.O.S. · ${s.fromName}", listOf(NavStop(s.locationText.ifBlank { s.fromName }, s.lat, s.lng))); nav.navigate("navigate")
+                                        vm.navSession = NavSession("Asistencia · ${s.fromName}", listOf(NavStop(s.locationText.ifBlank { s.fromName }, s.lat, s.lng))); nav.navigate("navigate")
                                     }
                                 }
                                 if (s.lat != 0.0) GoogleMapsButton(Modifier.fillMaxWidth()) { openInGoogleMaps(ctx, s.lat, s.lng) }
-                                if (s.status == "ok") TextButton({ vm.stopSosSharing(); vm.act("Liberaste el S.O.S.; otro taller puede tomarlo") { vm.repo.releaseSos(s.id) } }, Modifier.align(Alignment.CenterHorizontally)) {
-                                    Text("No puedo ir, liberar S.O.S.", color = Red)
+                                if (s.status == "ok") TextButton({ vm.stopSosSharing(); vm.act("Liberaste la asistencia; otro taller puede tomarla") { vm.repo.releaseSos(s.id) } }, Modifier.align(Alignment.CenterHorizontally)) {
+                                    Text("No puedo ir, liberar asistencia", color = Red)
                                 }
                             }
                         }
@@ -254,7 +254,7 @@ fun WorkshopServicesScreen(vm: AppViewModel, u: AppUser) {
     Screen {
         if (v == null) { Empty("Cargando tu taller…"); return@Screen }
         Card2(index = 0) {
-            H("Qué atiendes en S.O.S.", Icons.Filled.Sos)
+            H("Qué asistencias atiendes", Icons.Filled.Handyman)
             Sub("Solo te llegan las emergencias que marques y que estén dentro de tu radio.")
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 C.SOS_KINDS.forEach { k ->
