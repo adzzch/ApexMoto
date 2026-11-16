@@ -24,17 +24,26 @@ class IntercomService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == ACTION_LEAVE) { intercom.leave(); stopSelf(); return START_NOT_STICKY }
+        // Siempre primero startForeground: Android cierra la app si un servicio pedido con startForegroundService no lo hace.
         val n = notification(intercom.state.value.rodadaName)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) startForeground(ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
-        else startForeground(ID, n)
-        // Si la llamada ya terminó mientras arrancaba el servicio, se apaga.
-        if (!intercom.state.value.active) stopSelf()
+        runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) startForeground(ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
+            else startForeground(ID, n)
+        }
+        when {
+            intent?.action == ACTION_LEAVE -> { intercom.leave(); stop() }
+            intent?.action == ACTION_STOP || !intercom.state.value.active -> stop()
+        }
         return START_NOT_STICKY
     }
 
     // Si la persona cierra la app desde recientes, se sale de la llamada (no queda el micrófono abierto).
-    override fun onTaskRemoved(rootIntent: Intent?) { intercom.leave(); stopSelf() }
+    override fun onTaskRemoved(rootIntent: Intent?) { intercom.leave(); stop() }
+
+    private fun stop() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) stopForeground(STOP_FOREGROUND_REMOVE) else @Suppress("DEPRECATION") stopForeground(true)
+        stopSelf()
+    }
 
     private fun notification(rodada: String): Notification {
         val nm = getSystemService(NotificationManager::class.java)
@@ -61,5 +70,6 @@ class IntercomService : Service() {
         private const val ID = 4107
         private const val CHANNEL = "intercom"
         private const val ACTION_LEAVE = "co.apexmoto.intercom.LEAVE"
+        const val ACTION_STOP = "co.apexmoto.intercom.STOP"
     }
 }

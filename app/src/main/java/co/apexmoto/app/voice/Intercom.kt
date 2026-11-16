@@ -56,9 +56,15 @@ class Intercom(private val ctx: Context) {
     val available get() = BuildConfig.AGORA_APP_ID.isNotBlank()
 
     private var engine: RtcEngine? = null
+    /** Si ya se pidió encender [IntercomService]. Solo se enciende cuando la llamada conectó de verdad. */
+    private var serviceOn = false
+    private val main = android.os.Handler(android.os.Looper.getMainLooper())
 
     private val handler = object : IRtcEngineEventHandler() {
-        override fun onJoinChannelSuccess(channel: String?, uid: Int, elapsed: Int) { _state.update { it.copy(status = Status.ON, error = null) } }
+        override fun onJoinChannelSuccess(channel: String?, uid: Int, elapsed: Int) {
+            _state.update { it.copy(status = Status.ON, error = null) }
+            main.post { startService() }
+        }
         override fun onUserJoined(uid: Int, elapsed: Int) { _state.update { it.copy(peers = it.peers + uid) } }
         override fun onUserOffline(uid: Int, reason: Int) { _state.update { it.copy(peers = it.peers - uid, speaking = it.speaking - uid) } }
         override fun onConnectionStateChanged(state: Int, reason: Int) {
@@ -121,7 +127,17 @@ class Intercom(private val ctx: Context) {
         }
         val r = e.joinChannel(null, channelOf(rodadaId), uidOf(userId), opts)
         if (r != 0) { Log.w(TAG, "joinChannel $r"); leave("No se pudo entrar a la llamada (código $r)."); return }
-        ContextCompat.startForegroundService(ctx, Intent(ctx, IntercomService::class.java))
+    }
+
+    /**
+     * Enciende el servicio en primer plano cuando la llamada ya conectó (así un fallo inmediato no deja a Android
+     * esperando un servicio que se apaga antes de arrancar, lo que cierra la app).
+     */
+    private fun startService() {
+        if (serviceOn || !_state.value.active) return
+        serviceOn = true
+        runCatching { ContextCompat.startForegroundService(ctx, Intent(ctx, IntercomService::class.java)) }
+            .onFailure { serviceOn = false; Log.w(TAG, "no se pudo encender el servicio", it) }
     }
 
     /** Sale de la llamada y apaga el micrófono y el servicio. */
@@ -132,7 +148,14 @@ class Intercom(private val ctx: Context) {
         // destroy() libera el micrófono; se hace en otro hilo porque puede tardar y no debe correr dentro de un callback.
         if (e != null) Thread { runCatching { RtcEngine.destroy() } }.start()
         _state.update { State(pushToTalk = it.pushToTalk, error = error) }
-        ctx.stopService(Intent(ctx, IntercomService::class.java))
+        // Se le pide al servicio que se apague él mismo: si aún estaba arrancando, primero cumple con startForeground.
+        if (serviceOn) {
+            serviceOn = false
+            main.post {
+                runCatching { ctx.startService(Intent(ctx, IntercomService::class.java).setAction(IntercomService.ACTION_STOP)) }
+                    .onFailure { runCatching { ctx.stopService(Intent(ctx, IntercomService::class.java)) } }
+            }
+        }
     }
 
     fun setPushToTalk(on: Boolean) { _state.update { it.copy(pushToTalk = on, pressing = false) }; apply() }
