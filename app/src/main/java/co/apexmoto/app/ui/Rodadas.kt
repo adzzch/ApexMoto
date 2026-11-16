@@ -305,6 +305,18 @@ fun RodadaScreen(vm: AppViewModel, nav: NavController, u: AppUser, id: String) {
             Lbl("${ro.whenLabel} · ${ro.style} · ${ro.captain}")
             IconLine(Icons.Filled.Place, ro.meet, Muted, bold = false)
             if (ro.routeName.isNotBlank()) IconLine(Icons.Filled.Route, ro.routeName, CyanDeep, bold = false)
+            // El recorrido en palabras: encuentro y paradas en orden (también están en el mapa).
+            if (ro.stops.isNotEmpty()) Column(Modifier.padding(start = 4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                (listOf(ro.meet) + ro.stops.map { it.name }).forEachIndexed { i, n ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.size(20.dp).clip(CircleShape).background(if (i == 0) CyanDeep else Orange), contentAlignment = Alignment.Center) {
+                            Text(if (i == 0) "E" else "$i", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        }
+                        Spacer(Modifier.width(8.dp))
+                        Text(n, fontSize = 13.sp, color = if (i == 0) Muted else Ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+            }
             RodadaPills(ro, u)
             Lbl("${ro.joined.size} de ${ro.seats} motos")
             if (isCreator && ro.status == "planned") Btn("Iniciar rodada", Modifier.fillMaxWidth(), Icons.Filled.PlayArrow) {
