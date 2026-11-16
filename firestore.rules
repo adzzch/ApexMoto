@@ -351,7 +351,10 @@ service cloud.firestore {
         && d.status in ['planned', 'active', 'done'] && str(d, 'routeName', 160) && d.stops is list && d.stops.size() <= 30
         && str(d, 'leaderId', 128) && str(d, 'sweeperId', 128)
         && (d.leaderId == '' || d.leaderId in d.joined) && (d.sweeperId == '' || d.sweeperId in d.joined)
-        && (d.startedAt == null || d.startedAt is timestamp) && (d.endedAt == null || d.endedAt is timestamp);
+        && (d.startedAt == null || d.startedAt is timestamp) && (d.endedAt == null || d.endedAt is timestamp)
+        // Fecha de salida, coordenada del punto de encuentro y código de invitación (no existen en las rodadas viejas).
+        && d.get('startsAt', 0) is int && d.get('meetLat', 0) is number && d.get('meetLng', 0) is number
+        && d.get('inviteCode', '') is string && d.get('inviteCode', '').size() <= 12;
     }
     function canSee(d) { return d.visibility == 'public' || uid() in d.joined || uid() in d.invited || uid() in d.pending || d.creatorId == uid(); }
     function addsMe(after, before) { return after.toSet().difference(before.toSet()) == [uid()].toSet() && before.toSet().difference(after.toSet()).size() == 0; }
@@ -383,11 +386,17 @@ service cloud.firestore {
       let d = request.resource.data; let o = resource.data;
       return o.creatorId == uid() && d.creatorId == uid() && rodadaShape(d) && rodadaStatusOk(d, o) && rodadaMembersOk(d, o);
     }
-    function rodadaMemberAction() {
+    function rodadaMemberAction(rid) {
       let d = request.resource.data; let o = resource.data;
+      let link = getAfter(path('link_joins', rid + '_' + uid()));
       return o.creatorId != uid() && o.status != 'done' && (
+        // Unirse con el código de invitación (enlace): sirve también en las privadas. El código debe ser el vigente.
+        (onlyChanges(['joined', 'pending', 'invited']) && link != null && o.get('inviteCode', '') != '' && link.data.code == o.inviteCode
+          && addsMe(d.joined, o.joined) && d.joined.size() <= o.seats
+          && d.pending.toSet() == o.pending.toSet().difference([uid()].toSet())
+          && d.invited.toSet() == o.invited.toSet().difference([uid()].toSet()))
         // Unirse directo: rodada sin aprobación, o con invitación.
-        (onlyChanges(['joined', 'pending']) && canSee(o) && (o.approval == false || uid() in o.invited)
+        || (onlyChanges(['joined', 'pending']) && canSee(o) && (o.approval == false || uid() in o.invited)
           && addsMe(d.joined, o.joined) && d.joined.size() <= o.seats && d.pending.toSet() == o.pending.toSet().difference([uid()].toSet()))
         // Pedir unirse.
         || (onlyChanges(['pending']) && canSee(o) && o.approval == true && !(uid() in o.joined) && addsMe(d.pending, o.pending) && d.pending.size() <= 40)
@@ -406,8 +415,29 @@ service cloud.firestore {
         && request.resource.data.joined == [uid()] && request.resource.data.pending.size() == 0 && request.resource.data.invited.size() == 0
         && request.resource.data.leaderId == uid() && request.resource.data.sweeperId == '' && request.resource.data.status == 'planned'
         && request.resource.data.startedAt == null && request.resource.data.endedAt == null);
-      allow update: if isAdmin() || (signedIn() && (rodadaCreatorEdit() || rodadaMemberAction()));
+      allow update: if isAdmin() || (signedIn() && (rodadaCreatorEdit() || rodadaMemberAction(id)));
       allow delete: if isAdmin() || (signedIn() && resource.data.creatorId == uid());
+    }
+
+    // Código de invitación de una rodada (el "enlace"). Se lee solo por su ID exacto: no hay listados, así que solo lo
+    // encuentra quien recibió el código. Guarda lo básico para mostrar la invitación antes de unirse.
+    match /rodada_codes/{code} {
+      allow get: if signedIn();
+      allow create: if signedIn() && code.matches('^[A-Z0-9]{8}$')
+        && request.resource.data.keys().hasOnly(['rodadaId', 'creatorId', 'name', 'whenLabel', 'meet'])
+        && request.resource.data.creatorId == uid()
+        && getAfter(path('rodadas', request.resource.data.rodadaId)).data.creatorId == uid()
+        && getAfter(path('rodadas', request.resource.data.rodadaId)).data.inviteCode == code
+        && text(request.resource.data, 'name', 80) && str(request.resource.data, 'whenLabel', 40) && str(request.resource.data, 'meet', 160);
+      allow delete: if signedIn() && resource.data.creatorId == uid();
+    }
+    // Prueba de que la persona tiene el código: se escribe en el mismo lote en que se une a la rodada.
+    match /link_joins/{id} {
+      allow read: if signedIn() && resource.data.uid == uid();
+      allow create, update: if signedIn() && request.resource.data.keys().hasOnly(['uid', 'rodadaId', 'code'])
+        && request.resource.data.uid == uid() && id == request.resource.data.rodadaId + '_' + uid()
+        && get(path('rodada_codes', request.resource.data.code)).data.rodadaId == request.resource.data.rodadaId;
+      allow delete: if signedIn() && resource.data.uid == uid();
     }
 
     // Mapa del grupo: posición en vivo de cada miembro mientras la rodada está activa (y como mucho 12 h desde que empezó).
@@ -423,6 +453,20 @@ service cloud.firestore {
         && request.resource.data.updatedAt == request.time
         && (resource == null || request.time > resource.data.updatedAt + duration.value(8, 's'));
       allow delete: if signedIn() && (uid() == member || liveRodada(rid).creatorId == uid());
+    }
+
+    // ───────── Estadísticas del rider (perfil y medallas) ─────────
+    // Públicas para quien tenga sesión: desde cuándo usa la app y cuántas rutas completó con el guiado.
+    // Solo suben de a una y como mucho una cada 20 minutos, con la hora del servidor.
+    match /rider_stats/{id} {
+      allow get: if signedIn();
+      allow create: if signedIn() && uid() == id && request.resource.data.keys().hasOnly(['since', 'routes', 'lastAt'])
+        && request.resource.data.since is int && request.resource.data.since > 1700000000000 && request.resource.data.since <= request.time.toMillis()
+        && request.resource.data.routes in [0, 1] && request.resource.data.lastAt == request.time;
+      allow update: if signedIn() && uid() == id && onlyChanges(['routes', 'lastAt'])
+        && request.resource.data.routes == resource.data.routes + 1 && request.resource.data.lastAt == request.time
+        && request.time > resource.data.lastAt + duration.value(20, 'm');
+      allow delete: if signedIn() && uid() == id;
     }
 
     // ───────── Pedidos ─────────

@@ -9,6 +9,8 @@ ApexMoto usa la ubicación de tu teléfono solo mientras tienes la aplicación a
 - **Taller en camino:** si eres taller y lo activas al ir hacia un S.O.S., tu posición la ve solo el rider de ese S.O.S., como mucho cada 12 segundos. Se borra cuando llegas, terminas o liberas el S.O.S.
 - **Mapa del grupo en una rodada:** solo si tú lo activas ("Compartir mi ubicación con el grupo") en una rodada en curso de la que eres miembro. Tu posición se actualiza como mucho cada 12 segundos y la ven únicamente los miembros de esa rodada. Se borra cuando dejas de compartir, sales de la rodada o la rodada termina, y se detiene sola si cierras la aplicación.
 - **Mapa de comercios:** mostrarte en el mapa. No se guarda.
+- **Explorar y recomendaciones:** calcular en tu teléfono en qué ciudad estás para recomendarte lugares, rodadas famosas y puntos de encuentro cercanos. No se envía ni se guarda.
+- **Ruta IA:** a Gemini (Google) solo se le envía la ciudad aproximada desde la que sales, nunca tu posición exacta.
 - **Ubicación de tu negocio:** si eres comercio o taller, fijar dónde queda tu local.
 
 Lo que **no** hacemos:

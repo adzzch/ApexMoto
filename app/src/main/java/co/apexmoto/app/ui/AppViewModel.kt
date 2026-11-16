@@ -186,6 +186,13 @@ class AppViewModel(val container: AppContainer) : ViewModel() {
         user.value = repo.acceptDocs(u, docs, method)
     }
     /** La persona tocó "Aceptar" en el aviso de ubicación: se habilita de inmediato y se guarda el registro. */
+    /** Ruta completada con el guiado: suma una para las medallas. Si las reglas no lo permiten (muy seguido), no pasa nada. */
+    fun routeCompleted() {
+        val u = user.value ?: return
+        if (u.role != Role.RIDER) return
+        viewModelScope.launch { runCatching { repo.addCompletedRoute(u.id) }.onSuccess { toast("¡Ruta completada! Suma para tus medallas.") } }
+    }
+
     fun acceptLocation() { locationConsented = true; acceptDocs(listOf(Legal.doc(Legal.LOCATION)), AcceptMethod.LOCATION) }
     fun updateName(name: String) = act("Nombre actualizado") { val u = user.value ?: return@act; user.value = repo.updateName(u, name) }
     fun deleteAccount() = act {

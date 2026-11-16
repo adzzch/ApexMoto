@@ -48,22 +48,28 @@ private fun km(m: Double) = if (m < 1000) "${m.toInt()} m" else "%.1f km".format
 fun ColumnScope.RodadasPane(vm: AppViewModel, nav: NavController, u: AppUser) {
     val rodadas by vm.rodadas.collectAsState()
     var create by remember { mutableStateOf(false) }
+    var byCode by remember { mutableStateOf(false) }
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
         H("Rodadas", Icons.Filled.Groups)
         Sub("Salidas en grupo, cada quien en su moto. Quien la crea elige al líder, que va adelante.")
     }
     val visible = rodadas.filter { it.status != "done" || u.id in it.joined }
-        .sortedWith(compareBy<Rodada>({ it.status != "active" }, { it.status == "done" }, { u.id !in it.joined && u.id !in it.invited }, { it.name.lowercase() }))
+        .sortedWith(compareBy<Rodada>({ it.status != "active" }, { it.status == "done" }, { u.id !in it.joined && u.id !in it.invited },
+            { if (it.startsAt > 0) it.startsAt else Long.MAX_VALUE }, { it.name.lowercase() }))
     if (visible.isEmpty()) Empty("Aún no hay rodadas. Crea la primera y reúne a tu grupo.", Icons.Filled.Groups)
     visible.forEachIndexed { i, r -> RodadaCard(vm, nav, u, r, i) }
-    Btn("Crear rodada", Modifier.fillMaxWidth(), Icons.Filled.GroupAdd) { create = true }
-    if (create) CreateRodadaSheet(vm, nav, u) { create = false }
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Btn("Crear rodada", Modifier.weight(1f), Icons.Filled.GroupAdd) { create = true }
+        Btn("Unirme con código", Modifier.weight(1f), Icons.Filled.Link, kind = BK.Ghost) { byCode = true }
+    }
+    if (create) CreateRodadaSheet(vm, nav, u, onDismiss = { create = false })
+    if (byCode) JoinByCodeSheet(vm, nav, u) { byCode = false }
 }
 
 @Composable
 private fun RodadaPills(r: Rodada, u: AppUser) {
     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        if (r.visibility == "friends") Pill("Solo amigos", CyanSoft, CyanDeep, Icons.Filled.Lock) else Pill("Pública", Surf3, Muted, Icons.Filled.Public)
+        if (r.visibility == "friends") Pill("Privada", CyanSoft, CyanDeep, Icons.Filled.Lock) else Pill("Pública", Surf3, Muted, Icons.Filled.Public)
         if (r.approval) Pill("Con aprobación", Surf3, Muted, Icons.Filled.HowToReg)
         if (u.id in r.invited && u.id !in r.joined) Pill("Te invitaron", OrangeSoft, OrangeDark, Icons.Filled.Mail)
         if (u.id in r.pending) Pill("Solicitud enviada", AmberSoft, Amber)
@@ -115,47 +121,109 @@ private fun RodadaCard(vm: AppViewModel, nav: NavController, u: AppUser, r: Roda
     }
 }
 
+/** Escribir el código que le compartieron a uno, ver la invitación y unirse (sirve también para rodadas privadas). */
 @Composable
-private fun CreateRodadaSheet(vm: AppViewModel, nav: NavController, u: AppUser, onDismiss: () -> Unit) {
-    val routes by vm.savedRoutes.collectAsState()
+private fun JoinByCodeSheet(vm: AppViewModel, nav: NavController, u: AppUser, onDismiss: () -> Unit) {
+    var code by remember { mutableStateOf("") }
+    var found by remember { mutableStateOf<RodadaCode?>(null) }
+    var notFound by remember { mutableStateOf(false) }
+    var busy by remember { mutableStateOf(false) }
+    val clean = code.uppercase().filter { it.isLetterOrDigit() }.take(8)
+    Sheet(onDismiss) {
+        H("Unirme con código", Icons.Filled.Link)
+        Sub("Escribe el código de 8 letras y números que te compartieron.")
+        Field("", clean, { code = it; found = null; notFound = false }, hint = "Ej: K7QM 2XPA", leading = Icons.Filled.Key,
+            cap = androidx.compose.ui.text.input.KeyboardCapitalization.Characters)
+        if (notFound) Text("No encontramos una rodada con ese código. Revísalo.", color = Red, fontSize = 12.sp)
+        val f = found
+        if (f == null) {
+            Missing(if (clean.isNotEmpty() && clean.length < 8) listOf("${8 - clean.length} caracteres del código") else emptyList())
+            Btn("Buscar rodada", Modifier.fillMaxWidth(), Icons.Filled.Search, enabled = clean.length == 8, loading = busy) {
+                busy = true
+                vm.act { val r = vm.repo.inviteByCode(clean); found = r; notFound = r == null }.invokeOnCompletion { busy = false }
+            }
+        } else {
+            Card2(tone = Surf1) {
+                Text(f.name, fontWeight = FontWeight.ExtraBold, fontSize = 17.sp)
+                if (f.whenLabel.isNotBlank()) IconLine(Icons.Filled.Event, f.whenLabel, OrangeDark, bold = false)
+                if (f.meet.isNotBlank()) IconLine(Icons.Filled.Place, f.meet, Muted, bold = false)
+            }
+            Btn("Unirme a la rodada", Modifier.fillMaxWidth(), Icons.Filled.Check, loading = busy) {
+                busy = true
+                vm.act("¡Estás dentro!") { vm.repo.joinByCode(f, u.id); onDismiss(); nav.navigate("rodada/${f.rodadaId}") }.invokeOnCompletion { busy = false }
+            }
+        }
+    }
+}
+
+/** Ruta ya armada para una rodada nueva (por ejemplo, una rodada famosa de Explorar). */
+data class RodadaPreset(val name: String, val meet: String, val routeName: String, val stops: List<RodadaStop>)
+
+/** Próximo sábado a las 7:00 a. m.: la fecha que se propone al crear una rodada. */
+private fun nextSaturday7(): Long {
+    var d = java.time.LocalDate.now().plusDays(1)
+    while (d.dayOfWeek != java.time.DayOfWeek.SATURDAY) d = d.plusDays(1)
+    return d.atTime(7, 0).atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+}
+
+@Composable
+fun CreateRodadaSheet(vm: AppViewModel, nav: NavController, u: AppUser, onDismiss: () -> Unit, preset: RodadaPreset? = null) {
     val profile by vm.myProfile.collectAsState()
-    var name by remember { mutableStateOf("") }; var whenL by remember { mutableStateOf("Sábado 7:00") }
-    var meet by remember { mutableStateOf("") }; var style by remember { mutableStateOf("Turismo") }; var seats by remember { mutableStateOf("8") }
-    var visibility by remember { mutableStateOf("public") }; var approval by remember { mutableStateOf(true) }
-    var routeId by remember { mutableStateOf("") }
+    var name by remember { mutableStateOf(preset?.name?.take(80).orEmpty()) }
+    var startsAt by remember { mutableLongStateOf(nextSaturday7()) }
+    var meet by remember { mutableStateOf(preset?.stops?.firstOrNull()?.let { MeetChoice(it.name, it.lat, it.lng) }) }
+    var style by remember { mutableStateOf("Turismo") }; var seats by remember { mutableStateOf("8") }
+    var visibility by remember { mutableStateOf("public") }
+    // Paradas: las de la rodada famosa (sin el punto de salida, que ya es el encuentro) o las que elija la persona.
+    var stops by remember { mutableStateOf(preset?.stops.orEmpty().drop(1).mapIndexed { i, s -> PickedStop("p$i", s.name, s.lat, s.lng, false) }) }
+    var picking by remember { mutableStateOf(false) }
     Sheet(onDismiss) {
         H("Nueva rodada", Icons.Filled.GroupAdd)
-        Field("Nombre", name, { name = it.take(80) }, hint = "Ej: Rumbo al Calima")
+        Field("Nombre", name, { name = it.take(80) }, hint = "Ej: Rumbo al Calima", cap = androidx.compose.ui.text.input.KeyboardCapitalization.Sentences,
+            error = if (name.isBlank()) "Ponle un nombre" else null)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Field("Cuándo", whenL, { whenL = it.take(40) }, Modifier.weight(1f))
-            Field("Motos", seats, { seats = it.filter(Char::isDigit).take(2) }, Modifier.weight(0.6f), kb = KeyboardType.Number)
+            DateTimeField("Salida", startsAt, Modifier.weight(1f)) { startsAt = it }
+            Field("Motos", seats, { seats = it.filter(Char::isDigit).take(2) }, Modifier.weight(0.45f), kb = KeyboardType.Number)
         }
-        Field("Punto de encuentro", meet, { meet = it.take(160) }, hint = "Ej: Peaje Cencar, Cali")
+        MeetField(vm, meet) { meet = it }
+        // ¿A dónde van? Destino y paradas, que todos ven en el mapa de la rodada.
+        Lbl("¿A dónde van?")
+        if (stops.isEmpty()) Sub("Elige el destino y las paradas (miradores, pueblos, restaurantes aliados…). Todos las verán en el mapa.")
+        stops.forEachIndexed { i, s ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(24.dp).clip(CircleShape).background(if (s.food) Orange else CyanDeep), contentAlignment = Alignment.Center) {
+                    Text(if (s.food) "R" else "${i + 1}", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
+                Spacer(Modifier.width(10.dp)); Text(s.name, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
+        Btn(if (stops.isEmpty()) "Elegir destino y paradas" else "Cambiar paradas", Modifier.fillMaxWidth(), Icons.Filled.AddLocationAlt, kind = BK.Ghost, small = true) { picking = true }
         Lbl("Estilo")
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            C.RIDE_STYLES.forEach { s -> Chip(s, style == s, accent = Cyan) { style = s } }
+            C.RIDE_STYLES.forEach { st -> Chip(st, style == st, accent = Cyan) { style = st } }
         }
-        Lbl("¿Quién la ve?")
-        Segmented(listOf(Triple("public", "Pública", Icons.Filled.Public), Triple("friends", "Solo amigos", Icons.Filled.Lock)), visibility) {
-            visibility = it; approval = it == "public"
-        }
-        SwitchRow("Aprobar a quien pida unirse",
-            if (visibility == "public") "Recomendado: en el mapa del grupo los miembros se ven entre sí." else "Los amigos que invites entran directo.", approval) { approval = it }
-        if (routes.isNotEmpty()) Drop("Ruta (opcional)", listOf("" to "Sin ruta") + routes.map { it.id to it.name }, routeId, { routeId = it })
-        else Sub("Para llevar una ruta con paradas, guárdala antes en la pestaña Rutas.")
-        Btn("Publicar rodada", Modifier.fillMaxWidth(), Icons.Filled.Check, enabled = name.isNotBlank() && meet.isNotBlank()) {
-            val route = routes.firstOrNull { it.id == routeId }
+        Lbl("¿Quién se puede unir?")
+        Segmented(listOf(Triple("public", "Pública", Icons.Filled.Public), Triple("friends", "Privada", Icons.Filled.Lock)), visibility) { visibility = it }
+        Sub(if (visibility == "public") "Aparece en Comunidad y cualquiera se une. También puedes invitar con el código o a tus amigos."
+            else "No aparece en Comunidad: solo entra quien invites con el código o tus amigos.")
+        val missing = buildList { if (name.isBlank()) add("el nombre"); if (meet == null) add("el punto de encuentro"); if (stops.isEmpty()) add("el destino") }
+        Missing(missing)
+        Btn("Publicar rodada", Modifier.fillMaxWidth(), Icons.Filled.Check, enabled = missing.isEmpty()) {
+            val m = meet ?: return@Btn
             val captain = profile?.let { "@${it.username}" } ?: ("@" + u.name.split(" ").first().lowercase())
+            val dest = stops.lastOrNull { !it.food } ?: stops.last()
             onDismiss()
             vm.act("Rodada publicada") {
-                val id = vm.repo.createRodada(Rodada(creatorId = u.id, name = name.trim(), whenLabel = whenL.trim(), captain = captain.take(40), meet = meet.trim(),
-                    style = style, seats = seats.toIntOrNull()?.coerceIn(2, 40) ?: 8, visibility = visibility, approval = approval,
-                    routeName = route?.name?.take(160).orEmpty(),
-                    stops = route?.stops.orEmpty().filter { it.lat != 0.0 }.take(30).map { RodadaStop(it.name, it.lat, it.lng) }))
+                val id = vm.repo.createRodada(Rodada(creatorId = u.id, name = name.trim(), whenLabel = whenLabelOf(startsAt), startsAt = startsAt,
+                    captain = captain.take(40), meet = m.name.take(160), meetLat = m.lat, meetLng = m.lng,
+                    style = style, seats = seats.toIntOrNull()?.coerceIn(2, 40) ?: 8, visibility = visibility, approval = false,
+                    routeName = (preset?.routeName ?: "Hacia ${dest.name}").take(160),
+                    stops = stops.take(30).map { RodadaStop(it.name.take(120), it.lat, it.lng) }))
                 nav.navigate("rodada/$id")
             }
         }
     }
+    if (picking) StopPickerSheet(vm, stops) { stops = it; picking = false }
 }
 
 /** Detalle de una rodada: mapa del grupo en vivo, miembros con líder y cierre, solicitudes e invitaciones. */
@@ -191,7 +259,10 @@ fun RodadaScreen(vm: AppViewModel, nav: NavController, u: AppUser, id: String) {
     fun nameOf(uid: String) = people.firstOrNull { it.id == uid }?.name ?: livePs.firstOrNull { it.id == uid }?.name ?: if (uid == u.id) u.name else "Rider"
 
     Screen {
+        val meetPt = if (ro.meetLat != 0.0) LatLng(ro.meetLat, ro.meetLng) else null
+        val routePts = listOfNotNull(meetPt) + ro.stops.map { LatLng(it.lat, it.lng) }
         val markers = buildList {
+            meetPt?.let { add(MapMarker("meet", it, ro.meet, "Punto de encuentro", color = "#0E7490")) }
             ro.stops.forEachIndexed { i, s -> add(MapMarker("stop$i", LatLng(s.lat, s.lng), s.name, "Parada ${i + 1}")) }
             livePs.forEach { p ->
                 val ring = when { p.sos -> "#FFFFFF"; p.id == ro.leaderId -> "#D94600"; p.id == ro.sweeperId -> "#0E7490"; else -> null }
@@ -202,14 +273,19 @@ fun RodadaScreen(vm: AppViewModel, nav: NavController, u: AppUser, id: String) {
         }
         if (markers.isNotEmpty()) {
             val mapState = remember { OsmMapState() }
-            val center = livePs.firstOrNull()?.let { LatLng(it.lat, it.lng) } ?: ro.stops.firstOrNull()?.let { LatLng(it.lat, it.lng) } ?: LatLng(C.CALI_LAT, C.CALI_LNG)
+            val center = livePs.firstOrNull()?.let { LatLng(it.lat, it.lng) } ?: routePts.firstOrNull() ?: LatLng(C.CALI_LAT, C.CALI_LNG)
             Card2(padding = 0.dp) {
+                // Trazado por la vía; mientras llega (o si no hay conexión o clave de rutas), una línea recta entre puntos.
+                val road by produceState(routePts, routePts) {
+                    if (routePts.size >= 2) runCatching { vm.container.routes.route(routePts.first(), routePts.last(), routePts.drop(1).dropLast(1)) }
+                        .onSuccess { if (it.points.size >= 2) value = it.points }
+                }
                 OsmMap(Modifier.fillMaxWidth().height(280.dp), mapState, center = center, mapType = vm.mapType, markers = markers,
-                    route = ro.stops.map { LatLng(it.lat, it.lng) })
+                    route = road)
             }
             LaunchedEffect(livePs.size, ro.stops.size) {
                 delay(300)
-                mapState.fit(livePs.map { LatLng(it.lat, it.lng) } + ro.stops.map { LatLng(it.lat, it.lng) })
+                mapState.fit(livePs.map { LatLng(it.lat, it.lng) } + routePts)
             }
             if (livePs.any { it.sos }) Card2(tone = RedSoft) {
                 IconLine(Icons.Filled.Sos, "${livePs.filter { it.sos }.joinToString { it.name }} pidió auxilio. Revisa el mapa.", Red)
@@ -235,6 +311,9 @@ fun RodadaScreen(vm: AppViewModel, nav: NavController, u: AppUser, id: String) {
             if (ro.stops.isNotEmpty() && member && ro.status != "done") Btn("Guiar la ruta", Modifier.fillMaxWidth(), Icons.Filled.Navigation, kind = BK.Ghost) {
                 vm.navSession = NavSession(ro.routeName.ifBlank { ro.name }, ro.stops.map { NavStop(it.name, it.lat, it.lng) }); nav.navigate("navigate")
             }
+            if (ro.status == "planned" && meetPt != null && member) Btn("Llevarme al punto de encuentro", Modifier.fillMaxWidth(), Icons.Filled.Place, kind = BK.Ghost) {
+                vm.navSession = NavSession(ro.meet, listOf(NavStop(ro.meet, ro.meetLat, ro.meetLng))); nav.navigate("navigate")
+            }
             if (!member) JoinButton(vm, u, ro, Modifier.fillMaxWidth())
             if (u.id in ro.invited && !member && ro.status != "done") TextButton({ vm.act("Invitación rechazada") { vm.repo.declineInvite(ro, u.id); nav.popBackStack() } }) {
                 Text("No voy, gracias", color = Muted)
@@ -243,7 +322,8 @@ fun RodadaScreen(vm: AppViewModel, nav: NavController, u: AppUser, id: String) {
 
         H("Miembros (${ro.joined.size})", Icons.Filled.Groups)
         ro.joined.sortedWith(compareBy<String>({ it != ro.leaderId }, { it != ro.sweeperId }, { nameOf(it).lowercase() })).forEach { mid ->
-            MemberRow(vm, ro, u, mid, people.firstOrNull { it.id == mid }, livePs.firstOrNull { it.id == mid }, me, active, isCreator, nameOf(mid))
+            MemberRow(vm, nav, ro, u, mid, people.firstOrNull { it.id == mid }, livePs.firstOrNull { it.id == mid }, me, active, isCreator, nameOf(mid),
+                onShare = { share(it) }, sharing = sharing, onLeave = { confirmLeave = true })
         }
 
         if (isCreator && ro.pending.isNotEmpty() && ro.status != "done") {
@@ -259,6 +339,24 @@ fun RodadaScreen(vm: AppViewModel, nav: NavController, u: AppUser, id: String) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Btn("Aprobar", Modifier.weight(1f), Icons.Filled.Check, small = true) { vm.act("Aprobado") { vm.repo.approveJoin(ro, pid) } }
                         Btn("Rechazar", Modifier.weight(1f), kind = BK.Ghost, small = true) { vm.act { vm.repo.rejectJoin(ro, pid) } }
+                    }
+                }
+            }
+        }
+
+        // Invitar con el código ("enlace"): en las públicas cualquier miembro; en las privadas solo quien la creó.
+        if (member && ro.status != "done" && (isCreator || ro.visibility == "public")) {
+            val ctx = androidx.compose.ui.platform.LocalContext.current
+            Card2(tone = Surf1) {
+                IconLine(Icons.Filled.Link, "Invita con un código", CyanDeep)
+                Sub("Comparte el código por WhatsApp o donde quieras. Quien lo tenga entra desde Comunidad → Unirme con código" +
+                    if (ro.visibility == "friends") ", aunque la rodada sea privada." else ".")
+                if (ro.inviteCode.isNotBlank()) Num(ro.inviteCode.chunked(4).joinToString(" "), OrangeDark, 22)
+                if (ro.inviteCode.isNotBlank() || isCreator) Btn("Compartir invitación", Modifier.fillMaxWidth(), Icons.Filled.Share, small = true) {
+                    vm.act {
+                        val code = if (isCreator) vm.repo.ensureInviteCode(ro) else ro.inviteCode
+                        shareText(ctx, "¡Vamos a rodar! \"${ro.name}\" · ${ro.whenLabel}\nEncuentro: ${ro.meet}\n" +
+                            "Únete en ApexMoto: Comunidad → Unirme con código → $code")
                     }
                 }
             }
@@ -307,41 +405,70 @@ fun RodadaScreen(vm: AppViewModel, nav: NavController, u: AppUser, id: String) {
 }
 
 @Composable
-private fun MemberRow(vm: AppViewModel, ro: Rodada, u: AppUser, uid: String, p: Profile?, live: LivePos?, me: LivePos?, active: Boolean, isCreator: Boolean, name: String) {
+private fun MemberRow(vm: AppViewModel, nav: NavController, ro: Rodada, u: AppUser, uid: String, p: Profile?, live: LivePos?, me: LivePos?,
+                      active: Boolean, isCreator: Boolean, name: String, onShare: (Boolean) -> Unit, sharing: Boolean, onLeave: () -> Unit) {
     var menu by remember { mutableStateOf(false) }
     val leader = uid == ro.leaderId
     val sweeper = uid == ro.sweeperId
+    val self = uid == u.id
+    val myProfile by vm.myProfile.collectAsState()
+    val friends by vm.friendProfiles.collectAsState()
+    val reqOut by vm.friendReqOut.collectAsState()
+    val reqIn by vm.friendReqIn.collectAsState()
+    val isFriend = friends.any { it.id == uid }
+    val asked = reqOut.any { it.to == uid } || reqIn.any { it.from == uid }
     Card2(tone = if (live?.sos == true) RedSoft else Color.White) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             val ring = when { live?.sos == true -> Red; leader -> Orange; sweeper -> Cyan; else -> null }
             if (p != null) MotoAvatar(p.moto, p.color, 46.dp, ring) else Avatar(name, 46.dp)
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text(name + if (uid == u.id) " (tú)" else "", fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(name + if (self) " (tú)" else "", fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     if (leader) Pill("Líder", OrangeSoft, OrangeDark, Icons.Filled.Flag)
                     if (sweeper) Pill("Cierra el grupo", CyanSoft, CyanDeep, Icons.Filled.OutlinedFlag)
                     if (uid == ro.creatorId) Pill("Creó la rodada")
+                    if (isFriend) Pill("Amigo", GreenSoft, Green)
                     if (live?.sos == true) Pill("S.O.S.", Red, Color.White, Icons.Filled.Sos)
                 }
                 if (live != null) {
-                    val dist = if (me != null && uid != u.id) " · a ${km(haversine(me.lat, me.lng, live.lat, live.lng))}" else ""
+                    val dist = if (me != null && !self) " · a ${km(haversine(me.lat, me.lng, live.lat, live.lng))}" else ""
                     Lbl("En el mapa · ${agoText(live.updatedAt)}$dist", Green)
                 } else if (active) Lbl("No está compartiendo su ubicación")
             }
-            if (isCreator && ro.status != "done") Box {
+            Box {
                 IconBtn(Icons.Filled.MoreVert, "Opciones de $name") { menu = true }
                 DropdownMenu(menu, { menu = false }, containerColor = Color.White) {
-                    if (!leader) DropdownMenuItem({ Text("Hacer líder") }, { menu = false
-                        vm.act("$name es el líder") { vm.repo.setRoles(ro, uid, if (sweeper) "" else ro.sweeperId) } }, leadingIcon = { Icon(Icons.Filled.Flag, null) })
-                    if (!sweeper && !leader) DropdownMenuItem({ Text("Que cierre el grupo") }, { menu = false
-                        vm.act("$name cierra el grupo") { vm.repo.setRoles(ro, ro.leaderId, uid) } }, leadingIcon = { Icon(Icons.Filled.OutlinedFlag, null) })
-                    if (sweeper) DropdownMenuItem({ Text("Ya no cierra el grupo") }, { menu = false
-                        vm.act { vm.repo.setRoles(ro, ro.leaderId, "") } }, leadingIcon = { Icon(Icons.Filled.Close, null) })
-                    if (uid != ro.creatorId) DropdownMenuItem({ Text("Quitar de la rodada", color = Red) }, { menu = false
-                        vm.act("$name salió de la rodada") { vm.repo.kick(ro, uid) } }, leadingIcon = { Icon(Icons.Filled.PersonRemove, null, tint = Red) })
+                    if (self) {
+                        MenuItem("Ver mi perfil", Icons.Filled.Person) { menu = false; nav.navigate("profile") }
+                        MenuItem("Editar mi avatar y @usuario", Icons.Filled.Edit) { menu = false; vm.communityTab = "amigos"; nav.navigate("grp") }
+                        if (active) MenuItem(if (sharing) "Dejar de compartir mi ubicación" else "Compartir mi ubicación", Icons.Filled.MyLocation) { menu = false; onShare(!sharing) }
+                        if (!isCreator && ro.status != "done") MenuItem("Salir de la rodada", Icons.Filled.ExitToApp, danger = true) { menu = false; onLeave() }
+                    } else {
+                        if (p != null) MenuItem("Ver perfil", Icons.Filled.Person) { menu = false; nav.navigate("rider/$uid") }
+                        if (isCreator && ro.status != "done") {
+                            if (!leader) MenuItem("Asignar como líder (guía)", Icons.Filled.Flag) { menu = false
+                                vm.act("$name es el líder") { vm.repo.setRoles(ro, uid, if (sweeper) "" else ro.sweeperId) } }
+                            if (!sweeper && !leader) MenuItem("Que cierre el grupo", Icons.Filled.OutlinedFlag) { menu = false
+                                vm.act("$name cierra el grupo") { vm.repo.setRoles(ro, ro.leaderId, uid) } }
+                            if (sweeper) MenuItem("Ya no cierra el grupo", Icons.Filled.Close) { menu = false; vm.act { vm.repo.setRoles(ro, ro.leaderId, "") } }
+                        }
+                        val mine = myProfile
+                        if (p != null && mine != null && !isFriend) {
+                            if (asked) DropdownMenuItem({ Text("Solicitud de amistad pendiente", color = Muted) }, {}, enabled = false,
+                                leadingIcon = { Icon(Icons.Filled.HourglassTop, null, tint = Muted) })
+                            else MenuItem("Añadir amigo", Icons.Filled.PersonAdd) { menu = false; vm.act("Solicitud enviada a ${p.name}") { vm.repo.sendFriendRequest(mine, p) } }
+                        }
+                        if (p == null && !isCreator) DropdownMenuItem({ Text("Aún no tiene perfil de rider", color = Muted) }, {}, enabled = false)
+                        if (isCreator && uid != ro.creatorId && ro.status != "done") MenuItem("Expulsar de la rodada", Icons.Filled.PersonRemove, danger = true) { menu = false
+                            vm.act("$name salió de la rodada") { vm.repo.kick(ro, uid) } }
+                    }
                 }
             }
         }
     }
 }
+
+@Composable
+private fun MenuItem(text: String, icon: androidx.compose.ui.graphics.vector.ImageVector, danger: Boolean = false, onClick: () -> Unit) =
+    DropdownMenuItem({ Text(text, color = if (danger) Red else Ink) }, onClick, leadingIcon = { Icon(icon, null, tint = if (danger) Red else CyanDeep) })

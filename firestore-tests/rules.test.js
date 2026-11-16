@@ -445,6 +445,38 @@ test('mapa del grupo: solo miembros de una rodada activa, con la hora del servid
   await assertFails(getDoc(doc(db(S), 'rodadas/r5/live', R)));
   await assertSucceeds(deleteDoc(doc(db(O), 'rodadas/r5/live', R)));                              // el creador limpia al terminar
 });
+test('rodadas: código de invitación (enlace) para unirse, también a las privadas', async () => {
+  // Se crea la rodada privada con su código en un lote, como la app.
+  const d = db(O); const b = writeBatch(d);
+  b.set(doc(d, 'rodadas', 'rc1'), rodada({ visibility: 'friends', approval: true, inviteCode: 'ABCD1234', startsAt: 1900000000000, meetLat: 3.4, meetLng: -76.5 }));
+  b.set(doc(d, 'rodada_codes', 'ABCD1234'), { rodadaId: 'rc1', creatorId: O, name: 'Calima', whenLabel: 'sáb 22 nov', meet: 'Peaje' });
+  await assertSucceeds(b.commit());
+  // Nadie más crea un código para una rodada ajena.
+  await assertFails(setDoc(doc(db(R), 'rodada_codes', 'ZZZZ9999'), { rodadaId: 'rc1', creatorId: R, name: 'x', whenLabel: '', meet: '' }));
+  // Con el código se ve la invitación, pero no la rodada privada.
+  await assertSucceeds(getDoc(doc(db(R), 'rodada_codes', 'ABCD1234')));
+  await assertFails(getDoc(doc(db(R), 'rodadas', 'rc1')));
+  // Sin la prueba del código no entra; con ella sí (en el mismo lote).
+  await assertFails(updateDoc(doc(db(R), 'rodadas', 'rc1'), { joined: arrayUnion(R) }));
+  const r = db(R); const j = writeBatch(r);
+  j.set(doc(r, 'link_joins', 'rc1_' + R), { uid: R, rodadaId: 'rc1', code: 'ABCD1234' });
+  j.update(doc(r, 'rodadas', 'rc1'), { joined: arrayUnion(R) });
+  await assertSucceeds(j.commit());
+  await assertSucceeds(getDoc(doc(db(R), 'rodadas', 'rc1')));
+  // Un código inventado no sirve como prueba.
+  await assertFails(setDoc(doc(db(X), 'link_joins', 'rc1_' + X), { uid: X, rodadaId: 'rc1', code: 'NOEXISTE' }));
+});
+test('rider_stats: públicas, y las rutas suben de a una con la hora del servidor y sin inundar', async () => {
+  const st = (extra = {}) => ({ since: 1750000000000, routes: 0, lastAt: serverTimestamp(), ...extra });
+  await assertFails(setDoc(doc(db(R), 'rider_stats', X), st()));                                 // el de otro
+  await assertFails(setDoc(doc(db(R), 'rider_stats', R), st({ routes: 30 })));                    // no arranca con 30
+  await assertSucceeds(setDoc(doc(db(R), 'rider_stats', R), st()));
+  await assertSucceeds(getDoc(doc(db(X), 'rider_stats', R)));
+  await assertFails(updateDoc(doc(db(R), 'rider_stats', R), { routes: 1, lastAt: serverTimestamp() }));   // menos de 20 min
+  await env.withSecurityRulesDisabled((c) => updateDoc(doc(c.firestore(), 'rider_stats', R), { lastAt: past(3600) }));
+  await assertFails(updateDoc(doc(db(R), 'rider_stats', R), { routes: 5, lastAt: serverTimestamp() }));   // salto de 5
+  await assertSucceeds(updateDoc(doc(db(R), 'rider_stats', R), { routes: 1, lastAt: serverTimestamp() }));
+});
 test('rutas guardadas: son privadas', async () => {
   const route = { userId: R, name: 'Calima · 2 paradas', corridor: 'calima', km: 90, mins: 120, stops: [], createdAt: 1 };
   await assertSucceeds(setDoc(doc(db(R), 'routes', 'rt1'), route));

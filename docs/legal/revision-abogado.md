@@ -96,3 +96,11 @@ Verificado en el repositorio el 2026-11-09.
 | `gradle/img.png` | Captura de pantalla de Android Studio dentro del repositorio | | Sobra. Se puede borrar |
 | Librerías (Compose, Kotlin, OkHttp, osmdroid) | | Apache 2.0 | Correcto. Acreditadas |
 | Firebase y Google Play services | | Términos de Google | Correcto |
+
+## E. Puntos nuevos de Explorar, rodadas y Ruta IA (2026-11-15)
+
+1. **Catálogo de lugares (ODbL).** `app/src/main/assets/places/colombia.json` mezcla una lista propia con datos de OpenStreetMap. Es una base de datos derivada bajo ODbL: la app muestra el crédito en Explorar y la base debe poder entregarse a quien la pida (no el código de la app). Confirmar que eso es compatible con la licencia propietaria del resto del proyecto.
+2. **Lugares reales y marcas.** El catálogo y los puntos de encuentro nombran lugares y comercios reales (por ejemplo, "D1", "Éxito", "Terpel") solo como referencia geográfica, sin presentarlos como aliados. Confirmar que ese uso nominativo no requiere autorización.
+3. **Gemini (Ruta IA).** Google recibe por encargo el texto que escribe la persona, sus filtros, la ciudad aproximada y una lista de lugares. En el plan gratuito de la API de Gemini, Google puede usar el contenido para mejorar sus productos: la política de privacidad 1.1.0 ya lo dice. Revisar si conviene pasar al plan de pago (sin ese uso) antes de abrir al público, y la transferencia internacional.
+4. **Rodadas famosas y consejos de vía.** Son recomendaciones generales; la app pide revisar la vía (#767) y el orden público. Revisar la redacción del descargo en los términos (responsabilidad por rutas sugeridas).
+5. **Trayectoria pública.** Las rutas completadas y la fecha de inicio se muestran a otros usuarios en el perfil. Confirmar que basta con informarlo en la política (no es dato sensible).

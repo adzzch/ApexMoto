@@ -82,14 +82,43 @@ object RoutePlanner {
         if (dests.isEmpty()) return null
         val taste = Taste(f)
         val ids = dests.map { it.id }.toSet()
-        val zones = dests.map { it.corridor }.toSet()
+        // Paradas para comer: comercios aliados a menos de 15 km de alguno de los destinos.
+        fun nearDest(v: Venue) = v.lat != 0.0 && dests.any { d -> d.lat != 0.0 && co.apexmoto.app.data.distanceKm(d.lat, d.lng, v.lat, v.lng) <= 15 }
         val added = if (extras <= 0) emptyList() else venues
-            .filter { it.id !in ids && it.corridor in zones && it.open && it.types.any { t -> t == "food" || t == "cafe" } }
+            .filter { it.id !in ids && nearDest(it) && it.open && it.types.any { t -> t == "food" || t == "cafe" } }
             .map { it to taste.score(it) }.sortedByDescending { it.second.first }.take(extras)
             .map { (v, s) -> v to (listOf("Sugerida para comer") + s.second) }
         val chosen = dests.map { it to listOf("Tu destino") } + added
         val title = if (dests.size == 1) "Ruta a ${dests.first().name}" else "Ruta a ${dests.size} destinos"
         return build(dests.first().corridor, chosen, f, taste.inferred, title)
+    }
+
+    /**
+     * Ruta con paradas ya escogidas y EN ESE ORDEN (por ejemplo, la que arma Gemini según lo que pidió la persona):
+     * no se reordena. Las distancias salen de las coordenadas (línea recta × 1,3 por las curvas de la vía), desde el
+     * punto de salida, entre paradas y de regreso.
+     */
+    fun fromStops(picks: List<Pair<Venue, List<String>>>, f: RouteFilters, inferred: List<String>, title: String,
+                  originLat: Double, originLng: Double): RoutePlanResult {
+        val sp = when (f.pace) { "t" -> 45; "r" -> 65; else -> 55 }
+        var t = f.start.split(":").let { (it.getOrNull(0)?.toIntOrNull() ?: 7) * 60 + (it.getOrNull(1)?.toIntOrNull() ?: 0) }
+        val t0 = t
+        var pLat = originLat; var pLng = originLng; var acc = 0.0
+        fun road(aLat: Double, aLng: Double, bLat: Double, bLng: Double) = co.apexmoto.app.data.distanceKm(aLat, aLng, bLat, bLng) * 1.3
+        val stops = picks.map { (v, why) ->
+            val d = road(pLat, pLng, v.lat, v.lng); acc += d
+            t += (d / sp * 60).roundToInt()
+            val eta = fmtMin(t)
+            t += when (v.types.firstOrNull()) { "food" -> 45; "cafe" -> 30; "tour" -> 40; else -> 25 }
+            pLat = v.lat; pLng = v.lng
+            PlanStop(v.copy(km = acc.roundToInt()), why, eta)
+        }
+        val back = road(pLat, pLng, originLat, originLng)
+        t += (back / sp * 60).roundToInt()
+        val kmTot = maxOf((acc + back).roundToInt(), 2)
+        val gal = kmTot / (if (f.bigBike) 34.0 else 48.0)
+        val food = picks.filter { it.first.types != listOf("moto") }.sumOf { avg(it.first) }
+        return RoutePlanResult(picks.first().first.corridor, stops, kmTot, t - t0, fmtMin(t), (gal * 16000).roundToInt().toLong(), food, inferred, title)
     }
 
     /** Ordena por distancia desde Cali y calcula horas de llegada, kilómetros, gasolina y comida. */

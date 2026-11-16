@@ -7,7 +7,7 @@ lifecycle = "2.8.6"
 activityCompose = "1.9.2"
 coreKtx = "1.13.1"
 coroutines = "1.8.1"
-firebaseBom = "33.4.0"
+firebaseBom = "34.0.0"
 googleServices = "4.4.2"
 osmdroid = "6.1.20"
 playLocation = "21.3.0"
@@ -30,6 +30,7 @@ coroutines-play = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-play-serv
 firebase-bom = { module = "com.google.firebase:firebase-bom", version.ref = "firebaseBom" }
 firebase-auth = { module = "com.google.firebase:firebase-auth" }
 firebase-firestore = { module = "com.google.firebase:firebase-firestore" }
+firebase-ai = { module = "com.google.firebase:firebase-ai" }
 firebase-installations = { module = "com.google.firebase:firebase-installations" }
 firebase-appcheck-playintegrity = { module = "com.google.firebase:firebase-appcheck-playintegrity" }
 firebase-appcheck-debug = { module = "com.google.firebase:firebase-appcheck-debug" }

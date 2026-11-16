@@ -110,6 +110,8 @@ Podemos suspender o cerrar una cuenta que incumpla estas reglas. Antes de cerrar
 - Los mapas provienen de OpenStreetMap y las rutas de OpenRouteService. Pueden tener errores o estar desactualizados.
 - El guiado es una ayuda. Las señales de tránsito, el estado de la vía y las indicaciones de las autoridades siempre prevalecen.
 - No manipules el teléfono mientras conduces.
+- Los lugares, las rodadas famosas, los puntos de encuentro y las rutas que arma la Ruta IA (con Gemini de Google) son sugerencias. Salen de una lista propia y de OpenStreetMap, y pueden estar desactualizados o tener errores. Antes de salir revisa el estado de la vía (#767), el clima y el orden público, y decide tú si es seguro hacer el recorrido.
+- Las medallas y la trayectoria del perfil son solo un reconocimiento dentro de la aplicación; no certifican experiencia ni habilidad para conducir.
 
 ## 12. Calificaciones y contenidos
 
