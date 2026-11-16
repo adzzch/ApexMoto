@@ -55,6 +55,44 @@ import co.apexmoto.app.maps.OsmMap
 import co.apexmoto.app.maps.openInGoogleMaps
 import co.apexmoto.app.ui.theme.*
 
+/** Por qué un comercio no recibe pedidos todavía (el rider no tiene cómo saberlo si solo ve "Ver detalles"). */
+fun noOrderReason(v: Venue) = if (v.ownerId.isBlank()) "Aún no está en ApexMoto: no recibe pedidos por la app, pero puedes ir con la guía."
+    else "Todavía no ha subido su menú para pedir por la app. Puedes ir con la guía."
+
+/** Guía dentro de la app hacia un punto que no es un comercio (p. ej. una gasolinera). */
+fun guideTo(vm: AppViewModel, nav: NavController, name: String, lat: Double, lng: Double) {
+    vm.navSession = NavSession(name, listOf(NavStop(name, lat, lng)))
+    nav.navigate("navigate")
+}
+
+/** Lista de gasolineras cercanas, con distancia en línea recta. */
+@Composable
+private fun FuelList(fuel: List<Near<MeetPoint>>, loading: Boolean, where: String, showNearMe: Boolean, onNearMe: () -> Unit, onGo: (MeetPoint) -> Unit) {
+    val ctx = LocalContext.current
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) { H("Gasolineras $where", Icons.Filled.LocalGasStation); Lbl("Distancia en línea recta. Datos de © OpenStreetMap.") }
+        if (showNearMe) Chip("Cerca de mí", false, Icons.Filled.MyLocation, accent = Cyan) { onNearMe() }
+    }
+    if (loading) Empty("Cargando…", Icons.Filled.LocalGasStation)
+    else if (fuel.isEmpty()) Empty("No hay gasolineras de esta zona en el catálogo.", Icons.Filled.LocalGasStation)
+    fuel.forEachIndexed { i, f ->
+        val m = f.item
+        Card2(index = i) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(40.dp).clip(CircleShape).background(GreenTint), contentAlignment = Alignment.Center) { Icon(Icons.Filled.LocalGasStation, null, tint = Green) }
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(m.name, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Lbl(listOf(fmtKmShort(f.km), m.area, m.town).filter { it.isNotBlank() }.distinct().joinToString(" · "))
+                }
+                IconBtn(Icons.Filled.TurnRight, "Ir con guía") { onGo(m) }
+                Spacer(Modifier.width(8.dp))
+                IconBtn(Icons.Filled.Map, "Abrir en Google Maps") { openInGoogleMaps(ctx, m.lat, m.lng) }
+            }
+        }
+    }
+}
+
 /** Inicia el guiado dentro de la app hacia uno o varios comercios. */
 fun startGuide(vm: AppViewModel, nav: NavController, title: String, vs: List<Venue>) {
     vs.forEach { v -> vm.act { vm.repo.addVisit(v.id) } }
@@ -77,6 +115,19 @@ fun VenuesScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
     var asMap by rememberSaveable { mutableStateOf(false) }
     var detail by remember { mutableStateOf<Venue?>(null) }
     var coupon by remember { mutableStateOf<Coupon?>(null) }
+    var fuelPick by remember { mutableStateOf<Near<MeetPoint>?>(null) }
+    // Gasolineras: salen del catálogo de OpenStreetMap que trae la app, cerca de ti o del corredor elegido.
+    val fuelMode = fl == "fuel"
+    var fuelAtMe by rememberSaveable { mutableStateOf(true) }
+    val here by produceState<LatLng?>(null, vm.locationConsented) {
+        value = if (vm.locationConsented && vm.container.location.hasPermission()) runCatching { vm.container.location.last() }.getOrNull() else null
+    }
+    val catalog = rememberCatalog(vm)
+    val corC = C.corridor(cor)
+    val fuelRef = here?.takeIf { fuelAtMe } ?: LatLng(corC.lat, corC.lng)
+    val fuel = rememberInBackground(catalog, fuelRef, fuelMode, initial = emptyList<Near<MeetPoint>>()) {
+        if (fuelMode) catalog?.fuelNear(fuelRef.latitude, fuelRef.longitude).orEmpty() else emptyList()
+    }
     val list = venues.filter { it.corridor == cor && (fl == "all" || fl in it.types) }.sortedBy { it.km }
     val active = orders.filter { it.status !in listOf("done", "no", "can") }
     BackHandler(asMap) { asMap = false }   // el botón Atrás del teléfono vuelve a la lista
@@ -84,27 +135,32 @@ fun VenuesScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
     Column(Modifier.fillMaxSize()) {
         Column(Modifier.padding(top = 14.dp, bottom = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                C.CORRIDORS.forEach { c -> Chip(c.name, cor == c.key, corridorIcon(c.key)) { cor = c.key } }
+                C.CORRIDORS.forEach { c -> Chip(c.name, cor == c.key && !(fuelMode && fuelAtMe && here != null), corridorIcon(c.key)) { cor = c.key; fuelAtMe = false } }
             }
             Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Chip(if (asMap) "Ver lista" else "Ver mapa", asMap, if (asMap) Icons.Filled.ViewAgenda else Icons.Filled.Map, accent = Ink) { asMap = !asMap }
                 Chip("Todos", fl == "all", accent = Cyan) { fl = "all" }
+                Chip("Gasolineras", fuelMode, Icons.Filled.LocalGasStation, accent = Cyan) { fl = "fuel"; fuelAtMe = true }
                 C.CATS.forEach { (k, v) -> Chip(v.first, fl == k, accent = Cyan) { fl = k } }
             }
         }
         AnimatedContent(asMap, Modifier.weight(1f), label = "map", transitionSpec = { fadeIn(tween(260)) togetherWith fadeOut(tween(160)) }) { showMap ->
             if (showMap) {
                 val c = C.corridor(cor)
-                val here by produceState<LatLng?>(null, vm.locationConsented) { value = if (vm.locationConsented) runCatching { vm.container.location.last() }.getOrNull() else null }
-                val located = list.filter { it.lat != 0.0 }
+                val located = if (fuelMode) emptyList() else list.filter { it.lat != 0.0 }
+                val pins = if (fuelMode) fuel.map { MapMarker(it.item.id, LatLng(it.item.lat, it.item.lng), it.item.name, fmtKmShort(it.km)) }
+                           else located.map { MapMarker(it.id, LatLng(it.lat, it.lng), it.name, it.promo) }
                 val mapState = remember(cor) { OsmMapState() }
-                LaunchedEffect(cor, located.size) { delay(350); mapState.fit(located.map { LatLng(it.lat, it.lng) }) }
+                LaunchedEffect(cor, pins.size, fuelMode) { delay(350); mapState.fit(pins.map { it.pos }) }
                 Box(Modifier.fillMaxSize().padding(top = 8.dp)) {
                     key(cor) { // al cambiar de corredor se crea un mapa centrado en él
                         OsmMap(
                             Modifier.fillMaxSize(), state = mapState, center = LatLng(c.lat, c.lng), zoom = 12.0, mapType = vm.mapType,
-                            markers = located.map { MapMarker(it.id, LatLng(it.lat, it.lng), it.name, it.promo) },
-                            myPos = here, onMarkerClick = { id -> located.firstOrNull { it.id == id }?.let { detail = it } },
+                            markers = pins,
+                            myPos = here, onMarkerClick = { id ->
+                                located.firstOrNull { it.id == id }?.let { detail = it }
+                                fuel.firstOrNull { it.item.id == id }?.let { fuelPick = it }
+                            },
                         )
                     }
                     // Volver a la lista
@@ -118,7 +174,7 @@ fun VenuesScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
                     }
                     // Cuántos lugares hay en el mapa
                     Box(Modifier.align(Alignment.TopEnd).padding(12.dp).cardShadow(CircleShape).clip(CircleShape).background(Color.White).padding(horizontal = 12.dp, vertical = 8.dp)) {
-                        Lbl("${located.size} lugar${if (located.size == 1) "" else "es"} · ${c.name}", Ink)
+                        Lbl("${pins.size} ${if (fuelMode) "gasolinera" else "lugar"}${if (pins.size == 1) "" else if (fuelMode) "s" else "es"} · ${if (fuelMode && fuelAtMe && here != null) "cerca de ti" else c.name}", Ink)
                     }
                 }
             } else {
@@ -135,8 +191,10 @@ fun VenuesScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
                             }
                         }
                     }
-                    if (list.isEmpty()) Empty("No hay comercios en este corredor todavía.", Icons.Filled.Storefront)
-                    list.forEachIndexed { i, v ->
+                    if (fuelMode) FuelList(fuel, catalog == null, if (fuelAtMe && here != null) "cerca de ti" else "cerca de ${corC.name}",
+                        showNearMe = here != null && !fuelAtMe, onNearMe = { fuelAtMe = true }) { f -> guideTo(vm, nav, f.name, f.lat, f.lng) }
+                    else if (list.isEmpty()) Empty("No hay comercios en este corredor todavía.", Icons.Filled.Storefront)
+                    if (!fuelMode) list.forEachIndexed { i, v ->
                         val canOrder = v.menu.any { it.on && it.cat != "Servicios" } && v.ownerId.isNotBlank()
                         Card2(index = i, padding = 0.dp, onClick = { detail = v }) {
                             MediaHeader(venueTint(v), venueIcon(v), 116.dp) {
@@ -152,6 +210,8 @@ fun VenuesScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
                             }
                             Column(Modifier.padding(start = 14.dp, end = 14.dp, bottom = 14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                                 if (v.promo.isNotBlank()) IconLine(Icons.Filled.LocalOffer, v.promo)
+                                if (canOrder) IconLine(Icons.Filled.RestaurantMenu, if (v.open) "Pide desde la app y te lo tienen listo al llegar" else "Recibe pedidos cuando abra", Green)
+                                else if ("food" in v.types || "cafe" in v.types) IconLine(Icons.Filled.Info, noOrderReason(v), Muted, bold = false)
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                                     if (canOrder) Btn("Menú", Modifier.weight(1f), Icons.Filled.RestaurantMenu) { nav.navigate("menu/${v.id}") }
                                     else Btn("Ver detalles", Modifier.weight(1f)) { detail = v }
@@ -185,6 +245,16 @@ fun VenuesScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
             Btn("Guiar en la app", Modifier.fillMaxWidth(), Icons.Filled.Navigation, enabled = v.lat != 0.0) { detail = null; startGuide(vm, nav, v.name, listOf(v)) }
             GoogleMapsButton(Modifier.fillMaxWidth(), enabled = v.lat != 0.0) { openInGoogleMaps(ctx, v.lat, v.lng) }
             if (canOrder) Btn("Ver menú y pedir", Modifier.fillMaxWidth(), Icons.Filled.RestaurantMenu, kind = BK.Ghost) { detail = null; nav.navigate("menu/${v.id}") }
+            else if ("food" in v.types || "cafe" in v.types) IconLine(Icons.Filled.Info, noOrderReason(v), Muted, bold = false)
+        }
+    }
+    fuelPick?.let { f ->
+        val m = f.item
+        Sheet({ fuelPick = null }) {
+            H(m.name, Icons.Filled.LocalGasStation)
+            Lbl(listOf(fmtKmShort(f.km) + " en línea recta", m.area, m.town).filter { it.isNotBlank() }.distinct().joinToString(" · "))
+            Btn("Guiar en la app", Modifier.fillMaxWidth(), Icons.Filled.Navigation) { fuelPick = null; guideTo(vm, nav, m.name, m.lat, m.lng) }
+            GoogleMapsButton(Modifier.fillMaxWidth()) { openInGoogleMaps(ctx, m.lat, m.lng) }
         }
     }
     coupon?.let { c ->

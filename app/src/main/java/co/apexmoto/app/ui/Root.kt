@@ -231,7 +231,7 @@ fun MainScaffold(vm: AppViewModel, u: AppUser) {
             composable("rent") { RentScreen(vm, nav) }
             composable("tal") { WorkshopScreen(vm, nav, u) }
             // Comercio
-            composable("cpan") { ShopDashboard(vm, u) }
+            composable("cpan") { ShopDashboard(vm, u) { t -> nav.navigate(t) { popUpTo(start) { saveState = true }; launchSingleTop = true; restoreState = true } } }
             composable("cped") { ShopOrdersScreen(vm, nav, u) }
             composable("cmenu") { ShopMenuScreen(vm, u) }
             composable("cneg") { ShopBusinessScreen(vm, u) }

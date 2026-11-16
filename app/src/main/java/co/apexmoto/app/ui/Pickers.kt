@@ -74,7 +74,7 @@ fun rememberCatalog(vm: AppViewModel): PlacesCatalog? =
 // ───────────────── Punto de encuentro ─────────────────
 data class MeetChoice(val name: String, val lat: Double, val lng: Double)
 
-private fun meetIcon(kind: String): ImageVector = when (kind) {
+internal fun meetIcon(kind: String): ImageVector = when (kind) {
     "bomba" -> Icons.Filled.LocalGasStation; "super" -> Icons.Filled.ShoppingCart; "centro" -> Icons.Filled.Storefront
     "peaje" -> Icons.Filled.Toll; else -> Icons.Filled.Place
 }

@@ -95,6 +95,11 @@ class PlacesCatalog(val towns: List<Town>, val places: List<Place>, val rides: L
      * Puntos de encuentro mientras se escribe: coinciden con el nombre, el barrio o el municipio (sin tildes) y se ordenan
      * por cercanía. Sin texto, los más cercanos. Los lugares famosos también sirven de punto de encuentro.
      */
+    /** Estaciones de servicio más cercanas (del catálogo de OSM, sin internet). */
+    fun fuelNear(lat: Double, lng: Double, limit: Int = 30): List<Near<MeetPoint>> =
+        meet.asSequence().filter { it.kind == "bomba" }.map { Near(it, distanceKm(lat, lng, it.lat, it.lng)) }
+            .sortedBy { it.km }.take(limit).toList()
+
     fun meetSuggestions(q: String, lat: Double, lng: Double, limit: Int = 40): List<Near<MeetPoint>> {
         val words = norm(q).split(Regex("[^a-z0-9]+")).filter { it.isNotBlank() }
         val all = meet.asSequence() + places.asSequence().filter { it.famous }.map { MeetPoint(it.id, it.name, "lugar", it.dept, it.town, "", it.lat, it.lng) }

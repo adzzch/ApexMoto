@@ -27,7 +27,7 @@ object C {
     val CATS = mapOf(
         "food" to Triple("Comida + Parqueo", "Aliado Apex", "Gastronomía & Descanso"),
         "cafe" to Triple("Café & Mirador", "Mirador Especial", "Café de origen & panorámica"),
-        "moto" to Triple("Gasolina & Talleres", "S.O.S Técnico", "Taller & asistencia"),
+        "moto" to Triple("Talleres", "S.O.S Técnico", "Taller & asistencia"),
         "tour" to Triple("Sitios turísticos", "Sitio turístico", "Turismo & historia"),
     )
     val CUISINES = listOf("Parrilla", "Criolla", "Café", "Pizza", "Pescado", "Postres", "Saludable")

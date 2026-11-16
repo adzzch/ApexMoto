@@ -125,8 +125,8 @@ def load_osm(path):
     return towns, villages, pois
 
 
-SUPER_NAME = re.compile(r"(d1|ara|exito|éxito|olimpica|olímpica|jumbo|carulla|metro|la 14|makro|pricesmart|super ?inter|mercaldas|colsubsidio|"
-                        r"comfandi|alkosto|surtimax|merkepaisa|euro|consumo|cooratiendas|la vaquita|mercamio|super ?a)", re.I)
+SUPER_NAME = re.compile(r"\b(d1|ara|exito|éxito|olimpica|olímpica|jumbo|carulla|metro|la 14|makro|pricesmart|super ?inter|mercaldas|colsubsidio|"
+                        r"comfandi|alkosto|surtimax|merkepaisa|euro|consumo|cooratiendas|la vaquita|mercamio|super ?a)\b", re.I)
 
 
 def load_meet(path, town_grid):
