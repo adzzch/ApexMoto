@@ -9,9 +9,6 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y 
 - **Pedidos más claros:** el rider ve en cada comercio si puede pedir por la app o por qué no (sin menú, o aún no está en ApexMoto); el comercio ve en Resumen qué le falta para recibir pedidos (menú, ubicación, abierto) con botón a cada pestaña.
 - **Catálogo con los 33 departamentos:** 4.132 poblaciones, 4.487 lugares y 6.927 puntos de encuentro (3.802 gasolineras, 1.998 supermercados de cadena, 929 centros comerciales, 198 peajes). Nuevo `tools/places/fetch_pbf.py` lee el extracto de Geofabrik cuando Overpass no responde.
 
-### Corregido
-- `build_places.py`: el filtro de supermercados de cadena tenía un carácter invisible y no dejaba pasar ninguno.
-
 - **Enlace clicable para invitar a rodadas:** `https://<proyecto>.web.app/r/<CÓDIGO>` abre la invitación en la app con un toque (App Links + `apexmoto://r/<CÓDIGO>`), ya buscada; si la app no está, una página en Firebase Hosting (`hosting/public/`) muestra el código y cómo unirse. Publicación: `docs/desarrollo.md` §2.5.
 - **"Falta: …" en el resto de la app:** menú y negocio del comercio, canje de cupones, moto del dueño, perfil de conductor, actas, solicitud de renta (bajo el total), pedido, S.O.S., servicios y S.O.S. del taller, aceptación de documentos, solicitudes de privacidad y datos del oferente; "Completa" en rodadas llenas.
 - **Rodadas mejoradas:** fecha y hora reales con calendario (ya no "Sábado 7:00"); punto de encuentro elegido de una lista que se filtra al escribir (estaciones de servicio, supermercados de cadena, centros comerciales, peajes y lugares conocidos, con su barrio), sin texto libre; destino y paradas al crearla, que todos ven en el mapa junto con el punto de encuentro y los miembros; "Llevarme al punto de encuentro". **Pública o Privada:** la pública aparece en Comunidad y cualquiera se une; la privada solo con código o invitación de amigos. **Invitar con código** (8 caracteres, se comparte por WhatsApp) y **Unirme con código** en Comunidad, también para rodadas privadas (reglas: `rodada_codes`, `link_joins`).
@@ -31,6 +28,9 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y 
 - `docs/plan-de-pruebas.md`: recorridos para probar todos los roles con personas reales.
 - Documentación del repositorio: README, guía de desarrollo, arquitectura, hoja de ruta, licencia propietaria, avisos de terceros, política de seguridad, guía de contribución, código de conducta y plantillas de GitHub.
 - `gradle/gradle-daemon-jvm.properties`: el daemon de Gradle usa JDK 21 (JetBrains).
+
+### Corregido
+- `build_places.py`: el filtro de supermercados de cadena tenía un carácter invisible y no dejaba pasar ninguno.
 
 ### Cambiado
 - Búsquedas y cálculos de distancia de Explorar, puntos de encuentro, paradas y ciudades en segundo plano (con espera mientras se escribe), para que la app no se trabe con miles de lugares.
