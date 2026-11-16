@@ -74,7 +74,7 @@ fun RoutesScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
             }
         }
         AnimatedContent(tab, label = "rutas", transitionSpec = { fadeIn(tween(240)) togetherWith fadeOut(tween(120)) }) { t ->
-            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(Gap.between)) {
                 when (t) {
                     "home" -> HomeSection(vm, nav, u) { tab = it }
                     "exp" -> ExploreSection(vm, nav, u)
@@ -160,28 +160,8 @@ private fun ColumnScope.RouteAI(vm: AppViewModel, nav: NavController, u: AppUser
                     }
                     Btn("Generar ruta con IA", Modifier.fillMaxWidth(), Icons.Filled.AutoAwesome, loading = aiBusy) {
                         val f = RouteFilters(text, cor, start, full, pace, big, cuisines, cats, budget.roundToLong())
-                        val prefs = vm.container.prefs
-                        val today = java.time.LocalDate.now().toString()
-                        // Fuera de tema o con trucos: ni se envía a Gemini.
-                        AiGuard.checkInput(AiGuard.cleanInput(text))?.let { msg -> vm.toast(msg); result = null; aiNote = null; return@Btn }
-                        val (ok, why) = AiGuard.allow(prefs.aiLastAt, prefs.aiDay, prefs.aiCount, today)
-                        if (!ok) { vm.toast(why ?: AiGuard.ONLY_ROUTES); return@Btn }
-                        prefs.aiLastAt = System.currentTimeMillis()
-                        prefs.aiCount = (if (prefs.aiDay == today) prefs.aiCount else 0) + 1; prefs.aiDay = today
-                        aiBusy = true; aiNote = null
-                        scope.launch {
-                            val city = catalog?.nearestTown(ref.latitude, ref.longitude)?.label ?: "Cali"
-                            runCatching { GeminiPlanner.plan(text, f, ref.latitude, ref.longitude, city, catalog, venues) }
-                                .onSuccess { result = it.result; aiNote = it }
-                                .onFailure { e ->
-                                    if (e is AiGuard.OffTopic) { result = null; vm.toast(AiGuard.ONLY_ROUTES); tried = false; aiBusy = false; return@launch }
-                                    // Sin IA (sin conexión, AI Logic sin activar o sin cupo): se arma con el planificador local.
-                                    android.util.Log.w("RutaIA", "Gemini falló", e)
-                                    result = RoutePlanner.generate(venues, f)
-                                    vm.toast("La IA no está disponible ahora; te armé la ruta con los comercios aliados." +
-                                        if (co.apexmoto.app.BuildConfig.PRUEBAS) " (${e.javaClass.simpleName}: ${e.message?.take(160)})" else "")
-                                }
-                            tried = true; aiBusy = false
+                        requestAiRoute(vm, scope, catalog, ref, venues, f, onStart = { aiBusy = true; aiNote = null }) { r, note, ok ->
+                            result = r; aiNote = note; tried = ok; aiBusy = false
                         }
                     }
                     Text("Usa Gemini de Google: lo que escribas y la ciudad aproximada se envían para armar la ruta. No escribas datos personales.",
@@ -232,7 +212,67 @@ private fun ColumnScope.RouteAI(vm: AppViewModel, nav: NavController, u: AppUser
     if (picking) StopPickerSheet(vm, dests, title = "¿A dónde quieres ir?") { dests = it; picking = false }
 
     val r = result
-    if (r != null) {
+    if (r != null) AiRouteCard(vm, nav, u, r, aiNote, start)
+    else if (tried) Empty(if (mode == "dest") "Elige al menos un destino para armar la ruta." else "No encontré paradas con esos filtros. Prueba otra zona o quita algún filtro.", Icons.Filled.SearchOff)
+    else Text("Escribe qué se te antoja y la IA te arma la ruta con lugares reales y comercios aliados cerca de ti.", color = Muted, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+
+    if (saved.isNotEmpty()) {
+        H("Mis rutas guardadas", Icons.Filled.Bookmark)
+        saved.sortedByDescending { it.createdAt }.forEachIndexed { i, s ->
+            Card2(index = i) {
+                Text(s.name, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                Lbl("${s.km} km · ${s.mins / 60} h ${s.mins % 60} m")
+                Sub(s.stops.joinToString(" → ") { it.name })
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Btn("Guiar", Modifier.weight(1f), Icons.Filled.Navigation, enabled = s.stops.all { it.lat != 0.0 }) {
+                        vm.navSession = NavSession(s.name, s.stops.map { NavStop(it.name, it.lat, it.lng, it.venueId) }); nav.navigate("navigate")
+                    }
+                    IconBtn(Icons.Filled.Delete, "Borrar ruta", tint = Red, bg = RedSoft) { vm.act("Ruta borrada") { vm.repo.deleteRoute(s.id) } }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Pide la ruta a Gemini con los mismos controles de siempre: se bloquea lo que no es de rutas (ni se envía), hay tope
+ * diario y, si la IA no está disponible, se arma con el planificador local. [onDone] recibe la ruta (o null), la nota
+ * de Gemini y si hubo intento. Se usa en Ruta IA y en el campo "¿A dónde vamos?" de Inicio.
+ */
+internal fun requestAiRoute(vm: AppViewModel, scope: kotlinx.coroutines.CoroutineScope, catalog: PlacesCatalog?, ref: LatLng, venues: List<Venue>, f: RouteFilters,
+                            onStart: () -> Unit, onDone: (RoutePlanResult?, GeminiPlanner.Plan?, Boolean) -> Unit) {
+    val text = f.text
+    val prefs = vm.container.prefs
+    val today = java.time.LocalDate.now().toString()
+    // Fuera de tema o con trucos: ni se envía a Gemini.
+    AiGuard.checkInput(AiGuard.cleanInput(text))?.let { msg -> vm.toast(msg); onDone(null, null, false); return }
+    val (ok, why) = AiGuard.allow(prefs.aiLastAt, prefs.aiDay, prefs.aiCount, today)
+    if (!ok) { vm.toast(why ?: AiGuard.ONLY_ROUTES); return }
+    prefs.aiLastAt = System.currentTimeMillis()
+    prefs.aiCount = (if (prefs.aiDay == today) prefs.aiCount else 0) + 1; prefs.aiDay = today
+    onStart()
+    scope.launch {
+        val city = catalog?.nearestTown(ref.latitude, ref.longitude)?.label ?: "Cali"
+        runCatching { GeminiPlanner.plan(text, f, ref.latitude, ref.longitude, city, catalog, venues) }
+            .onSuccess { onDone(it.result, it, true) }
+            .onFailure { e ->
+                if (e is AiGuard.OffTopic) { vm.toast(AiGuard.ONLY_ROUTES); onDone(null, null, false); return@launch }
+                // Sin IA (sin conexión, AI Logic sin activar o sin cupo): se arma con el planificador local.
+                android.util.Log.w("RutaIA", "Gemini falló", e)
+                vm.toast("La IA no respondió a tiempo; te armé una ruta cerca de ${city.substringBefore(",")} con lugares recomendados." +
+                    if (co.apexmoto.app.BuildConfig.PRUEBAS) " (${e.javaClass.simpleName}: ${e.message?.take(120)})" else "")
+                // Respaldo desde la misma ciudad (no desde los corredores del Valle); si no hay nada cerca, el planificador de siempre.
+                val local = runCatching { GeminiPlanner.localPlan(text, f, ref.latitude, ref.longitude, city, catalog, venues) }.getOrNull()
+                onDone(local ?: RoutePlanner.generate(venues, f), null, true)
+            }
+    }
+}
+
+/** Tarjeta con la ruta armada: paradas con hora, km, gasolina, comida, guiar y guardar. */
+@Composable
+@OptIn(ExperimentalLayoutApi::class)
+fun AiRouteCard(vm: AppViewModel, nav: NavController, u: AppUser, r: RoutePlanResult, aiNote: GeminiPlanner.Plan?, start: String) {
+    Column {
         val c = C.corridor(r.corridor)
         val title = r.title.ifBlank { "Ruta ${c.name}" }
         Card2(Modifier.reveal(0), border = OrangeSoft) {
@@ -247,11 +287,11 @@ private fun ColumnScope.RouteAI(vm: AppViewModel, nav: NavController, u: AppUser
             if (r.inferred.isNotEmpty()) FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Lbl("Entendí:"); r.inferred.forEach { Pill(it, CyanSoft, CyanDeep) }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Stat("${r.km} km", "ida y vuelta", Modifier.weight(1f)); Stat("${r.mins / 60} h ${r.mins % 60} m", "tiempo total", Modifier.weight(1f))
+            Row(Modifier.height(IntrinsicSize.Max), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Stat("${r.km} km", "ida y vuelta", Modifier.weight(1f).fillMaxHeight()); Stat("${r.mins / 60} h ${r.mins % 60} m", "tiempo total", Modifier.weight(1f).fillMaxHeight())
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Stat(cop(r.fuelCost), "gasolina", Modifier.weight(1f), OrangeDark); Stat(cop(r.food), "comida p/p", Modifier.weight(1f), OrangeDark)
+            Row(Modifier.height(IntrinsicSize.Max), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Stat(cop(r.fuelCost), "gasolina", Modifier.weight(1f).fillMaxHeight(), OrangeDark); Stat(cop(r.food), "comida p/p", Modifier.weight(1f).fillMaxHeight(), OrangeDark)
             }
             Spacer(Modifier.height(4.dp))
             r.stops.forEachIndexed { i, s ->
@@ -280,27 +320,8 @@ private fun ColumnScope.RouteAI(vm: AppViewModel, nav: NavController, u: AppUser
                 }
             }
         }
-    } else if (tried) Empty(if (mode == "dest") "Elige al menos un destino para armar la ruta." else "No encontré paradas con esos filtros. Prueba otra zona o quita algún filtro.", Icons.Filled.SearchOff)
-    else Text("Escribe qué se te antoja y la IA te arma la ruta con lugares reales y comercios aliados cerca de ti.", color = Muted, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
-
-    if (saved.isNotEmpty()) {
-        H("Mis rutas guardadas", Icons.Filled.Bookmark)
-        saved.sortedByDescending { it.createdAt }.forEachIndexed { i, s ->
-            Card2(index = i) {
-                Text(s.name, fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                Lbl("${s.km} km · ${s.mins / 60} h ${s.mins % 60} m")
-                Sub(s.stops.joinToString(" → ") { it.name })
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Btn("Guiar", Modifier.weight(1f), Icons.Filled.Navigation, enabled = s.stops.all { it.lat != 0.0 }) {
-                        vm.navSession = NavSession(s.name, s.stops.map { NavStop(it.name, it.lat, it.lng, it.venueId) }); nav.navigate("navigate")
-                    }
-                    IconBtn(Icons.Filled.Delete, "Borrar ruta", tint = Red, bg = RedSoft) { vm.act("Ruta borrada") { vm.repo.deleteRoute(s.id) } }
-                }
-            }
-        }
     }
 }
-
 
 private fun Float.roundToLong() = this.toDouble().let { Math.round(it) }
 
@@ -339,8 +360,8 @@ private fun BudgetCalc() {
                 }
             }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Stat(cop(fuel), "gasolina", Modifier.weight(1f)); Stat(cop(food), "comida", Modifier.weight(1f))
+        Row(Modifier.height(IntrinsicSize.Max), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Stat(cop(fuel), "gasolina", Modifier.weight(1f).fillMaxHeight()); Stat(cop(food), "comida", Modifier.weight(1f).fillMaxHeight())
         }
         Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(OrangeSoft).padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
             Lbl("Total estimado", OrangeDark, Modifier.weight(1f)); Num(cop(animatedMoney(Math.round(total.toDouble()))), OrangeDark, 24)

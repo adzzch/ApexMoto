@@ -86,7 +86,7 @@ fun LoadingCard(text: String) {
 fun CityBar(vm: AppViewModel, c: PlacesCatalog, p: HomePlace, title: String? = null) {
     var pick by remember { mutableStateOf(false) }
     val askLocation = rememberLocationRequest(vm) { la, ln -> vm.pickGps(c, la, ln) }
-    Card2(padding = 12.dp) {
+    Card2 {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(40.dp).clip(CircleShape).background(OrangeSoft), contentAlignment = Alignment.Center) {
                 Icon(if (p.gps) Icons.Filled.MyLocation else Icons.Filled.LocationOn, null, tint = OrangeDark)
@@ -96,7 +96,7 @@ fun CityBar(vm: AppViewModel, c: PlacesCatalog, p: HomePlace, title: String? = n
                 Lbl(title ?: if (p.gps) "Estás cerca de" else "Estás en")
                 Text(p.label, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-            TextButton({ pick = true }) { Text("Cambiar", color = CyanDeep, fontWeight = FontWeight.Bold) }
+            TextButton({ pick = true }, contentPadding = EdgeLink) { Text("Cambiar", color = CyanDeep, fontWeight = FontWeight.Bold) }
         }
     }
     if (pick) CityPicker(c, onDismiss = { pick = false }, onGps = { pick = false; askLocation() }) { t -> pick = false; vm.pickTown(t) }
@@ -121,7 +121,7 @@ fun ColumnScope.ExploreSection(vm: AppViewModel, nav: NavController, u: AppUser)
     val rides = rememberInBackground(c, lat, lng, initial = emptyList<Near<FamousRide>>()) { c.ridesNear(lat, lng) }
     Row(verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.weight(1f)) { H("Rodadas famosas", Icons.Filled.TwoWheeler) }
-        TextButton({ allRides = true }) { Text("Ver todas (${rides.size})", color = CyanDeep, fontWeight = FontWeight.Bold, fontSize = 13.sp) }
+        TextButton({ allRides = true }, contentPadding = EdgeLink) { Text("Ver todas (${rides.size})", color = CyanDeep, fontWeight = FontWeight.Bold, fontSize = 13.sp) }
     }
     LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp), contentPadding = PaddingValues(end = 4.dp)) {
         items(rides.take(10), key = { it.item.id }) { n -> RideCard(n) { openRide = n.item } }
@@ -185,7 +185,7 @@ fun RideSheetFor(vm: AppViewModel, nav: NavController, r: FamousRide, lat: Doubl
 fun RideRow(n: Near<FamousRide>, index: Int, onClick: () -> Unit) {
     val r = n.item
     val (lv, lc) = LEVEL[r.level] ?: ("" to Muted)
-    Card2(onClick = onClick, index = index, padding = 12.dp) {
+    Card2(onClick = onClick, index = index) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)).background(OrangeSoft), contentAlignment = Alignment.Center) {
                 Icon(Icons.Filled.Route, null, tint = OrangeDark)
@@ -206,7 +206,7 @@ fun RideRow(n: Near<FamousRide>, index: Int, onClick: () -> Unit) {
 private fun RideCard(n: Near<FamousRide>, onClick: () -> Unit) {
     val r = n.item
     val (lv, lc) = LEVEL[r.level] ?: ("" to Muted)
-    Card2(Modifier.width(250.dp), onClick = onClick, padding = 12.dp) {
+    Card2(Modifier.width(250.dp), onClick = onClick) {
         Text(r.name, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 19.sp,
             modifier = Modifier.heightIn(min = 38.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -223,7 +223,7 @@ private fun RideCard(n: Near<FamousRide>, onClick: () -> Unit) {
 @Composable
 private fun PlaceRow(n: Near<Place>, index: Int, onClick: () -> Unit) {
     val p = n.item; val k = kindOf(p.kind)
-    Card2(onClick = onClick, index = index, padding = 12.dp) {
+    Card2(onClick = onClick, index = index) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(42.dp).clip(RoundedCornerShape(12.dp)).background(if (p.famous) OrangeSoft else Surf3), contentAlignment = Alignment.Center) {
                 Icon(k.icon, null, tint = if (p.famous) OrangeDark else CyanDeep)

@@ -60,7 +60,7 @@ fun ColumnScope.RodadasPane(vm: AppViewModel, nav: NavController, u: AppUser) {
     visible.forEachIndexed { i, r -> RodadaCard(vm, nav, u, r, i) }
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Btn("Crear rodada", Modifier.weight(1f), Icons.Filled.GroupAdd) { create = true }
-        Btn("Unirme con código", Modifier.weight(1f), Icons.Filled.Link, kind = BK.Ghost) { byCode = true }
+        Btn("Tengo código", Modifier.weight(1f), Icons.Filled.Link, kind = BK.Ghost) { byCode = true }
     }
     if (create) CreateRodadaSheet(vm, nav, u, onDismiss = { create = false })
     if (byCode) JoinByCodeSheet(vm, nav, u) { byCode = false }
@@ -369,7 +369,7 @@ fun RodadaScreen(vm: AppViewModel, nav: NavController, u: AppUser, id: String) {
             val ctx = androidx.compose.ui.platform.LocalContext.current
             Card2(tone = Surf1) {
                 IconLine(Icons.Filled.Link, "Invita con un código", CyanDeep)
-                Sub("Comparte el enlace por WhatsApp o donde quieras: con un toque abre la invitación en ApexMoto. También pueden escribir el código en Comunidad → Unirme con código" +
+                Sub("Comparte el enlace por WhatsApp o donde quieras: con un toque abre la invitación en ApexMoto. También pueden escribir el código en Comunidad → Tengo código" +
                     if (ro.visibility == "friends") ", aunque la rodada sea privada." else ".")
                 if (ro.inviteCode.isNotBlank()) Num(ro.inviteCode.chunked(4).joinToString(" "), OrangeDark, 22)
                 if (ro.inviteCode.isNotBlank() || isCreator) Btn("Compartir invitación", Modifier.fillMaxWidth(), Icons.Filled.Share, small = true) {
@@ -377,7 +377,7 @@ fun RodadaScreen(vm: AppViewModel, nav: NavController, u: AppUser, id: String) {
                         val code = if (isCreator) vm.repo.ensureInviteCode(ro) else ro.inviteCode
                         shareText(ctx, "¡Vamos a rodar! \"${ro.name}\" · ${ro.whenLabel}\nEncuentro: ${ro.meet}\n" +
                             "Únete aquí: https://${co.apexmoto.app.BuildConfig.INVITE_HOST}/r/$code\n" +
-                            "(o en ApexMoto: Comunidad → Unirme con código → $code)")
+                            "(o en ApexMoto: Comunidad → Tengo código → $code)")
                     }
                 }
             }

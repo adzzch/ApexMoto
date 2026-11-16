@@ -58,17 +58,23 @@ private fun sinceText(ms: Long): String {
 
 /** Tarjeta de estadísticas y medallas. [sinceFallback]: fecha de creación de la cuenta si aún no hay estadísticas. */
 @Composable
-fun RiderStatsCard(stats: RiderStats?, sinceFallback: Long?, own: Boolean, featured: Boolean = false) {
+fun RiderStatsCard(stats: RiderStats?, sinceFallback: Long?, own: Boolean) {
+    Card2 { RiderStats(stats, sinceFallback, own) }
+}
+
+/** Contenido de la trayectoria (rutas, rango, medallas), para ponerlo dentro de otra tarjeta, como la del perfil propio. */
+@Composable
+fun ColumnScope.RiderStats(stats: RiderStats?, sinceFallback: Long?, own: Boolean) {
     val routes = stats?.routes ?: 0
     val since = stats?.since?.takeIf { it > 0 } ?: sinceFallback
     val current = medalOf(routes)
     val next = MEDALS.firstOrNull { routes < it.routes }
-    // Destacada (primera tarjeta del perfil propio): borde naranja.
-    Card2(border = if (featured) OrangeSoft else null, index = if (featured) 0 else -1) {
+    run {
         H("Trayectoria", Icons.Filled.EmojiEvents)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Stat("$routes", if (routes == 1) "ruta completada" else "rutas completadas", Modifier.weight(1f), OrangeDark)
-            Stat(current?.name ?: "Sin medalla", "rango", Modifier.weight(1f), current?.color ?: Muted)
+        // Los dos recuadros con la misma altura aunque la cifra de uno sea más corta.
+        Row(Modifier.height(IntrinsicSize.Max), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Stat("$routes", if (routes == 1) "ruta completada" else "rutas completadas", Modifier.weight(1f).fillMaxHeight(), OrangeDark)
+            Stat(current?.name ?: "Sin medalla", "rango", Modifier.weight(1f).fillMaxHeight(), current?.color ?: Muted)
         }
         if (since != null) IconLine(Icons.Filled.CalendarMonth, "En ApexMoto desde ${sinceText(since)}", CyanDeep, bold = false)
         // Medallas: las ganadas a color, las que faltan en gris.
@@ -93,8 +99,8 @@ private fun MedalBadge(m: Medal, earned: Boolean, modifier: Modifier = Modifier)
         Box(Modifier.size(44.dp).clip(CircleShape).background(if (earned) m.color else Surf3), contentAlignment = Alignment.Center) {
             Icon(if (earned) m.icon else Icons.Filled.Lock, m.name + if (earned) "" else " (bloqueada)", Modifier.size(22.dp), tint = if (earned) Color.White else Muted)
         }
-        Text(m.short, fontSize = 10.sp, lineHeight = 12.sp, textAlign = TextAlign.Center, color = if (earned) Ink else Muted, maxLines = 2,
-            modifier = Modifier.heightIn(min = 24.dp))
+        // Siempre dos renglones de alto: así "50 rutas" queda a la misma altura en todas las medallas.
+        Text(m.short, fontSize = 10.sp, lineHeight = 12.sp, textAlign = TextAlign.Center, color = if (earned) Ink else Muted, minLines = 2, maxLines = 2)
         Text("${m.routes} rutas", fontSize = 9.sp, color = Muted)
     }
 }

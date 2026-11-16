@@ -172,7 +172,7 @@ Cada paso dice quién lo hace y qué debe pasar. Marca la casilla si salió bien
 
 1. Crea una rodada: elige la fecha en el calendario, el punto de encuentro escribiendo (ej. "D1", "Terpel", "Éxito") y el destino con una parada y un restaurante. El botón **Listo** debe verse sin bajar.
 2. Revisa el mapa de la rodada: punto de encuentro, paradas y, ya iniciada, los miembros.
-3. Hazla **Privada**, comparte el código y que otro rider entre con **Comunidad → Unirme con código**. Un tercero sin código no debe verla.
+3. Hazla **Privada**, comparte el código y que otro rider entre con **Comunidad → Tengo código**. Un tercero sin código no debe verla.
 4. Menú **⋮**: sobre ti (ver perfil, salir), sobre otro como creador (líder, cierra el grupo, expulsar, añadir amigo) y como miembro normal (ver perfil, añadir amigo).
 5. Completa una ruta de más de 2 km con el guiado: en **Mi perfil → Trayectoria** debe sumar una ruta. Repetirla antes de 20 minutos no suma.
 

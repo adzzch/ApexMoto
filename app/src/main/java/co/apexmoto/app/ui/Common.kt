@@ -116,19 +116,32 @@ fun Modifier.cardShadow(shape: Shape): Modifier =
 fun Screen(content: @Composable ColumnScope.() -> Unit) {
     // Celulares: ocupa todo el ancho con márgenes de 16 dp. Pantallas anchas (tablets, plegables, horizontal):
     // el contenido se centra con un ancho máximo para que no quede estirado ni pegado a un lado.
+    // Medidas de toda la app: 16 dp de margen (pantalla y dentro de las tarjetas) y 12 dp entre bloques.
     Box(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), contentAlignment = Alignment.TopCenter) {
         Column(
-            Modifier.widthIn(max = 640.dp).fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp), content = content,
+            Modifier.widthIn(max = 640.dp).fillMaxWidth().padding(Gap.screen),
+            verticalArrangement = Arrangement.spacedBy(Gap.between), content = content,
         )
     }
+}
+
+/** Medidas de espacio comunes: así los bordes de pantallas, tarjetas y listas quedan alineados en toda la app. */
+object Gap {
+    /** Margen de la pantalla (los cuatro lados). */
+    val screen = 16.dp
+    /** Relleno dentro de las tarjetas: igual al margen, para que el contenido de tarjetas apiladas quede alineado. */
+    val card = 16.dp
+    /** Entre tarjetas o bloques de una pantalla. */
+    val between = 12.dp
+    /** Entre elementos dentro de una tarjeta. */
+    val inside = 10.dp
 }
 
 /** Tarjeta blanca de la app. index >= 0 la hace entrar con la cascada de la lista. */
 @Composable
 fun Card2(
     modifier: Modifier = Modifier, border: Color? = null, onClick: (() -> Unit)? = null, index: Int = -1,
-    padding: Dp = 14.dp, tone: Color = Color.White, content: @Composable ColumnScope.() -> Unit,
+    padding: Dp = Gap.card, tone: Color = Color.White, content: @Composable ColumnScope.() -> Unit,
 ) {
     val shape = RoundedCornerShape(16.dp)
     val src = remember { MutableInteractionSource() }
@@ -138,7 +151,7 @@ fun Card2(
     m = m.then(if (tone == Color.White) Modifier.cardShadow(shape) else Modifier).clip(shape).background(tone)
     if (border != null) m = m.border(BorderStroke(1.5.dp, border), shape)
     if (onClick != null) m = m.clickable(src, OrangeRipple, onClick = onClick)
-    Column(m.padding(padding), verticalArrangement = Arrangement.spacedBy(8.dp), content = content)
+    Column(m.padding(padding), verticalArrangement = Arrangement.spacedBy(Gap.inside), content = content)
 }
 
 private val OrangeRipple = ripple(color = Orange)
@@ -538,8 +551,8 @@ fun Sheet(onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
         shape = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp), dragHandle = { BottomSheetDefaults.DragHandle(color = Surf4) },
     ) {
         Column(
-            Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 28.dp).navigationBarsPadding(),
-            verticalArrangement = Arrangement.spacedBy(12.dp), content = content,
+            Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 24.dp).navigationBarsPadding(),
+            verticalArrangement = Arrangement.spacedBy(Gap.between), content = content,
         )
     }
 }
@@ -597,8 +610,13 @@ fun Avatar(name: String, size: Dp = 44.dp) {
 /** Línea de detalle con ícono pequeño (promoción, punto de encuentro…). */
 @Composable
 fun IconLine(icon: ImageVector, text: String, color: Color = OrangeDark, bold: Boolean = true) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(icon, null, Modifier.size(16.dp), tint = color); Spacer(Modifier.width(6.dp))
-        Text(text, color = color, fontWeight = if (bold) FontWeight.SemiBold else FontWeight.Normal, fontSize = 13.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+    // Ícono alineado con el primer renglón: si el texto ocupa dos líneas, no queda flotando en el medio.
+    Row(verticalAlignment = Alignment.Top) {
+        Icon(icon, null, Modifier.padding(top = 1.dp).size(16.dp), tint = color); Spacer(Modifier.width(8.dp))
+        Text(text, color = color, fontWeight = if (bold) FontWeight.SemiBold else FontWeight.Normal, fontSize = 13.sp, lineHeight = 18.sp,
+            maxLines = 2, overflow = TextOverflow.Ellipsis)
     }
 }
+
+/** Relleno de un enlace de texto pegado al borde (Cambiar, Ver más): sin relleno lateral, así queda alineado con la tarjeta. */
+val EdgeLink = PaddingValues(horizontal = 0.dp, vertical = 8.dp)

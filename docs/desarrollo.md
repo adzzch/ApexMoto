@@ -74,7 +74,7 @@ La Ruta IA usa Gemini a través de **Firebase AI Logic**, así que no hay ningun
 2. Elige **API para desarrolladores de Gemini** (Gemini Developer API), que funciona con el plan gratuito Spark. **No** elijas Vertex AI: exige el plan Blaze.
 3. Acepta habilitar las APIs que pide. No hace falta volver a descargar `google-services.json`.
 
-El modelo está en `core/Constants.kt` (`C.GEMINI_MODEL`, hoy `gemini-3.5-flash`). Si Google lo retira, cámbialo por el modelo "flash" vigente; en noviembre de 2026 `gemini-2.5-flash` ya no se daba a usuarios nuevos y `gemini-3.8-flash` tardaba ~55 s por respuesta. En la app de pruebas, el aviso de error muestra el motivo técnico.
+El modelo está en `core/Constants.kt` (`C.GEMINI_MODEL`, hoy `gemini-3.5-flash-lite`), con modelos de respaldo en `C.GEMINI_FALLBACKS` (hoy `gemini-flash-lite-latest`) y una espera máxima por modelo de `C.GEMINI_TIMEOUT_MS` (20 s). Si todos fallan, la app arma la ruta sin IA desde la ciudad elegida (`GeminiPlanner.localPlan`). El 16-nov-2026 los "flash" grandes (`gemini-3.5-flash`, `gemini-3.8-flash`, `gemini-flash-latest`) tardaban más de 45 s o respondían 500 "high demand", mientras los "lite" contestaban en ~2 s con el mismo formato JSON; `gemini-2.5-flash` ya no se da a usuarios nuevos. Para probar un modelo sin compilar: `POST https://firebasevertexai.googleapis.com/v1beta/projects/<proyecto>/models/<modelo>:generateContent` con los encabezados `x-goog-api-key` (la de `google-services.json`) y `X-Firebase-AppId`. En la app de pruebas, el aviso de error muestra el motivo técnico.
 
 **App Check:** mientras se prueba con APK instalados a mano, App Check **no** debe estar "Aplicado" para Firebase AI Logic (consola → App Check → APIs), o Gemini responde "App Check token is invalid". Para que funcione solo con abrir la app y con App Check obligatorio, hay que distribuir por Google Play (prueba interna o cerrada) con Play Integrity: ver `docs/seguridad.md`. Si la IA no responde (sin activar, sin conexión o sin cupo), la app arma la ruta con el planificador local y lo avisa.
 Cuando se active App Check con aplicación obligatoria (ver `docs/seguridad.md`), actívalo también para AI Logic.
@@ -105,14 +105,14 @@ Copia `legal.properties.example` a `legal.properties` en la raíz y llena cada v
 ## 3. Ejecutar
 
 1. Sincroniza Gradle (**Sync Now**).
-2. En **Build Variants** elige `pruebasDebug` (la de siempre) o `prodDebug`, y ejecuta `app`. Las dos se pueden tener instaladas a la vez: la de pruebas se llama "ApexMoto Pruebas", tiene el ícono cian y una franja "Ambiente de pruebas · datos de ejemplo" arriba en todas las pantallas.
+2. En **Build Variants** elige `pruebasDebug` (la de siempre) o `prodDebug`, y ejecuta `app`. Las dos se pueden tener instaladas a la vez: la de pruebas se llama "ApexMoto Pruebas" y tiene el ícono cian (ya no lleva franja arriba).
 3. **Datos demo** (solo en pruebas y siendo administrador): Perfil → Datos demo → **Cargar**, **Reiniciar** o **Borrar**. Se cargan comercios, motos y rodadas del prototipo; borrarlos no toca lo que crearon los usuarios.
 4. Los datos demo no tienen cuenta propietaria: pedidos y solicitudes hacia ellos quedan en "Enviado/Pendiente". Para probar el flujo completo crea una cuenta Comercio (o Taller) y otra Rider, en dos dispositivos o cerrando sesión entre una y otra.
 
 ### 3.1 Para una presentación
 
 1. Abre ApexMoto Pruebas con tu cuenta de administrador y toca **Cargar datos demo** (o **Reiniciar**, si ya estaban).
-2. Presenta. La franja deja claro que son datos de ejemplo.
+2. Presenta. Aclara al presentar que son datos de ejemplo.
 3. Si quieres dejar el ambiente limpio, toca **Borrar datos demo** al terminar.
 
 ### 3.2 Entregar la app a otras personas (prueba cerrada)

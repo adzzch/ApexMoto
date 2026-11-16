@@ -20,7 +20,7 @@ ApexMoto no ofrece transporte de pasajeros ni guías pagados. El contexto de pro
 
 | Versión | Para qué | Firebase |
 |---|---|---|
-| **ApexMoto Pruebas** (`pruebas`) | Desarrollo y presentaciones. Trae los datos demo y una franja "Ambiente de pruebas" | Proyecto de pruebas, `app/src/pruebas/google-services.json` |
+| **ApexMoto Pruebas** (`pruebas`) | Desarrollo y presentaciones. Trae los datos demo; se reconoce por el nombre y el ícono cian | Proyecto de pruebas, `app/src/pruebas/google-services.json` |
 | **ApexMoto** (`prod`) | La app real, que arranca vacía. No compila sin los datos del responsable en los textos legales | Proyecto productivo, `app/src/prod/google-services.json` |
 
 Se instalan las dos a la vez en el mismo teléfono. Detalle en la [guía de desarrollo](docs/desarrollo.md).

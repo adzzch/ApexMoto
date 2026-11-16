@@ -69,22 +69,23 @@ fun ProfileScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
     )
     val profile by vm.myProfile.collectAsState()
     Screen {
-        // La trayectoria va primero: es lo que destaca al rider.
-        if (u.role == Role.RIDER) {
-            val stats by remember(u.id) { vm.repo.riderStats(u.id) }.collectAsState(initial = null)
-            RiderStatsCard(stats, vm.repo.auth.currentUser?.metadata?.creationTimestamp, own = true, featured = true)
-        }
-        Card2(index = 1) {
+        // Una sola tarjeta: primero quién es (perfil) y, como complemento, su trayectoria (solo riders).
+        Card2(index = 0, border = if (u.role == Role.RIDER) OrangeSoft else null) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 val p = profile
                 if (p != null) MotoAvatar(p.moto, p.color, 60.dp) else Avatar(u.name, 60.dp)
-                Spacer(Modifier.width(14.dp))
+                Spacer(Modifier.width(Gap.card))
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(u.name, fontFamily = Chivo, fontWeight = FontWeight.ExtraBold, fontSize = 21.sp)
                     if (p != null) Lbl("@${p.username}", CyanDeep)
                     Pill(Role.label(u.role), OrangeSoft, OrangeDark)
                     if (u.email.isNotBlank()) Lbl(u.email)
                 }
+            }
+            if (u.role == Role.RIDER) {
+                HorizontalDivider(Modifier.padding(vertical = 6.dp), color = Surf3)
+                val stats by remember(u.id) { vm.repo.riderStats(u.id) }.collectAsState(initial = null)
+                RiderStats(stats, vm.repo.auth.currentUser?.metadata?.creationTimestamp, own = true)
             }
         }
         if (u.role == Role.RIDER) Card2 {

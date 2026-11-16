@@ -81,10 +81,12 @@ private val Scheme = lightColorScheme(
     surfaceContainerHigh = Color.White, surfaceContainerHighest = Surf3,
 )
 
+// Interlineado proporcional (em): si una pantalla cambia el tamaño de un texto, el espacio entre renglones se ajusta
+// solo. Con valores fijos en sp, un texto de 13 sp heredaba 23 sp de interlineado y los renglones quedaban separados.
 private fun head(size: Int, line: Int, w: FontWeight = FontWeight.ExtraBold) =
-    TextStyle(fontFamily = Chivo, fontWeight = w, fontSize = size.sp, lineHeight = line.sp, letterSpacing = (-0.01).em)
+    TextStyle(fontFamily = Chivo, fontWeight = w, fontSize = size.sp, lineHeight = (line.toFloat() / size).em, letterSpacing = (-0.01).em)
 private fun body(size: Int, line: Int, w: FontWeight = FontWeight.Normal) =
-    TextStyle(fontFamily = SpaceGrotesk, fontWeight = w, fontSize = size.sp, lineHeight = line.sp)
+    TextStyle(fontFamily = SpaceGrotesk, fontWeight = w, fontSize = size.sp, lineHeight = (line.toFloat() / size).em)
 
 private val Type = Typography(
     displaySmall = head(32, 38, FontWeight.Black),
@@ -99,7 +101,7 @@ private val Type = Typography(
     bodySmall = body(13, 18),
     labelLarge = body(14, 20, FontWeight.Bold),
     labelMedium = body(12, 16, FontWeight.Medium),
-    labelSmall = TextStyle(fontFamily = JetBrainsMono, fontWeight = FontWeight.SemiBold, fontSize = 11.sp, lineHeight = 14.sp, letterSpacing = 0.07.em),
+    labelSmall = TextStyle(fontFamily = JetBrainsMono, fontWeight = FontWeight.SemiBold, fontSize = 11.sp, lineHeight = 1.3.em, letterSpacing = 0.07.em),
 )
 
 private val ApexShapes = Shapes(

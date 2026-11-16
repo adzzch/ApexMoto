@@ -92,6 +92,8 @@ class AppViewModel(val container: AppContainer) : ViewModel() {
 
     init {
         viewModelScope.launch { user.collect { locationConsented = it != null && Legal.isCurrent(it.legal, Legal.LOCATION) } }
+        // El catálogo de lugares (1,4 MB) se empieza a leer apenas abre la app, para que Inicio no espere al mostrar la ciudad.
+        viewModelScope.launch { runCatching { container.places.get() } }
         viewModelScope.launch {
             try {
                 user.value = repo.currentUser()

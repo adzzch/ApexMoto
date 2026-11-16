@@ -44,9 +44,12 @@ object GeminiPlanner {
         ),
     )
 
-    private val model by lazy {
+    private val models = mutableMapOf<String, com.google.firebase.ai.GenerativeModel>()
+
+    @Synchronized
+    private fun model(name: String) = models.getOrPut(name) {
         Firebase.ai(backend = GenerativeBackend.googleAI()).generativeModel(
-            modelName = C.GEMINI_MODEL,
+            modelName = name,
             generationConfig = generationConfig {
                 responseMimeType = "application/json"
                 responseSchema = schema
@@ -54,7 +57,7 @@ object GeminiPlanner {
                 // Escoger paradas de una lista corta es simple: poco "pensamiento" = respuesta en segundos.
                 thinkingConfig = thinkingConfig { thinkingBudget = 512 }
             },
-            requestOptions = RequestOptions(timeoutInMillis = 45_000),
+            requestOptions = RequestOptions(timeoutInMillis = C.GEMINI_TIMEOUT_MS),
             // Filtros de contenido de Google: bloquea acoso, odio, contenido sexual y peligroso desde nivel medio.
             safetySettings = listOf(
                 SafetySetting(HarmCategory.HARASSMENT, HarmBlockThreshold.MEDIUM_AND_ABOVE),
@@ -88,31 +91,67 @@ object GeminiPlanner {
         return if (xs.isEmpty()) 0 else xs.average().roundToInt()
     }
 
-    /** Pide la ruta a Gemini. Lanza una excepción si Gemini no está disponible o no devuelve paradas válidas. */
-    suspend fun plan(
-        text: String, f: RouteFilters, originLat: Double, originLng: Double, city: String,
-        catalog: PlacesCatalog?, venues: List<Venue>,
-    ): Plan {
+    /** Lugares y comercios entre los que se puede escoger: los que la persona nombra, los cercanos y los aliados. */
+    private class Candidates(val named: List<Venue>, val places: List<Venue>, val allies: List<Venue>)
+
+    /**
+     * Arma la lista de candidatos. Recorre miles de lugares del catálogo, así que se llama siempre fuera del hilo de la
+     * pantalla (ver [plan] y [localPlan]); en el hilo principal congelaba la app con pedidos largos.
+     */
+    private fun candidates(text: String, originLat: Double, originLng: Double, catalog: PlacesCatalog?, venues: List<Venue>, radiusKm: Int = 150): Candidates {
         // Candidatos: lugares del catálogo a menos de 150 km (los famosos primero) y comercios aliados abiertos.
-        val places = catalog?.placesNear(originLat, originLng, 150).orEmpty().take(45).map { n ->
+        val places = catalog?.placesNear(originLat, originLng, radiusKm).orEmpty().take(45).map { n ->
             Venue(id = n.item.id, name = n.item.name, types = listOf("tour"), kind = placeKind(n.item.kind), lat = n.item.lat, lng = n.item.lng,
                 km = n.km.roundToInt(), desc = n.item.desc, badge = if (n.item.famous) "Recomendado" else "")
         }
         val allies = venues.filter { it.open && it.lat != 0.0 }
             .map { it.copy(km = distanceKm(originLat, originLng, it.lat, it.lng).roundToInt()) }
-            .filter { it.km <= 150 }.sortedBy { it.km }.take(25)
+            .filter { it.km <= radiusKm }.sortedBy { it.km }.take(25)
         // Lugares que la persona nombra ("termina en el Lago Calima"): se buscan en todo el catálogo y se agregan aunque estén lejos.
         val named = catalog?.let { cat ->
             val stop = setOf("quiero", "quisiera", "luego", "despues", "pasar", "terminar", "termina", "llegar", "comer", "algo", "como", "para", "donde",
-                "desde", "hasta", "hacia", "rodada", "ruta", "final", "finalizar", "primero", "ir", "por", "una", "unos", "unas", "con", "que", "del", "los", "las")
-            val words = co.apexmoto.app.core.norm(text).split(Regex("[^a-z0-9]+")).filter { it.length >= 3 && it !in stop }
-            // Frases de 1 a 3 palabras seguidas: "lago calima", "km 18", "cristo rey".
+                "desde", "hasta", "hacia", "rodada", "ruta", "final", "finalizar", "primero", "ir", "por", "una", "unos", "unas", "con", "que", "del", "los", "las",
+                "ganas", "ganoso", "tirarme", "comerme", "alguito", "norte", "sur", "oriente", "occidente", "centro", "bueno", "rico", "chevere")
+            val words = co.apexmoto.app.core.norm(text).split(Regex("[^a-z0-9]+")).filter { it.length >= 3 && it !in stop }.take(12)
+            // Palabras de tipo de lugar o de comida: no son nombres. Buscarlas solas en todo el país traía "Mirador del Valle"
+            // a 300 km cuando la persona solo pidió "un mirador". Esas se resuelven con los candidatos cercanos.
+            val generic = setOf("mirador", "miradores", "cascada", "cascadas", "pueblo", "pueblos", "lago", "laguna", "rio", "playa", "playas",
+                "termales", "parque", "montana", "cerro", "iglesia", "museo", "trucha", "truchas", "almorzar", "almuerzo", "desayuno", "desayunar",
+                "cafe", "cafecito", "comida", "comer", "pescado", "carne", "asado", "parrilla", "postre", "helado", "paisaje", "vista", "naturaleza",
+                "curvas", "corta", "larga", "tranquila", "tranquilo", "barato", "barata", "cerca", "lejos", "manana", "tarde", "noche", "hoy", "domingo", "sabado")
+            // Frases de 1 a 3 palabras seguidas: "lago calima", "km 18", "cristo rey". Como mucho 24 búsquedas.
             val phrases = (3 downTo 1).flatMap { n -> words.windowed(n).map { it.joinToString(" ") } }.distinct()
+                .filter { ph -> ph.split(" ").any { it !in generic } }.take(24)
             phrases.flatMap { ph -> cat.search(ph, originLat, originLng, 3) }.distinctBy { it.item.id }.take(15).map { n ->
                 Venue(id = n.item.id, name = n.item.name, types = listOf("tour"), kind = placeKind(n.item.kind), lat = n.item.lat, lng = n.item.lng,
                     km = n.km.roundToInt(), desc = n.item.desc, badge = "Nombrado por la persona")
             }
         }.orEmpty()
+        return Candidates(named, places, allies)
+    }
+
+    /**
+     * Ruta sin IA (cuando Gemini no responde): desde la ciudad elegida, con lo que la persona nombró o los lugares
+     * recomendados más cercanos, y un aliado para comer si lo hay. Así el respaldo no se va a otra región.
+     */
+    suspend fun localPlan(text: String, f: RouteFilters, originLat: Double, originLng: Double, city: String,
+                          catalog: PlacesCatalog?, venues: List<Venue>): RoutePlanResult? = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+        val c = candidates(text, originLat, originLng, catalog, venues, if (f.full) 150 else 80)
+        val sights = (c.named.filter { it.km <= 200 } + c.places.filter { it.badge.isNotBlank() } + c.places).distinctBy { it.id }.take(2)
+        val food = c.allies.firstOrNull { "food" in it.types || "cafe" in it.types }
+        val stops = (sights + listOfNotNull(food)).sortedBy { it.km }
+        if (stops.isEmpty()) return@withContext null
+        val title = "Ruta desde ${city.substringBefore(",")}"
+        RoutePlanner.fromStops(stops.map { it to listOf(if (it.badge == "Nombrado por la persona") "lo nombraste" else if (it.types.firstOrNull() == "tour") "cerca de ti" else "aliado para comer") },
+            f, emptyList(), title, originLat, originLng)
+    }
+
+    /** Pide la ruta a Gemini. Lanza una excepción si Gemini no está disponible o no devuelve paradas válidas. */
+    suspend fun plan(
+        text: String, f: RouteFilters, originLat: Double, originLng: Double, city: String,
+        catalog: PlacesCatalog?, venues: List<Venue>,
+    ): Plan = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
+        val (named, places, allies) = candidates(text, originLat, originLng, catalog, venues, if (f.full) 150 else 80).let { Triple(it.named, it.places, it.allies) }
         val byId = (named + places + allies).associateBy { it.id }
         if (byId.isEmpty()) error("No hay lugares cerca para armar la ruta.")
 
@@ -133,13 +172,24 @@ object GeminiPlanner {
             if (f.cuisines.isNotEmpty()) add("Comida preferida: ${f.cuisines.joinToString()}")
             if (f.cats.isNotEmpty()) add("Tipo de parada: ${f.cats.joinToString { C.CATS[it]?.first ?: it }}")
             add("Presupuesto de comida por persona: ${f.budget} COP")
+            add(if (f.full) "Distancia: paradas a menos de 120 km de la salida, salvo un lugar que la persona nombre"
+                else "Distancia: paradas a menos de 60 km de la salida, salvo un lugar que la persona nombre")
         }
         val clean = AiGuard.cleanInput(text)
         AiGuard.checkInput(clean)?.let { throw AiGuard.OffTopic() }
         val prompt = "<pedido>${clean.ifBlank { "Sorpréndeme con una buena ruta" }}</pedido>\n" +
             prefs.joinToString("\n") + "\n\nCandidatos (ID | nombre | tipo | distancia desde la salida | detalles):\n" + lines
 
-        val raw = model.generateContent(prompt).text ?: error("Gemini no respondió.")
+        // El modelo principal y, si falla o se satura, los de respaldo. El último error se propaga (y se usa la ruta local).
+        var last: Throwable? = null
+        var raw: String? = null
+        for (name in listOf(C.GEMINI_MODEL) + C.GEMINI_FALLBACKS) {
+            raw = runCatching { model(name).generateContent(prompt).text }
+                .onFailure { e -> if (e is kotlinx.coroutines.CancellationException) throw e; last = e; android.util.Log.w("RutaIA", "Gemini ($name) falló: ${e.javaClass.simpleName}") }
+                .getOrNull()
+            if (!raw.isNullOrBlank()) break
+        }
+        if (raw.isNullOrBlank()) throw last ?: IllegalStateException("Gemini no respondió.")
         val o = JSONObject(raw.trim().removePrefix("```json").removePrefix("```").removeSuffix("```"))
         if (o.optBoolean("offTopic", false)) throw AiGuard.OffTopic()
         val arr = o.optJSONArray("stops") ?: error("Gemini no propuso paradas.")
@@ -151,7 +201,7 @@ object GeminiPlanner {
         val title = AiGuard.cleanOutput(o.optString("title"), 60).ifBlank { "Ruta desde $city" }
         val tips = o.optJSONArray("tips")?.let { t -> (0 until t.length()).map { AiGuard.cleanOutput(t.optString(it), 90) } }.orEmpty()
             .filter { it.isNotBlank() }.take(3)
-        return Plan(RoutePlanner.fromStops(picks, f, emptyList(), title, originLat, originLng), AiGuard.cleanOutput(o.optString("summary"), 220), tips)
+        Plan(RoutePlanner.fromStops(picks, f, emptyList(), title, originLat, originLng), AiGuard.cleanOutput(o.optString("summary"), 220), tips)
     }
 
     private fun placeKind(k: String) = when (k) {
