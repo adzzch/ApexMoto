@@ -12,6 +12,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import co.apexmoto.app.AppContainer
 import co.apexmoto.app.auth.SignInCancelled
+import co.apexmoto.app.core.C
 import co.apexmoto.app.core.addDays
 import co.apexmoto.app.core.today
 import co.apexmoto.app.data.*
@@ -27,6 +28,17 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+
+/** Ciudad elegida (o la más cercana a la ubicación del teléfono si [gps]). */
+data class HomePlace(val label: String, val lat: Double, val lng: Double, val gps: Boolean, val town: Town?) {
+    companion object {
+        fun of(t: Town) = HomePlace(t.label, t.lat, t.lng, gps = false, town = t)
+        fun near(c: PlacesCatalog, lat: Double, lng: Double): HomePlace {
+            val t = c.nearestTown(lat, lng)
+            return HomePlace(t?.label ?: "tu ubicación", lat, lng, gps = true, town = t)
+        }
+    }
+}
 
 /**
  * ViewModel único de la app. Expone los flujos de Firestore (solo activos con sesión iniciada)
@@ -51,6 +63,32 @@ class AppViewModel(val container: AppContainer) : ViewModel() {
     var rentTo by mutableStateOf(addDays(today(), 4))
     /** true cuando la persona ya autorizó el uso de la ubicación (aviso vigente). Sin esto la app no la consulta. */
     var locationConsented by mutableStateOf(false); private set
+
+    /**
+     * Ciudad desde la que se recomienda (Inicio, Explorar y Comercios la comparten; Rentar la usa para empezar).
+     * Sale de la ciudad elegida a mano (se guarda solo su nombre), de la ubicación del teléfono (no se guarda) o de Cali.
+     */
+    var place by mutableStateOf<HomePlace?>(null); private set
+
+    /** Calcula la ciudad la primera vez que una pantalla la necesita. */
+    suspend fun resolvePlace() {
+        if (place != null) return
+        val c = runCatching { container.places.get() }.getOrNull()
+        val saved = container.prefs.exploreTown.takeIf { it.isNotBlank() }?.let { c?.town(it) }
+        val gps = if (saved == null && locationConsented && container.location.hasPermission()) runCatching { container.location.last() }.getOrNull() else null
+        if (place != null) return   // otra pantalla la resolvió mientras tanto
+        place = when {
+            saved != null -> HomePlace.of(saved)
+            gps != null && c != null -> HomePlace.near(c, gps.latitude, gps.longitude)
+            else -> c?.town("Cali")?.let { HomePlace.of(it) } ?: HomePlace("Cali", C.CALI_LAT, C.CALI_LNG, gps = false, town = null)
+        }
+    }
+
+    /** La persona eligió una ciudad: se recuerda para la próxima vez. */
+    fun pickTown(t: Town) { place = HomePlace.of(t); container.prefs.exploreTown = t.label }
+
+    /** La persona tocó "Usar mi ubicación": la ciudad es la más cercana y no se guarda nada. */
+    fun pickGps(c: PlacesCatalog, lat: Double, lng: Double) { place = HomePlace.near(c, lat, lng); container.prefs.exploreTown = "" }
 
     init {
         viewModelScope.launch { user.collect { locationConsented = it != null && Legal.isCurrent(it.legal, Legal.LOCATION) } }

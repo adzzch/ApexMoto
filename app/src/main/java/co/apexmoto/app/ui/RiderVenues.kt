@@ -67,12 +67,9 @@ fun guideTo(vm: AppViewModel, nav: NavController, name: String, lat: Double, lng
 
 /** Lista de gasolineras cercanas, con distancia en línea recta. */
 @Composable
-private fun FuelList(fuel: List<Near<MeetPoint>>, loading: Boolean, where: String, showNearMe: Boolean, onNearMe: () -> Unit, onGo: (MeetPoint) -> Unit) {
+private fun FuelList(fuel: List<Near<MeetPoint>>, loading: Boolean, where: String, onGo: (MeetPoint) -> Unit) {
     val ctx = LocalContext.current
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f)) { H("Gasolineras $where", Icons.Filled.LocalGasStation); Lbl("Distancia en línea recta. Datos de © OpenStreetMap.") }
-        if (showNearMe) Chip("Cerca de mí", false, Icons.Filled.MyLocation, accent = Cyan) { onNearMe() }
-    }
+    Column { H("Gasolineras $where", Icons.Filled.LocalGasStation); Lbl("Distancia en línea recta. Datos de © OpenStreetMap.") }
     if (loading) Empty("Cargando…", Icons.Filled.LocalGasStation)
     else if (fuel.isEmpty()) Empty("No hay gasolineras de esta zona en el catálogo.", Icons.Filled.LocalGasStation)
     fuel.forEachIndexed { i, f ->
@@ -105,57 +102,74 @@ fun venueBadge(v: Venue) = when (v.types.firstOrNull()) { "cafe" -> CyanDeep; "m
 fun venueIcon(v: Venue) = when (v.types.firstOrNull()) { "cafe" -> Icons.Filled.LocalCafe; "moto" -> Icons.Filled.Build; "tour" -> Icons.Filled.AccountBalance; else -> Icons.Filled.Restaurant }
 fun corridorIcon(key: String) = when (key) { "cali" -> Icons.Filled.LocationCity; "linea" -> Icons.Filled.Landscape; "palmas" -> Icons.Filled.Speed; "chica" -> Icons.Filled.Terrain; else -> Icons.Filled.NearMe }
 
+/** Hasta qué distancia de la ciudad elegida se muestran comercios ("en la ciudad y alrededores"). */
+private const val VENUE_RADIUS_KM = 40.0
+
+/** Tipos de comercio que se pueden filtrar. Los sitios turísticos no son comercios: van en Explorar. */
+private val SHOP_TYPES = listOf("food", "cafe", "moto")
+
+/** Un comercio de verdad: come, café o taller. Lo que solo es sitio turístico no sale en Comercios. */
+fun isShop(v: Venue) = v.types.any { it in SHOP_TYPES }
+
+/** Dónde está el comercio; si el negocio no ha puesto su punto, el centro de su zona. */
+private fun venuePos(v: Venue) = if (v.lat != 0.0) LatLng(v.lat, v.lng) else C.corridor(v.corridor).let { LatLng(it.lat, it.lng) }
+
 @Composable
 fun VenuesScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
     val ctx = LocalContext.current
     val venues by vm.venues.collectAsState()
     val orders by vm.myOrders.collectAsState()
-    var cor by rememberSaveable { mutableStateOf("cali") }
     var fl by rememberSaveable { mutableStateOf("all") }
     var asMap by rememberSaveable { mutableStateOf(false) }
     var detail by remember { mutableStateOf<Venue?>(null) }
     var coupon by remember { mutableStateOf<Coupon?>(null) }
     var fuelPick by remember { mutableStateOf<Near<MeetPoint>?>(null) }
-    // Gasolineras: salen del catálogo de OpenStreetMap que trae la app, cerca de ti o del corredor elegido.
-    val fuelMode = fl == "fuel"
-    var fuelAtMe by rememberSaveable { mutableStateOf(true) }
+    // La ciudad es la misma de Inicio: si se cambia aquí o allá, Comercios muestra los de esa ciudad.
+    val cp = rememberCatalogAndPlace(vm)
+    val catalog = cp?.first
+    val place = cp?.second
+    val center = place?.let { LatLng(it.lat, it.lng) } ?: LatLng(C.CALI_LAT, C.CALI_LNG)
+    val cityName = place?.town?.name ?: place?.label ?: "tu ciudad"
     val here by produceState<LatLng?>(null, vm.locationConsented) {
         value = if (vm.locationConsented && vm.container.location.hasPermission()) runCatching { vm.container.location.last() }.getOrNull() else null
     }
-    val catalog = rememberCatalog(vm)
-    val corC = C.corridor(cor)
-    val fuelRef = here?.takeIf { fuelAtMe } ?: LatLng(corC.lat, corC.lng)
-    val fuel = rememberInBackground(catalog, fuelRef, fuelMode, initial = emptyList<Near<MeetPoint>>()) {
-        if (fuelMode) catalog?.fuelNear(fuelRef.latitude, fuelRef.longitude).orEmpty() else emptyList()
+    // Gasolineras: salen del catálogo de OpenStreetMap que trae la app, cerca de la ciudad elegida.
+    val fuelMode = fl == "fuel"
+    val fuel = rememberInBackground(catalog, center, fuelMode, initial = emptyList<Near<MeetPoint>>()) {
+        if (fuelMode) catalog?.fuelNear(center.latitude, center.longitude).orEmpty() else emptyList()
     }
-    val list = venues.filter { it.corridor == cor && (fl == "all" || fl in it.types) }.sortedBy { it.km }
+    // Solo comercios (nada de sitios turísticos), a menos de VENUE_RADIUS_KM de la ciudad, del más cercano al más lejano.
+    val near = venues.filter { isShop(it) && (fl == "all" || fl in it.types) }
+        .map { v -> venuePos(v).let { p -> v to distanceKm(center.latitude, center.longitude, p.latitude, p.longitude) } }
+        .filter { it.second <= VENUE_RADIUS_KM }.sortedBy { it.second }
+    val list = near.map { it.first }
+    val distOf = near.associate { it.first.id to it.second }
     val active = orders.filter { it.status !in listOf("done", "no", "can") }
     BackHandler(asMap) { asMap = false }   // el botón Atrás del teléfono vuelve a la lista
 
     Column(Modifier.fillMaxSize()) {
-        Column(Modifier.padding(top = 14.dp, bottom = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                C.CORRIDORS.forEach { c -> Chip(c.name, cor == c.key && !(fuelMode && fuelAtMe && here != null), corridorIcon(c.key)) { cor = c.key; fuelAtMe = false } }
+        Column(Modifier.padding(top = 14.dp, bottom = 4.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Box(Modifier.padding(horizontal = 16.dp)) {
+                if (catalog != null && place != null) CityBar(vm, catalog, place, title = "Comercios en") else LoadingCard("Buscando tu ciudad…")
             }
             Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Chip(if (asMap) "Ver lista" else "Ver mapa", asMap, if (asMap) Icons.Filled.ViewAgenda else Icons.Filled.Map, accent = Ink) { asMap = !asMap }
                 Chip("Todos", fl == "all", accent = Cyan) { fl = "all" }
-                Chip("Gasolineras", fuelMode, Icons.Filled.LocalGasStation, accent = Cyan) { fl = "fuel"; fuelAtMe = true }
-                C.CATS.forEach { (k, v) -> Chip(v.first, fl == k, accent = Cyan) { fl = k } }
+                SHOP_TYPES.forEach { k -> C.CATS[k]?.let { v -> Chip(v.first, fl == k, accent = Cyan) { fl = k } } }
+                Chip("Gasolineras", fuelMode, Icons.Filled.LocalGasStation, accent = Cyan) { fl = "fuel" }
             }
         }
         AnimatedContent(asMap, Modifier.weight(1f), label = "map", transitionSpec = { fadeIn(tween(260)) togetherWith fadeOut(tween(160)) }) { showMap ->
             if (showMap) {
-                val c = C.corridor(cor)
                 val located = if (fuelMode) emptyList() else list.filter { it.lat != 0.0 }
                 val pins = if (fuelMode) fuel.map { MapMarker(it.item.id, LatLng(it.item.lat, it.item.lng), it.item.name, fmtKmShort(it.km)) }
                            else located.map { MapMarker(it.id, LatLng(it.lat, it.lng), it.name, it.promo) }
-                val mapState = remember(cor) { OsmMapState() }
-                LaunchedEffect(cor, pins.size, fuelMode) { delay(350); mapState.fit(pins.map { it.pos }) }
+                val mapState = remember(center) { OsmMapState() }
+                LaunchedEffect(center, pins.size, fuelMode) { delay(350); mapState.fit(pins.map { it.pos }) }
                 Box(Modifier.fillMaxSize().padding(top = 8.dp)) {
-                    key(cor) { // al cambiar de corredor se crea un mapa centrado en él
+                    key(center) { // al cambiar de ciudad se crea un mapa centrado en ella
                         OsmMap(
-                            Modifier.fillMaxSize(), state = mapState, center = LatLng(c.lat, c.lng), zoom = 12.0, mapType = vm.mapType,
+                            Modifier.fillMaxSize(), state = mapState, center = center, zoom = 12.0, mapType = vm.mapType,
                             markers = pins,
                             myPos = here, onMarkerClick = { id ->
                                 located.firstOrNull { it.id == id }?.let { detail = it }
@@ -174,7 +188,7 @@ fun VenuesScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
                     }
                     // Cuántos lugares hay en el mapa
                     Box(Modifier.align(Alignment.TopEnd).padding(12.dp).cardShadow(CircleShape).clip(CircleShape).background(Color.White).padding(horizontal = 12.dp, vertical = 8.dp)) {
-                        Lbl("${pins.size} ${if (fuelMode) "gasolinera" else "lugar"}${if (pins.size == 1) "" else if (fuelMode) "s" else "es"} · ${if (fuelMode && fuelAtMe && here != null) "cerca de ti" else c.name}", Ink)
+                        Lbl("${pins.size} ${if (fuelMode) "gasolinera" else "comercio"}${if (pins.size == 1) "" else "s"} · $cityName", Ink)
                     }
                 }
             } else {
@@ -191,9 +205,8 @@ fun VenuesScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
                             }
                         }
                     }
-                    if (fuelMode) FuelList(fuel, catalog == null, if (fuelAtMe && here != null) "cerca de ti" else "cerca de ${corC.name}",
-                        showNearMe = here != null && !fuelAtMe, onNearMe = { fuelAtMe = true }) { f -> guideTo(vm, nav, f.name, f.lat, f.lng) }
-                    else if (list.isEmpty()) Empty("No hay comercios en este corredor todavía.", Icons.Filled.Storefront)
+                    if (fuelMode) FuelList(fuel, catalog == null, "cerca de $cityName") { f -> guideTo(vm, nav, f.name, f.lat, f.lng) }
+                    else if (list.isEmpty()) Empty("Todavía no hay comercios aliados en $cityName. Prueba con otra ciudad.", Icons.Filled.Storefront)
                     if (!fuelMode) list.forEachIndexed { i, v ->
                         val canOrder = v.menu.any { it.on && it.cat != "Servicios" } && v.ownerId.isNotBlank()
                         Card2(index = i, padding = 0.dp, onClick = { detail = v }) {
@@ -204,7 +217,7 @@ fun VenuesScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
                                         if (!v.open) Pill("Cerrado", RedSoft, Red)
                                     }
                                     Text(v.name, style = MaterialTheme.typography.titleMedium.copy(fontSize = 17.sp, fontWeight = FontWeight.ExtraBold), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                    Lbl("${v.kind} · Km ${v.km}", CyanDeep)
+                                    Lbl("${v.kind} · ${fmtKmShort(distOf[v.id] ?: 0.0)}", CyanDeep)
                                 }
                                 Box(Modifier.align(Alignment.BottomEnd).padding(end = 14.dp, bottom = 12.dp)) { if (v.reviews > 0) Stars(v.rating) else Pill("Nuevo", CyanSoft, CyanDeep) }
                             }

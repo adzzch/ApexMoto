@@ -3,6 +3,8 @@
 package co.apexmoto.app.ui
 
 import kotlinx.coroutines.launch
+import androidx.activity.compose.BackHandler
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import co.apexmoto.app.maps.GeminiPlanner
 import co.apexmoto.app.maps.AiGuard
 import androidx.compose.animation.SizeTransform
@@ -51,17 +53,46 @@ import co.apexmoto.app.maps.*
 import co.apexmoto.app.ui.theme.*
 import kotlin.math.roundToInt
 
+/**
+ * Inicio del rider. Primero la portada (ciudad, "¿A dónde vamos?" y rutas recomendadas); al elegir Explorar o Ruta IA
+ * se abre esa vista, con un botón (y el Atrás del teléfono) para volver a la portada.
+ */
 @Composable
 fun RoutesScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
-    var tab by rememberSaveable { mutableStateOf("exp") }
+    var tab by rememberSaveable { mutableStateOf("home") }
+    BackHandler(tab != "home") { tab = if (tab == "bud") "ia" else "home" }
     Screen {
-        Segmented(listOf(Triple("exp", "Explorar", Icons.Filled.Explore), Triple("ia", "Ruta IA", Icons.Filled.AutoAwesome),
-            Triple("bud", "Presupuesto", Icons.Filled.Calculate)), tab) { tab = it }
-        AnimatedContent(tab, label = "rutas", transitionSpec = { fadeIn(tween(240)) togetherWith fadeOut(tween(120)) }) { t ->
-            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                when (t) { "exp" -> ExploreSection(vm, nav, u); "ia" -> RouteAI(vm, nav, u); else -> BudgetCalc() }
+        if (tab != "home") Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.clip(CircleShape).background(Color.White).clickable(onClickLabel = "Volver al inicio") { tab = "home" }.padding(start = 6.dp, end = 14.dp, top = 8.dp, bottom = 8.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, null, Modifier.size(20.dp), tint = Ink); Spacer(Modifier.width(6.dp))
+                Text("Inicio", fontWeight = FontWeight.Bold)
+            }
+            Spacer(Modifier.width(10.dp))
+            Box(Modifier.weight(1f)) {
+                Segmented(listOf(Triple("exp", "Explorar", Icons.Filled.Explore), Triple("ia", "Ruta IA", Icons.Filled.AutoAwesome)), if (tab == "bud") "ia" else tab) { tab = it }
             }
         }
+        AnimatedContent(tab, label = "rutas", transitionSpec = { fadeIn(tween(240)) togetherWith fadeOut(tween(120)) }) { t ->
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                when (t) {
+                    "home" -> HomeSection(vm, nav, u) { tab = it }
+                    "exp" -> ExploreSection(vm, nav, u)
+                    "ia" -> { RouteAI(vm, nav, u); BudgetLink { tab = "bud" } }
+                    else -> BudgetCalc()
+                }
+            }
+        }
+    }
+}
+
+/** Acceso discreto a la calculadora de presupuesto (antes era una pestaña más). */
+@Composable
+private fun BudgetLink(onClick: () -> Unit) {
+    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable(onClickLabel = "Calcular presupuesto", onClick = onClick).padding(vertical = 10.dp, horizontal = 4.dp),
+        verticalAlignment = Alignment.CenterVertically) {
+        Icon(Icons.Filled.Calculate, null, Modifier.size(18.dp), tint = CyanDeep); Spacer(Modifier.width(8.dp))
+        Text("¿Cuánto cuesta la salida? Calcular presupuesto", color = CyanDeep, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
     }
 }
 
