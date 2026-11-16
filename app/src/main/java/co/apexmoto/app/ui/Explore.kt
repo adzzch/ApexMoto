@@ -120,7 +120,7 @@ fun ColumnScope.ExploreSection(vm: AppViewModel, nav: NavController, u: AppUser)
     }
 
     // ── Rodadas famosas cerca ──
-    val rides = remember(lat, lng) { c.ridesNear(lat, lng) }
+    val rides = rememberInBackground(c, lat, lng, initial = emptyList<Near<FamousRide>>()) { c.ridesNear(lat, lng) }
     Row(verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.weight(1f)) { H("Rodadas famosas", Icons.Filled.TwoWheeler) }
         TextButton({ allRides = true }) { Text("Ver todas (${rides.size})", color = CyanDeep, fontWeight = FontWeight.Bold, fontSize = 13.sp) }
@@ -147,8 +147,11 @@ fun ColumnScope.ExploreSection(vm: AppViewModel, nav: NavController, u: AppUser)
             KINDS.forEach { k -> Chip(k.plural, k.key in kinds, k.icon, accent = Cyan) { kinds = if (k.key in kinds) kinds - k.key else kinds + k.key; shown = 15 } }
         }
     }
-    val list = remember(lat, lng, radius, kinds, q) { if (searching) c.search(q, lat, lng) else c.placesNear(lat, lng, radius, kinds) }
-    if (list.isEmpty()) Card2 {
+    val loaded = rememberInBackground(c, lat, lng, radius, kinds, q, initial = null as List<Near<Place>>?, debounceMs = if (searching) 150 else 0) {
+        if (searching) c.search(q, lat, lng) else c.placesNear(lat, lng, radius, kinds)
+    }
+    val list = loaded.orEmpty()
+    if (loaded != null && list.isEmpty()) Card2 {
         Sub(if (searching) "No encontramos lugares con «${q.trim()}»." else "No hay lugares de ese tipo a menos de $radius km. Prueba con una distancia mayor.")
     }
     list.take(shown).forEachIndexed { i, n -> PlaceRow(n, i) { openPlace = n } }
@@ -283,7 +286,7 @@ private fun AllRidesSheet(rides: List<Near<FamousRide>>, onDismiss: () -> Unit, 
 @Composable
 private fun CityPicker(c: PlacesCatalog, onDismiss: () -> Unit, onGps: () -> Unit, onPick: (Town) -> Unit) {
     var q by remember { mutableStateOf("") }
-    val list = remember(q) { c.searchTowns(q) }
+    val list = rememberInBackground(c, q, initial = c.searchTowns(""), debounceMs = 120) { c.searchTowns(q) }
     Sheet(onDismiss) {
         H("¿Desde dónde vas a rodar?", Icons.Filled.LocationCity)
         Btn("Usar mi ubicación", Modifier.fillMaxWidth(), Icons.Filled.MyLocation, kind = BK.Ghost) { onGps() }

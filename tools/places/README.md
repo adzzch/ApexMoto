@@ -27,3 +27,11 @@ El JSON generado es una base de datos derivada y queda bajo ODbL; la app muestra
 - Lugares reales y conocidos; nada presentado como aliado o comercio de ApexMoto.
 - Textos cortos y sin promesas que no podamos verificar (horarios, precios, estado de la vía).
 - Consejos de seguridad concretos (niebla, destapado, orden público). La app recuerda revisar la vía (#767) antes de salir.
+
+## Estado del catálogo (2026-11-15)
+
+El `colombia.json` actual trae los datos de OpenStreetMap de **22 de 33** departamentos. La lista curada (lugares famosos y rodadas) sí cubre todo el país.
+
+Faltan por descargar de OSM: Arauca, Bogotá D.C., Boyacá, Casanare, Chocó, Guaviare, Norte de Santander, Quindío, Risaralda, Santander y Vaupés.
+
+Para completarlos, cuando los servidores de Overpass respondan: `python tools/places/fetch_osm.py <salida.json>` (retoma solo lo que falta si se conserva la carpeta `<salida.json>.partes`), luego `--meet` y `build_places.py`.

@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="es-CO">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Invitación a una rodada · ApexMoto</title>
+  <meta property="og:title" content="Te invitaron a una rodada en ApexMoto">
+  <meta property="og:description" content="Toca para abrir la invitación en la app.">
+  <style>
+    :root { --orange: #D94600; --cyan: #0E7490; --ink: #1B1D24; --muted: #5E6472; --bg: #F3F4F7; --card: #FFFFFF; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+    main { max-width: 440px; margin: 0 auto; padding: 32px 16px 48px; }
+    .brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 20px; }
+    .logo { width: 40px; height: 40px; border-radius: 12px; background: var(--orange); display: grid; place-items: center; color: #fff; font-size: 22px; }
+    .card { background: var(--card); border-radius: 18px; padding: 22px; margin-top: 20px; box-shadow: 0 2px 10px rgba(27, 29, 36, .08); }
+    h1 { font-size: 24px; line-height: 1.2; margin: 0 0 6px; }
+    p { color: var(--muted); margin: 8px 0; }
+    .code { font: 800 30px/1 ui-monospace, "JetBrains Mono", Consolas, monospace; letter-spacing: .08em; color: var(--orange); margin: 14px 0 6px; }
+    .btn { display: block; width: 100%; text-align: center; text-decoration: none; border: 0; border-radius: 12px; padding: 14px; font-weight: 800; font-size: 16px; margin-top: 12px; cursor: pointer; }
+    .primary { background: var(--orange); color: #fff; }
+    .ghost { background: #E8EAF0; color: var(--cyan); }
+    ol { color: var(--muted); padding-left: 20px; margin: 8px 0 0; }
+    small { display: block; color: var(--muted); margin-top: 20px; font-size: 12px; }
+  </style>
+</head>
+<body>
+<main>
+  <div class="brand"><div class="logo" aria-hidden="true">🏍</div>ApexMoto</div>
+  <section class="card">
+    <h1>Te invitaron a una rodada</h1>
+    <p>Ábrela en la app para ver la fecha, el punto de encuentro y la ruta, y unirte.</p>
+    <div class="code" id="code" aria-label="Código de invitación">········</div>
+    <a class="btn primary" id="open" href="#">Abrir en ApexMoto</a>
+    <button class="btn ghost" id="copy" type="button">Copiar el código</button>
+  </section>
+  <section class="card">
+    <h1 style="font-size:18px">¿No se abre?</h1>
+    <ol>
+      <li>Instala ApexMoto (pídele la app a quien te invitó mientras llega a Google Play).</li>
+      <li>Entra a <b>Comunidad → Unirme con código</b>.</li>
+      <li>Escribe el código de arriba.</li>
+    </ol>
+  </section>
+  <small>Esta página no guarda ni envía datos. Solo muestra el código del enlace.</small>
+</main>
+<script>
+  // El código va en la dirección: /r/K7QM2XPA. Solo letras y números, 8 caracteres.
+  var raw = (location.pathname.split('/r/')[1] || '').split('/')[0];
+  var code = raw.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8);
+  var ok = code.length === 8;
+  document.getElementById('code').textContent = ok ? code.slice(0, 4) + ' ' + code.slice(4) : 'Código inválido';
+  // La app de pruebas y la real tienen paquetes distintos; cada proyecto de Firebase tiene su dirección.
+  var pkg = location.hostname.indexOf('apexmoto-prd') === 0 ? 'co.apexmoto.prd' : 'co.apexmoto.dev';
+  var open = document.getElementById('open');
+  if (ok) open.href = 'intent://r/' + code + '#Intent;scheme=apexmoto;package=' + pkg + ';end';
+  else open.style.display = 'none';
+  document.getElementById('copy').onclick = function () {
+    if (!ok) return;
+    var b = this;
+    (navigator.clipboard ? navigator.clipboard.writeText(code) : Promise.reject()).then(
+      function () { b.textContent = '¡Código copiado!'; },
+      function () { b.textContent = 'Código: ' + code; });
+  };
+</script>
+</body>
+</html>

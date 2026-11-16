@@ -43,6 +43,8 @@ class AppViewModel(val container: AppContainer) : ViewModel() {
 
     // Estado compartido entre pantallas
     var navSession by mutableStateOf<NavSession?>(null)
+    /** Código de una invitación que llegó por enlace; se muestra "Unirme con código" apenas haya sesión. */
+    var pendingInvite by mutableStateOf<String?>(null)
     var mapType by mutableIntStateOf(container.prefs.mapType)
     var voice by mutableStateOf(container.prefs.voice)
     var rentFrom by mutableStateOf(addDays(today(), 2))

@@ -89,6 +89,7 @@ private fun StatusBadge(r: Rodada) {
 @Composable
 private fun JoinButton(vm: AppViewModel, u: AppUser, r: Rodada, modifier: Modifier = Modifier) {
     val free = r.seats - r.joined.size > 0
+    if (!free && u.id !in r.joined && r.status != "done") { Pill("Completa", RedSoft, Red); return }
     when {
         u.id in r.joined || r.status == "done" -> {}
         u.id in r.invited -> Btn("Unirme", modifier, Icons.Filled.Check, small = true, enabled = free) { vm.act("¡Estás dentro!") { vm.repo.joinRodada(r, u.id) } }
@@ -123,12 +124,16 @@ private fun RodadaCard(vm: AppViewModel, nav: NavController, u: AppUser, r: Roda
 
 /** Escribir el código que le compartieron a uno, ver la invitación y unirse (sirve también para rodadas privadas). */
 @Composable
-private fun JoinByCodeSheet(vm: AppViewModel, nav: NavController, u: AppUser, onDismiss: () -> Unit) {
-    var code by remember { mutableStateOf("") }
+fun JoinByCodeSheet(vm: AppViewModel, nav: NavController, u: AppUser, initial: String = "", onDismiss: () -> Unit) {
+    var code by remember { mutableStateOf(initial) }
     var found by remember { mutableStateOf<RodadaCode?>(null) }
     var notFound by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     val clean = code.uppercase().filter { it.isLetterOrDigit() }.take(8)
+    // Si llegó por enlace, busca la rodada de una vez.
+    LaunchedEffect(initial) {
+        if (initial.length == 8) { busy = true; runCatching { vm.repo.inviteByCode(initial) }.onSuccess { found = it; notFound = it == null }; busy = false }
+    }
     Sheet(onDismiss) {
         H("Unirme con código", Icons.Filled.Link)
         Sub("Escribe el código de 8 letras y números que te compartieron.")
@@ -300,6 +305,18 @@ fun RodadaScreen(vm: AppViewModel, nav: NavController, u: AppUser, id: String) {
             Lbl("${ro.whenLabel} · ${ro.style} · ${ro.captain}")
             IconLine(Icons.Filled.Place, ro.meet, Muted, bold = false)
             if (ro.routeName.isNotBlank()) IconLine(Icons.Filled.Route, ro.routeName, CyanDeep, bold = false)
+            // El recorrido en palabras: encuentro y paradas en orden (también están en el mapa).
+            if (ro.stops.isNotEmpty()) Column(Modifier.padding(start = 4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                (listOf(ro.meet) + ro.stops.map { it.name }).forEachIndexed { i, n ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.size(20.dp).clip(CircleShape).background(if (i == 0) CyanDeep else Orange), contentAlignment = Alignment.Center) {
+                            Text(if (i == 0) "E" else "$i", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        }
+                        Spacer(Modifier.width(8.dp))
+                        Text(n, fontSize = 13.sp, color = if (i == 0) Muted else Ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+            }
             RodadaPills(ro, u)
             Lbl("${ro.joined.size} de ${ro.seats} motos")
             if (isCreator && ro.status == "planned") Btn("Iniciar rodada", Modifier.fillMaxWidth(), Icons.Filled.PlayArrow) {
@@ -349,14 +366,15 @@ fun RodadaScreen(vm: AppViewModel, nav: NavController, u: AppUser, id: String) {
             val ctx = androidx.compose.ui.platform.LocalContext.current
             Card2(tone = Surf1) {
                 IconLine(Icons.Filled.Link, "Invita con un código", CyanDeep)
-                Sub("Comparte el código por WhatsApp o donde quieras. Quien lo tenga entra desde Comunidad → Unirme con código" +
+                Sub("Comparte el enlace por WhatsApp o donde quieras: con un toque abre la invitación en ApexMoto. También pueden escribir el código en Comunidad → Unirme con código" +
                     if (ro.visibility == "friends") ", aunque la rodada sea privada." else ".")
                 if (ro.inviteCode.isNotBlank()) Num(ro.inviteCode.chunked(4).joinToString(" "), OrangeDark, 22)
                 if (ro.inviteCode.isNotBlank() || isCreator) Btn("Compartir invitación", Modifier.fillMaxWidth(), Icons.Filled.Share, small = true) {
                     vm.act {
                         val code = if (isCreator) vm.repo.ensureInviteCode(ro) else ro.inviteCode
                         shareText(ctx, "¡Vamos a rodar! \"${ro.name}\" · ${ro.whenLabel}\nEncuentro: ${ro.meet}\n" +
-                            "Únete en ApexMoto: Comunidad → Unirme con código → $code")
+                            "Únete aquí: https://${co.apexmoto.app.BuildConfig.INVITE_HOST}/r/$code\n" +
+                            "(o en ApexMoto: Comunidad → Unirme con código → $code)")
                     }
                 }
             }

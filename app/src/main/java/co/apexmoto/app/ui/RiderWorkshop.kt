@@ -142,6 +142,7 @@ fun WorkshopScreen(vm: AppViewModel, nav: androidx.navigation.NavController, u: 
                         if (rental != null) Lbl("Vas en una moto rentada (${rental.itemName}): el dueño también verá este S.O.S.", CyanDeep)
                         Lbl("Si hay heridos o peligro, llama primero al 123.", Red)
                         Field("Detalle (opcional)", note, { note = it }, lines = 2, hint = "Ej: llanta trasera, tengo repuesto")
+                        Missing(if (place.isBlank()) listOf("decir dónde estás (o usar tu ubicación y escribir una referencia)") else emptyList())
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Btn("Cancelar", Modifier.weight(0.7f), kind = BK.Ghost) { asking = false }
                             Btn("Enviar S.O.S.", Modifier.weight(1f), Icons.Filled.Warning, kind = BK.Sos, enabled = place.isNotBlank()) {

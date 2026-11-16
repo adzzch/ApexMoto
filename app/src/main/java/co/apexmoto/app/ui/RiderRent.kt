@@ -226,7 +226,17 @@ fun BikeDetailScreen(vm: AppViewModel, nav: NavController, u: AppUser, id: Strin
             }
         }
         BottomBar {
-            Column(Modifier.weight(1f)) { Lbl("Total"); Num(cop(animatedMoney(total)), OrangeDark, 22) }
+            val faltan = buildList {
+                if (p == null) add("tu perfil de conductor")
+                else if (!profileOk) add(when { !catOk -> "licencia de la categoría"; !licenseValid -> "licencia vigente en esas fechas"; else -> "los años de experiencia" })
+                if (!docsOk) add("SOAT y revisión vigentes de la moto")
+                if (!license) add("declarar tu licencia")
+                if (!agree) add("aceptar el acuerdo")
+            }
+            Column(Modifier.weight(1f)) {
+                Lbl("Total"); Num(cop(animatedMoney(total)), OrangeDark, 22)
+                if (faltan.isNotEmpty()) Text("Falta: ${joinEs(faltan)}.", color = Muted, fontSize = 11.sp, lineHeight = 14.sp, maxLines = 2)
+            }
             Btn(if (instant) "Reservar" else "Solicitar", icon = Icons.Filled.Check, enabled = !busy && docsOk && p != null && profileOk && license && agree) {
                 val pr = p ?: return@Btn
                 val req = ServiceRequest(type = "rent", fromId = u.id, fromName = u.name, toId = b.ownerId, itemId = b.id, itemName = b.name, days = days,

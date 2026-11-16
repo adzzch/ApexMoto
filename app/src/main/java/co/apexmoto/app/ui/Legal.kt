@@ -152,6 +152,7 @@ fun ReconsentScreen(vm: AppViewModel, u: AppUser) {
         Text(if (u.legal.isEmpty()) "Antes de continuar" else "Actualizamos nuestros documentos", fontFamily = Chivo, fontWeight = FontWeight.Black, fontSize = 28.sp, lineHeight = 32.sp)
         Text("Para seguir usando ApexMoto necesitamos que leas y aceptes lo siguiente. Guardamos la fecha y la versión que aceptas.", color = Muted, style = MaterialTheme.typography.bodyLarge)
         Card2 { LegalChecks(docs, checked) { checked = it } }
+        Missing(docs.filter { it.id !in checked }.let { if (it.isEmpty()) emptyList() else listOf("marcar ${if (it.size == 1) "la casilla" else "las ${it.size} casillas"}") })
         Btn("Aceptar y continuar", Modifier.fillMaxWidth(), Icons.Filled.Check, enabled = checked.containsAll(docs.map { it.id }), loading = busy) {
             busy = true; vm.acceptDocs(docs, AcceptMethod.REACCEPT).invokeOnCompletion { busy = false }
         }
@@ -320,6 +321,7 @@ fun LegalCenterScreen(vm: AppViewModel, u: AppUser) {
             Drop("¿Qué necesitas?", RequestType.ALL.map { it.first to it.second }, type, { type = it })
             Field("Cuéntanos el detalle", detail, { detail = it.take(2000) }, lines = 3, hint = "Qué pides y por qué")
             Lbl("Respondemos en máximo ${RequestType.days(type)} días hábiles.")
+            Missing(if (detail.trim().length < 10) listOf("contar el detalle (mínimo 10 letras)") else emptyList())
             Btn("Enviar solicitud", Modifier.fillMaxWidth(), Icons.AutoMirrored.Filled.Send, enabled = detail.trim().length >= 10) {
                 val t = type; val d = detail
                 vm.act { filed = vm.repo.createPrivacyRequest(u, t, d) to t; detail = "" }
@@ -413,6 +415,10 @@ private fun ProviderCard(vm: AppViewModel, u: AppUser) {
         }
         Field("Dirección de notificaciones", address, { address = it.take(160) })
         Field("Teléfono", phone, { phone = it.filter { c -> c.isDigit() || c == '+' || c == ' ' }.take(20) }, kb = KeyboardType.Phone)
+        Missing(if (!ready) emptyList() else buildList {
+            if (legalName.isBlank()) add("el nombre o razón social"); if (idNumber.isBlank()) add("el número de documento")
+            if (address.isBlank()) add("la dirección"); if (phone.isBlank()) add("el teléfono")
+        })
         Btn("Guardar datos del oferente", Modifier.fillMaxWidth(), Icons.Filled.Check, enabled = ready && draft.complete) {
             vm.act("Datos guardados") { vm.repo.saveProvider(u.id, draft); loaded = draft }
         }

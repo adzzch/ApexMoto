@@ -154,6 +154,7 @@ fun ShopMenuScreen(vm: AppViewModel, u: AppUser) {
                     Field("Nombre", name, { name = it }); Field("Descripción", desc, { desc = it })
                     Field("Precio (COP)", price, { price = it.filter(Char::isDigit) }, kb = KeyboardType.Number)
                     Drop("Categoría", C.MENU_CATS.map { it to it }, cat, { cat = it })
+                    Missing(buildList { if (name.isBlank()) add("el nombre"); if ((price.toLongOrNull() ?: 0) <= 0) add("el precio") })
                 } },
                 confirmButton = { Btn("Guardar", enabled = name.isNotBlank() && (price.toLongOrNull() ?: 0) > 0) {
                     val nm = m.copy(name = name, desc = desc, price = price.toLong(), cat = cat)
@@ -197,7 +198,8 @@ fun ShopBusinessScreen(vm: AppViewModel, u: AppUser, workshop: Boolean = false) 
             Btn("Usar mi ubicación actual", Modifier.fillMaxWidth(), Icons.Filled.MyLocation, kind = BK.Ghost) { getLoc() }
             if (lat != 0.0) Lbl("%.5f, %.5f".format(lat, lng))
         }
-        Btn("Guardar cambios", Modifier.fillMaxWidth(), Icons.Filled.Check, enabled = name.isNotBlank() && types.isNotEmpty()) {
+        Missing(buildList { if (name.isBlank()) add("el nombre"); if (!workshop && types.isEmpty()) add("el tipo de negocio") })
+        Btn("Guardar cambios", Modifier.fillMaxWidth(), Icons.Filled.Check, enabled = name.isNotBlank() && (workshop || types.isNotEmpty())) {
             if (workshop) types = setOf("moto")
             val first = C.CATS[types.first()]!!
             vm.act("Negocio actualizado") { vm.repo.saveVenue(v.copy(name = name, desc = desc, promo = promo, corridor = cor, km = km.toIntOrNull() ?: v.km,
@@ -214,6 +216,7 @@ fun ShopRedeemScreen(vm: AppViewModel, u: AppUser) {
         Card2 {
             H("Canjear cupón"); Sub("Pídele al rider su código APX-XXXX.")
             Field("Código", code, { code = it.uppercase() }, hint = "APX-AB12")
+            Missing(if (code.isNotEmpty() && code.length < 4) listOf("el código completo (APX-XXXX)") else emptyList())
             Btn("Canjear", Modifier.fillMaxWidth(), Icons.Filled.QrCode, enabled = code.length >= 4) {
                 vm.act { val who = vm.repo.redeem(code, u.id); code = ""; vm.toast("Cupón canjeado para $who") }
             }
