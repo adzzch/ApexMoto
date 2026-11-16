@@ -5,5 +5,7 @@ APP_CHECK_ENABLED=false
 # Opcional: intercom de voz de las rodadas. App ID de un proyecto de Agora creado en "modo de prueba" (solo App ID).
 # Sin esta línea el intercom no aparece. Ver docs/desarrollo.md §2.3.
 AGORA_APP_ID=
+# Si el proyecto de Agora es "con token" (el modo por defecto), pon también su App Certificate (Project → Security).
+AGORA_APP_CERTIFICATE=
 # Opcional: true agrega el código nativo para el emulador x86_64 de la PC (el APK crece ~15 MB). Los celulares no lo necesitan.
 ABI_EMULADOR=false

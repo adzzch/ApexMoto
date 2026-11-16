@@ -74,7 +74,7 @@ class Intercom(private val ctx: Context) {
                 Constants.CONNECTION_STATE_FAILED -> {
                     val why = when (reason) {
                         Constants.CONNECTION_CHANGED_INVALID_APP_ID -> "La clave de Agora no es válida."
-                        Constants.CONNECTION_CHANGED_INVALID_TOKEN -> "El proyecto de Agora pide token: créalo en modo de prueba (solo App ID)."
+                        Constants.CONNECTION_CHANGED_INVALID_TOKEN -> TOKEN_MSG
                         else -> "No se pudo conectar la llamada. Revisa la señal e intenta de nuevo."
                     }
                     Log.w(TAG, "conexión fallida, razón $reason")
@@ -86,7 +86,7 @@ class Intercom(private val ctx: Context) {
             Log.w(TAG, "error $err")
             when (err) {
                 Constants.ERR_INVALID_APP_ID -> leave("La clave de Agora no es válida.")
-                Constants.ERR_INVALID_TOKEN, Constants.ERR_TOKEN_EXPIRED -> leave("El proyecto de Agora pide token: créalo en modo de prueba (solo App ID).")
+                Constants.ERR_INVALID_TOKEN, Constants.ERR_TOKEN_EXPIRED -> leave(TOKEN_MSG)
             }
         }
         override fun onAudioVolumeIndication(speakers: Array<out AudioVolumeInfo>?, totalVolume: Int) {
@@ -125,7 +125,12 @@ class Intercom(private val ctx: Context) {
             publishMicrophoneTrack = true
             autoSubscribeAudio = true
         }
-        val r = e.joinChannel(null, channelOf(rodadaId), uidOf(userId), opts)
+        val channel = channelOf(rodadaId)
+        val uid = uidOf(userId)
+        // Con App Certificate (proyecto con token) el teléfono crea el token; sin él, modo de prueba (solo App ID).
+        val token = if (BuildConfig.AGORA_APP_CERTIFICATE.isNotBlank())
+            AgoraToken.rtc(BuildConfig.AGORA_APP_ID, BuildConfig.AGORA_APP_CERTIFICATE, channel, uid) else null
+        val r = e.joinChannel(token, channel, uid, opts)
         if (r != 0) { Log.w(TAG, "joinChannel $r"); leave("No se pudo entrar a la llamada (código $r)."); return }
     }
 
@@ -171,6 +176,9 @@ class Intercom(private val ctx: Context) {
 
     companion object {
         private const val TAG = "Intercom"
+        private val TOKEN_MSG get() = if (BuildConfig.AGORA_APP_CERTIFICATE.isBlank())
+            "El proyecto de Agora pide token: falta AGORA_APP_CERTIFICATE en local.properties."
+            else "Agora rechazó el token: revisa que AGORA_APP_CERTIFICATE sea el del mismo proyecto que el App ID."
         fun channelOf(rodadaId: String) = "apex_$rodadaId"
         /** Número de Agora de una persona: sale de su uid de Firebase (siempre el mismo, positivo y distinto de 0). */
         fun uidOf(userId: String): Int = (userId.hashCode() and 0x7fffffff).let { if (it == 0) 1 else it }

@@ -16,6 +16,8 @@ val localProps = Properties().apply {
 val orsKey: String = localProps.getProperty("ORS_API_KEY", "")
 // Intercomunicador de las rodadas (Agora): AGORA_APP_ID=... en local.properties. Sin él, el intercomunicador se oculta.
 val agoraAppId: String = localProps.getProperty("AGORA_APP_ID", "")
+// Proyecto de Agora con token: AGORA_APP_CERTIFICATE=... (la app crea el token; ver docs/seguridad.md). Vacío = modo de prueba.
+val agoraCert: String = localProps.getProperty("AGORA_APP_CERTIFICATE", "")
 val emulatorAbi: Boolean = localProps.getProperty("ABI_EMULADOR", "false").toBoolean()
 // App Check (antifraude). Se activa con APP_CHECK_ENABLED=true en local.properties, después de registrar la app
 // en la consola de Firebase. Ver docs/seguridad.md.
@@ -42,6 +44,7 @@ android {
         versionName = "1.1"
         buildConfigField("String", "ORS_API_KEY", "\"$orsKey\"")
         buildConfigField("String", "AGORA_APP_ID", "\"$agoraAppId\"")
+        buildConfigField("String", "AGORA_APP_CERTIFICATE", "\"$agoraCert\"")
         buildConfigField("boolean", "APP_CHECK_ENABLED", "$appCheck")
     }
     // Dos ambientes, cada uno con su propio proyecto de Firebase y su google-services.json en app/src/<ambiente>/:
