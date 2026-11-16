@@ -184,7 +184,7 @@ class AppViewModel(val container: AppContainer) : ViewModel() {
     fun verifyCode(verificationId: String, code: String) = signInCredential(PhoneAuthProvider.getCredential(verificationId, code.trim()))
     fun completeProfile(name: String, role: String, biz: String, corridor: String) =
         act { user.value = repo.completeProfile(name, role, biz, corridor, AcceptMethod.FIRST_LOGIN); pending = null }
-    fun logout() { repo.logout(); user.value = null; pending = null }
+    fun logout() { container.intercom.leave(); repo.logout(); user.value = null; pending = null }
 
     // Legal y privacidad
     fun acceptDocs(docs: List<LegalDoc>, method: String) = act {
@@ -203,7 +203,7 @@ class AppViewModel(val container: AppContainer) : ViewModel() {
     fun updateName(name: String) = act("Nombre actualizado") { val u = user.value ?: return@act; user.value = repo.updateName(u, name) }
     fun deleteAccount() = act {
         val u = user.value ?: return@act
-        repo.deleteAccount(u); user.value = null; pending = null
+        container.intercom.leave(); repo.deleteAccount(u); user.value = null; pending = null
         toast("Tu cuenta fue eliminada.")
     }
 

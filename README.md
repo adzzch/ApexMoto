@@ -41,7 +41,7 @@ Requisitos: Android Studio reciente, JDK 21 (Android Studio lo descarga), un emu
 
 1. **Clona** el repositorio y ábrelo en Android Studio.
 2. **Firebase:** en el proyecto de pruebas registra la app `co.apexmoto.dev`, descarga su `google-services.json` y colócalo en `app/src/pruebas/` (no se versiona). Para la versión real, lo mismo con `co.apexmoto.prd` en el proyecto productivo y `app/src/prod/`.
-3. **OpenRouteService:** copia `local.properties.example` a `local.properties`, conserva la línea `sdk.dir` y pon tu `ORS_API_KEY`.
+3. **OpenRouteService:** copia `local.properties.example` a `local.properties`, conserva la línea `sdk.dir` y pon tu `ORS_API_KEY` (y, si quieres el intercom de voz de las rodadas, tu `AGORA_APP_ID`).
 4. **Solo para la versión real:** copia `legal.properties.example` a `legal.properties` y completa los datos del responsable.
 5. **Sincroniza** Gradle, elige la variante en *Build Variants* (`pruebasDebug` por defecto) y ejecuta `app`.
 

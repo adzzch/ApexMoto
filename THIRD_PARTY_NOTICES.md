@@ -19,6 +19,7 @@ ApexMoto incluye o usa los componentes siguientes. Cada uno conserva su licencia
 | osmdroid | 6.1.20 | Apache 2.0 |
 | Firebase Android SDK (BoM; Auth, Firestore, Installations, App Check) | 33.4.0 | Términos de Firebase / Google APIs |
 | Google Play services Location | 21.3.0 | Términos de Google Play services |
+| Agora Voice SDK (voice-rtc-basic, ains) | 4.6.4 | Licencia propietaria de Agora (uso gratuito según sus términos de servicio) |
 
 ## Herramientas de compilación (no se distribuyen)
 

@@ -50,6 +50,7 @@ class AppContainer(ctx: Context) {
     val google = GoogleSignIn()
     val phone = PhoneAuth(repo.auth)
     val places = co.apexmoto.app.data.PlacesLoader(ctx.applicationContext)
+    val intercom = co.apexmoto.app.voice.Intercom(ctx.applicationContext)
 }
 
 class ApexApp : Application() {

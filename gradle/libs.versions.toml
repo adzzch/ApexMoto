@@ -1,4 +1,5 @@
 [versions]
+agora = "4.6.4"
 agp = "8.5.2"
 kotlin = "2.0.20"
 composeBom = "2024.09.03"
@@ -31,6 +32,9 @@ firebase-bom = { module = "com.google.firebase:firebase-bom", version.ref = "fir
 firebase-auth = { module = "com.google.firebase:firebase-auth" }
 firebase-firestore = { module = "com.google.firebase:firebase-firestore" }
 firebase-ai = { module = "com.google.firebase:firebase-ai" }
+# Intercomunicador de voz de las rodadas (Agora, solo voz: núcleo + supresión de ruido con IA).
+agora-voice = { module = "io.agora.rtc:voice-rtc-basic", version.ref = "agora" }
+agora-ains = { module = "io.agora.rtc:ains", version.ref = "agora" }
 firebase-installations = { module = "com.google.firebase:firebase-installations" }
 firebase-appcheck-playintegrity = { module = "com.google.firebase:firebase-appcheck-playintegrity" }
 firebase-appcheck-debug = { module = "com.google.firebase:firebase-appcheck-debug" }

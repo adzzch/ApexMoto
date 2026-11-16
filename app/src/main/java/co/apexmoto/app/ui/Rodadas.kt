@@ -337,6 +337,9 @@ fun RodadaScreen(vm: AppViewModel, nav: NavController, u: AppUser, id: String) {
             }
         }
 
+        if (member && ro.status != "done")
+            IntercomCard(vm, ro, u, ro.joined.associate { co.apexmoto.app.voice.Intercom.uidOf(it) to nameOf(it) })
+
         H("Miembros (${ro.joined.size})", Icons.Filled.Groups)
         ro.joined.sortedWith(compareBy<String>({ it != ro.leaderId }, { it != ro.sweeperId }, { nameOf(it).lowercase() })).forEach { mid ->
             MemberRow(vm, nav, ro, u, mid, people.firstOrNull { it.id == mid }, livePs.firstOrNull { it.id == mid }, me, active, isCreator, nameOf(mid),

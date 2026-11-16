@@ -2,3 +2,8 @@
 ORS_API_KEY=PEGA_AQUI_TU_CLAVE_DE_OPENROUTESERVICE
 # Opcional: activa App Check (antifraude) cuando la app esté registrada en Firebase > App Check. Ver docs/seguridad.md.
 APP_CHECK_ENABLED=false
+# Opcional: intercom de voz de las rodadas. App ID de un proyecto de Agora creado en "modo de prueba" (solo App ID).
+# Sin esta línea el intercom no aparece. Ver docs/desarrollo.md §2.3.
+AGORA_APP_ID=
+# Opcional: true agrega el código nativo para el emulador x86_64 de la PC (el APK crece ~15 MB). Los celulares no lo necesitan.
+ABI_EMULADOR=false

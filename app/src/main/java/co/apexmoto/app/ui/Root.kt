@@ -210,6 +210,13 @@ fun MainScaffold(vm: AppViewModel, u: AppUser) {
             } catch (e: SecurityException) { vm.stopSharing(u.id) }
         }
     }
+    // Intercom: si la rodada de la llamada terminó o la persona ya no es miembro, se sale de la llamada.
+    val icState by vm.container.intercom.state.collectAsState()
+    LaunchedEffect(rodadas, icState.rodadaId) {
+        val rid = icState.rodadaId ?: return@LaunchedEffect
+        val r = rodadas.firstOrNull { it.id == rid }
+        if (r != null && (r.status == "done" || u.id !in r.joined)) vm.container.intercom.leave("La rodada terminó: saliste de la llamada.")
+    }
     // Invitación que llegó por enlace: solo los riders entran a rodadas.
     vm.pendingInvite?.let { code ->
         if (u.role == Role.RIDER) JoinByCodeSheet(vm, nav, u, initial = code) { vm.pendingInvite = null }
@@ -224,7 +231,12 @@ fun MainScaffold(vm: AppViewModel, u: AppUser) {
     var emergency by rememberSaveable { mutableStateOf(false) }
     if (emergency) EmergencySheet(vm) { emergency = false }
     Scaffold(
-        topBar = { ApexHeader(isTab, section, spaceFor(u.role), onBack = { nav.popBackStack() }, onProfile = { nav.navigate("profile") }, onSettings = { nav.navigate("settings") }, onSos = { emergency = true }) },
+        topBar = {
+            Column {
+                ApexHeader(isTab, section, spaceFor(u.role), onBack = { nav.popBackStack() }, onProfile = { nav.navigate("profile") }, onSettings = { nav.navigate("settings") }, onSos = { emergency = true })
+                IntercomBar(vm) { rid -> if (route != "rodada/{id}") nav.navigate("rodada/$rid") }
+            }
+        },
         bottomBar = { if (isTab) ApexNavBar(tabs, route ?: start) { t -> nav.navigate(t) { popUpTo(start) { saveState = true }; launchSingleTop = true; restoreState = true } } },
         containerColor = Bg,
     ) { pad ->

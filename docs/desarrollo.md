@@ -63,6 +63,8 @@ En cada proyecto:
 
   Hay una plantilla en `local.properties.example`. `local.properties` **nunca se sube**. En la versión de pruebas, la pantalla Configuración indica si la clave quedó cargada.
 - El plan gratuito tiene un límite diario de peticiones; si se agota, la app muestra un aviso.
+- **Intercom de voz de las rodadas (Agora, opcional):** regístrate gratis en <https://console.agora.io> (no pide tarjeta) → **Projects → Create** → modo de autenticación **"Testing mode: APP ID"** (sin token) → copia el **App ID** y agrégalo a `local.properties` como `AGORA_APP_ID=...`. Sin él, la tarjeta del intercom no aparece. El plan gratuito trae 10.000 minutos al mes (cada persona conectada suma sus minutos). Si el proyecto se crea en modo seguro (con token), la llamada falla con "El proyecto de Agora pide token".
+- **Emulador:** Agora trae código nativo por procesador; el APK solo lleva el de celulares (ARM). Para probar en el emulador de la PC agrega `ABI_EMULADOR=true` a `local.properties` (no lo uses para el APK que repartes: pesa ~15 MB más).
 
 ### 2.3.1 Ruta IA con Gemini (Firebase AI Logic, gratis)
 
