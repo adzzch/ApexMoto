@@ -1,0 +1,920 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>ApexMoto prototipo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Chivo:wght@700;900&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@600;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,500,1,0&display=block" rel="stylesheet">
+<style>
+  :root {
+    --orange: #D94600; --orange-dark: #C2410C; --orange-soft: #FFE3D3; --cyan: #0E7490; --cyan-deep: #0E6A82; --cyan-tint: #D3ECF2;
+    --green: #1B8A3A; --green-tint: #D5EEDC; --red: #D13B3B; --red-soft: #FBE1E1; --amber: #8A5A00;
+    --ink: #1C2230; --muted: #566074; --bg: #F3F4F8; --surf0: #ECEEF4; --surf3: #E9EBF2; --surf4: #D5D9E4; --card: #FFFFFF; --page: #DCE0EA;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; }
+  body { background: var(--page); color: var(--ink); font: 15px/1.45 "Space Grotesk", system-ui, sans-serif; }
+  .ms { font-family: "Material Symbols Rounded"; font-weight: normal; font-style: normal; font-size: 22px; line-height: 1; display: inline-block; vertical-align: middle; font-feature-settings: "liga"; -webkit-font-smoothing: antialiased; }
+  button { font: inherit; color: inherit; border: 0; background: none; cursor: pointer; padding: 0; }
+  input, textarea, select { font: inherit; color: var(--ink); width: 100%; background: var(--surf0); border: 1.5px solid transparent; border-radius: 12px; padding: 12px; }
+  input:focus, textarea:focus, select:focus { outline: none; border-color: var(--cyan); }
+  textarea { resize: vertical; min-height: 84px; }
+  h1, h2, h3, .hd { font-family: Chivo, sans-serif; margin: 0; }
+
+  /* Teléfono */
+  .stage { min-height: 100vh; display: flex; justify-content: center; align-items: flex-start; padding: 24px 16px; gap: 28px; }
+  .side { max-width: 280px; padding-top: 40px; }
+  .side h1 { font-size: 28px; font-weight: 900; }
+  .side p { color: var(--muted); }
+  .side .tip { background: var(--card); border-radius: 14px; padding: 12px 14px; margin-top: 12px; font-size: 14px; }
+  .phone { width: 400px; max-width: 100%; height: min(860px, calc(100vh - 48px)); background: var(--bg); border-radius: 34px; box-shadow: 0 20px 60px rgba(28,34,48,.25), 0 0 0 10px #1C2230; overflow: hidden; display: flex; flex-direction: column; position: relative; }
+  @media (max-width: 760px) {
+    .stage { padding: 0; } .side { display: none; }
+    .phone { width: 100%; height: 100vh; height: 100dvh; border-radius: 0; box-shadow: none; }
+  }
+  .strip { background: var(--cyan-deep); color: #fff; text-align: center; font: 800 10.5px "JetBrains Mono", monospace; letter-spacing: .1em; padding: 7px; }
+  .top { display: flex; align-items: center; gap: 10px; padding: 12px 14px; background: var(--card); border-bottom: 1px solid var(--surf3); }
+  .top .logo { width: 40px; height: 40px; border-radius: 12px; background: var(--orange); color: #fff; display: grid; place-items: center; }
+  .top .t1 { font-family: Chivo; font-weight: 900; font-size: 19px; line-height: 1.1; }
+  .top .t2 { font: 600 12px "JetBrains Mono", monospace; color: var(--orange); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .top .grow { flex: 1; min-width: 0; }
+  .round { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; color: var(--ink); }
+  .round.fill { background: var(--surf4); }
+  .scroll { flex: 1; overflow-y: auto; overflow-x: hidden; }
+  .pad { padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+  .nav { display: grid; grid-template-columns: repeat(5, 1fr); background: var(--card); border-top: 1px solid var(--surf3); padding: 6px 4px 10px; }
+  .nav button { display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 11.5px; font-weight: 600; color: var(--muted); padding: 4px 0; }
+  .nav button .pill { width: 56px; height: 30px; border-radius: 15px; display: grid; place-items: center; transition: background .2s; }
+  .nav button.on { color: var(--orange); }
+  .nav button.on .pill { background: var(--orange-soft); }
+
+  /* Piezas */
+  .card { background: var(--card); border-radius: 16px; padding: 14px; box-shadow: 0 1px 3px rgba(28,34,48,.08); display: flex; flex-direction: column; gap: 10px; }
+  .card.click { cursor: pointer; }
+  .card.soft { background: var(--orange-soft); box-shadow: none; }
+  .row { display: flex; align-items: center; gap: 10px; }
+  .grow { flex: 1; min-width: 0; }
+  .lbl { font-size: 13px; color: var(--muted); }
+  .b { font-weight: 700; }
+  .h { font-family: Chivo; font-weight: 900; font-size: 17px; display: flex; align-items: center; gap: 8px; }
+  .h .ms { color: var(--orange); font-size: 20px; }
+  .ellip { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .chips { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; margin: 0 -14px; padding: 0 14px; }
+  .chips::-webkit-scrollbar { display: none; }
+  .chip { flex: none; display: inline-flex; align-items: center; gap: 6px; background: var(--surf3); border-radius: 12px; padding: 9px 13px; font-weight: 600; font-size: 14px; white-space: nowrap; }
+  .chip .ms { font-size: 18px; }
+  .chip.on { background: var(--orange); color: #fff; }
+  .chip.on.cy { background: var(--cyan); }
+  .chip.on.ink { background: var(--ink); }
+  .seg { display: grid; grid-template-columns: repeat(3, 1fr); background: var(--surf3); border-radius: 14px; padding: 4px; }
+  .seg button { padding: 9px 4px; border-radius: 11px; font-weight: 700; font-size: 14px; color: var(--muted); display: flex; align-items: center; justify-content: center; gap: 5px; }
+  .seg button .ms { font-size: 18px; }
+  .seg button.on { background: var(--card); color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: var(--orange); color: #fff; font-weight: 700; border-radius: 14px; padding: 13px 16px; min-height: 48px; }
+  .btn.full { width: 100%; }
+  .btn.ghost { background: var(--surf3); color: var(--cyan-deep); }
+  .btn.cy { background: var(--cyan); }
+  .btn.red { background: var(--red); }
+  .btn[disabled] { opacity: .45; cursor: not-allowed; }
+  .ib { width: 44px; height: 44px; border-radius: 12px; background: var(--surf3); color: var(--cyan-deep); display: grid; place-items: center; flex: none; }
+  .pl { display: inline-flex; align-items: center; gap: 4px; font: 700 11.5px "JetBrains Mono", monospace; padding: 4px 8px; border-radius: 999px; background: var(--surf3); color: var(--muted); white-space: nowrap; }
+  .pl.or { background: var(--orange); color: #fff; } .pl.cy { background: var(--cyan-tint); color: var(--cyan-deep); }
+  .pl.gr { background: var(--green-tint); color: var(--green); } .pl.rd { background: var(--red-soft); color: var(--red); }
+  .media { height: 104px; border-radius: 12px; margin: -14px -14px 0; border-radius: 16px 16px 0 0; position: relative; display: flex; align-items: flex-end; padding: 10px 14px; }
+  .media .big { position: absolute; right: 16px; top: 14px; font-size: 54px; opacity: .25; }
+  .num { font: 800 22px "JetBrains Mono", monospace; color: var(--orange-dark); font-variant-numeric: tabular-nums; }
+  .missing { font-size: 13px; color: var(--muted); }
+  .line { display: flex; align-items: center; gap: 6px; font-size: 13.5px; font-weight: 600; }
+  .line .ms { font-size: 17px; }
+  .avatar { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; color: #fff; flex: none; }
+  .avatar .ms { font-size: 22px; }
+  .bar { height: 8px; border-radius: 4px; background: var(--surf3); overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--orange); border-radius: 4px; transition: width .4s; }
+  .fab { position: absolute; right: 16px; bottom: 92px; }
+  .rides { display: flex; gap: 10px; overflow-x: auto; scrollbar-width: none; margin: 0 -14px; padding: 2px 14px 4px; }
+  .rides::-webkit-scrollbar { display: none; }
+  .ride { flex: none; width: 230px; }
+  .empty { text-align: center; color: var(--muted); padding: 22px 10px; }
+  .empty .ms { font-size: 36px; display: block; margin: 0 auto 6px; opacity: .5; }
+
+  /* Mapa de mentira */
+  .map { position: relative; height: 210px; border-radius: 14px; overflow: hidden; background:
+      radial-gradient(circle at 70% 30%, #cfe8c9 0 18%, transparent 19%), radial-gradient(circle at 20% 75%, #cfe8c9 0 14%, transparent 15%),
+      linear-gradient(115deg, transparent 47%, #f6d6a8 47% 50%, transparent 50%), linear-gradient(20deg, transparent 60%, #ffffff 60% 62%, transparent 62%),
+      linear-gradient(160deg, transparent 30%, #ffffff 30% 31.5%, transparent 31.5%), #EEF0E6; }
+  .map.tall { height: 100%; border-radius: 0; }
+  .pin { position: absolute; transform: translate(-50%, -100%); color: var(--green); filter: drop-shadow(0 2px 2px rgba(0,0,0,.3)); cursor: pointer; }
+  .pin .ms { font-size: 34px; }
+  .pin.or { color: var(--orange); } .pin.cy { color: var(--cyan); } .pin.rd { color: var(--red); }
+  .pin b { position: absolute; top: 6px; left: 50%; transform: translateX(-50%); color: #fff; font: 800 11px "JetBrains Mono"; }
+  .me { position: absolute; width: 16px; height: 16px; border-radius: 50%; background: var(--cyan); border: 3px solid #fff; box-shadow: 0 0 0 6px rgba(14,116,144,.2); transform: translate(-50%, -50%); }
+  .route { position: absolute; inset: 0; }
+  .osm { position: absolute; left: 8px; bottom: 6px; font-size: 10.5px; color: var(--muted); }
+  .float { position: absolute; top: 10px; background: #fff; border-radius: 999px; padding: 8px 12px; font: 700 12px "JetBrains Mono"; box-shadow: 0 2px 6px rgba(0,0,0,.15); display: flex; align-items: center; gap: 4px; }
+
+  /* Hoja inferior */
+  .scrim { position: absolute; inset: 0; background: rgba(28,34,48,.45); opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 30; }
+  .scrim.on { opacity: 1; pointer-events: auto; }
+  .sheet { position: absolute; left: 0; right: 0; bottom: 0; max-height: 92%; background: var(--card); border-radius: 24px 24px 0 0; transform: translateY(100%); transition: transform .25s ease; z-index: 31; display: flex; flex-direction: column; }
+  .sheet.on { transform: none; }
+  .sheet .grab { width: 40px; height: 5px; border-radius: 3px; background: var(--surf4); margin: 10px auto 2px; flex: none; }
+  .sheet .body { overflow-y: auto; padding: 8px 18px 18px; display: flex; flex-direction: column; gap: 12px; }
+  .sheet .body > * { flex-shrink: 0; }
+  .sheet .foot { padding: 12px 18px 18px; border-top: 1px solid var(--surf3); display: flex; flex-direction: column; gap: 6px; }
+  .sheet h2 { font-size: 22px; font-weight: 900; line-height: 1.15; }
+  .field label { display: block; font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 5px; }
+  .opt { display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 12px; cursor: pointer; }
+  .opt:hover { background: var(--surf0); }
+  .opt .ic { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; background: var(--surf3); color: var(--cyan-deep); flex: none; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .toggle button { border: 1.5px solid var(--surf4); border-radius: 14px; padding: 10px; text-align: left; }
+  .toggle button.on { border-color: var(--orange); background: var(--orange-soft); }
+  .toggle b { display: block; }
+  .qty { display: flex; align-items: center; gap: 8px; }
+  .qty button { width: 32px; height: 32px; border-radius: 10px; background: var(--surf3); font-weight: 800; font-size: 18px; color: var(--cyan-deep); }
+  .menu { position: absolute; background: #fff; border-radius: 12px; box-shadow: 0 6px 24px rgba(0,0,0,.18); z-index: 40; min-width: 210px; padding: 6px; }
+  .menu button { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px; border-radius: 8px; text-align: left; font-size: 14px; }
+  .menu button:hover { background: var(--surf0); }
+  .menu .rd { color: var(--red); }
+
+  .toast { position: absolute; left: 16px; right: 16px; bottom: 96px; background: var(--ink); color: #fff; border-radius: 14px; padding: 12px 14px; font-size: 14px; z-index: 50; opacity: 0; transform: translateY(10px); transition: all .2s; pointer-events: none; }
+  .toast.on { opacity: 1; transform: none; }
+  .spin { width: 18px; height: 18px; border: 2.5px solid rgba(255,255,255,.4); border-top-color: #fff; border-radius: 50%; animation: sp .8s linear infinite; }
+  @keyframes sp { to { transform: rotate(360deg); } }
+  .sosb { display: inline-flex; align-items: center; gap: 4px; background: var(--red); color: #fff; border-radius: 999px; padding: 8px 12px; font: 900 14px Chivo, sans-serif; flex: none; }
+  .sosb .ms { font-size: 18px; }
+  .rbar { display: flex; align-items: center; gap: 8px; padding: 8px 14px; color: #fff; font-size: 13px; }
+  .rbar .ms { font-size: 18px; }
+  .rbar .rb { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; flex: none; }
+  .eline { display: flex; align-items: center; gap: 10px; background: #fff; border: 1px solid var(--surf3); border-radius: 14px; padding: 10px 12px; text-align: left; width: 100%; }
+  .eline .ei { width: 38px; height: 38px; border-radius: 50%; background: var(--red-soft); color: var(--red); display: grid; place-items: center; flex: none; }
+  .eline .en { font: 800 17px "JetBrains Mono", monospace; color: var(--red); }
+  .dot { width: 10px; height: 10px; border-radius: 50%; background: #9AA1B2; flex: none; transition: background .2s, box-shadow .2s; }
+  .dot.on { background: var(--green); box-shadow: 0 0 0 4px rgba(27,138,58,.2); }
+  .ptt { width: 116px; height: 116px; border-radius: 50%; background: var(--orange); color: #fff; display: grid; place-items: center; align-self: center; touch-action: none; user-select: none; -webkit-user-select: none; transition: background .15s, transform .15s; }
+  .ptt.on { background: var(--green); transform: scale(1.06); }
+  .ptt .ms { font-size: 36px; display: block; margin: 0 auto; }
+  .ptt small { display: block; font-size: 12px; font-weight: 700; line-height: 1.15; text-align: center; }
+  .medal { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 1; min-width: 0; text-align: center; }
+  .medal .c { width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; color: #fff; }
+  .medal.off .c { background: var(--surf3) !important; color: var(--muted); }
+  .medal small { font-size: 11px; color: var(--muted); line-height: 1.2; }
+
+  /* Inicio nuevo: saludo, ciudad y "¿A dónde vamos?" */
+  .top { min-height: 72px; }
+  .top .hi { font-family: Chivo; font-weight: 900; font-size: 24px; line-height: 1.1; }
+  .top .hi2 { font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .top .ttl { font-family: Chivo; font-weight: 900; font-size: 22px; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .asb { width: 38px; height: 38px; border-radius: 50%; background: var(--orange-soft); color: var(--orange-dark); display: grid; place-items: center; flex: none; position: relative; }
+  .asb .ms { font-size: 20px; }
+  .asb.dot::after { content: ""; position: absolute; top: 0; right: 0; width: 10px; height: 10px; border-radius: 50%; background: var(--orange); border: 2px solid #fff; }
+  .city { display: flex; align-items: center; gap: 10px; }
+  .city .ci { width: 42px; height: 42px; border-radius: 50%; background: var(--orange-soft); color: var(--orange-dark); display: grid; place-items: center; flex: none; }
+  .city .chg { color: var(--cyan-deep); font-weight: 700; padding: 8px 4px; }
+  .where { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px; }
+  .wt { border-radius: 18px; padding: 14px; min-height: 136px; display: flex; flex-direction: column; gap: 4px; text-align: left; transition: transform .15s; }
+  .wt:active { transform: scale(.97); }
+  .wt .wi { width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; margin-bottom: auto; }
+  .wt b { font-family: Chivo; font-weight: 900; font-size: 17px; }
+  .wt small { font-size: 12.5px; line-height: 1.25; }
+  .wt.ia { background: linear-gradient(135deg, var(--orange), var(--orange-dark)); color: #fff; }
+  .wt.ia .wi { background: rgba(255,255,255,.22); }
+  .wt.ia small { color: rgba(255,255,255,.9); }
+  .wt.ex { background: var(--surf0); border: 1.5px solid var(--surf3); }
+  .wt.ex .wi { background: var(--cyan-tint); color: var(--cyan-deep); }
+  .wt.ex small { color: var(--muted); }
+  .backpill { display: inline-flex; align-items: center; gap: 6px; background: #fff; border-radius: 999px; padding: 8px 14px 8px 8px; font-weight: 700; flex: none; box-shadow: 0 1px 3px rgba(28,34,48,.08); }
+  .seg.two2 { grid-template-columns: 1fr 1fr; }
+  .linkbtn { display: flex; align-items: center; gap: 8px; color: var(--cyan-deep); font-weight: 600; font-size: 14px; padding: 6px 2px; }
+  .ask { display: flex; align-items: center; gap: 8px; background: var(--surf0); border-radius: 28px; padding: 4px 4px 4px 16px; }
+  .ask input { background: none; border: 0; padding: 12px 0; font-size: 16px; }
+  .ask input:focus { border: 0; }
+  .ask:focus-within { box-shadow: 0 0 0 2px var(--cyan); }
+  .ask button { width: 46px; height: 46px; border-radius: 50%; background: var(--surf4); color: #fff; display: grid; place-items: center; flex: none; transition: background .2s; }
+  .ask button.on, .ask button[disabled] { background: var(--orange); }
+</style>
+<div class="stage">
+  <aside class="side">
+    <h1>ApexMoto</h1>
+    <p>Así funciona hoy la app. Toca cualquier botón para recorrerla.</p>
+    <div class="tip"><b>Recorrido sugerido:</b><br>• Inicio: la app te saluda. Toca <b>Cambiar</b> y elige Medellín: cambian las rutas recomendadas y también Comercios.<br>• Escribe en <b>"¿A dónde vamos?"</b>, por ejemplo "mirador y almuerzo, terminar en el lago": la ruta aparece ahí mismo. <b>Explorar</b> abre lugares y rodadas famosas.<br>• Comercios: solo negocios de tu ciudad, más gasolineras.<br>• Comunidad → Crear rodada.<br>• Guía una ruta recomendada: arriba aparecen <b>Asistencia</b> (naranja) y el <b>SOS</b> rojo.<br>• Comunidad → Domingo al Lago Calima → Iniciar rodada → <b>Intercom</b>.<br>• Rentar: viene con tu ciudad.<br>• Perfil (arriba a la derecha): perfil y trayectoria en una tarjeta, y el SOS fuera de ruta.</div>
+  </aside>
+
+  <div class="phone" id="phone">
+    <div class="top">
+      <div class="grow" id="topL"></div>
+      <button class="asb" id="asTop" hidden onclick="go('tal')" aria-label="Asistencia técnica"><span class="ms">handyman</span></button>
+      <button class="sosb" id="sosTop" hidden onclick="emergencySheet()" aria-label="Emergencia"><span class="ms">call</span>SOS</button>
+      <button class="round fill" aria-label="Perfil" onclick="go('perfil')"><span class="ms">person</span></button>
+    </div>
+    <div id="bars"></div>
+    <div class="scroll" id="scr"><div class="pad" id="view"></div></div>
+    <nav class="nav" id="nav"></nav>
+    <div class="scrim" id="scrim" onclick="closeSheet()"></div>
+    <div class="sheet" id="sheet" role="dialog" aria-modal="true"><div class="grab"></div><div class="body" id="sb"></div><div class="foot" id="sf" hidden></div></div>
+    <div class="toast" id="toast" role="status"></div>
+  </div>
+</div>
+
+<script>
+/* ───────── Datos de ejemplo ───────── */
+const $ = s => document.querySelector(s);
+const cop = n => '$' + Math.round(n).toLocaleString('es-CO');
+const km = n => n < 1 ? Math.round(n * 1000) + ' m' : n < 10 ? n.toFixed(1).replace('.', ',') + ' km' : Math.round(n) + ' km';
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const joinEs = a => a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' y ' + a[a.length - 1];
+const missing = a => a.length ? `<div class="missing">Falta: ${joinEs(a)}.</div>` : '';
+
+/* Ciudades de ejemplo (en la app se elige entre 4.132 ciudades y pueblos del catálogo). La ciudad elegida la usan Inicio,
+   Explorar y Comercios; Rentar arranca con ella. */
+const CITIES = [['Cali','Valle del Cauca'],['Medellín','Antioquia'],['Bogotá','Bogotá'],['Armenia','Quindío'],['Bucaramanga','Santander']];
+const RIDES = [
+  {n:'Cali – Km 18 – Dapa', city:'Cali', lvl:'Fácil', road:'Pavimentada', km:45, h:'2 h', tip:'Hay neblina en la tarde: luces encendidas y sin afanes en las curvas.', c:'#D5EEDC', i:'forest'},
+  {n:'Cali – Lago Calima por la montaña', city:'Cali', lvl:'Media', road:'Pavimentada', km:110, h:'3 h', tip:'Sal temprano: después de las 11 a. m. sube el viento en el lago.', c:'#D3ECF2', i:'sailing'},
+  {n:'Vía al mar por Dagua', city:'Cali', lvl:'Media', road:'Curvas y túneles', km:120, h:'2 h 45 min', tip:'Tráfico pesado entre semana. Mejor domingo.', c:'#FFE3D3', i:'waves'},
+  {n:'Medellín – Guatapé', city:'Medellín', lvl:'Fácil', road:'Pavimentada', km:80, h:'2 h', tip:'Regreso con trancones los domingos: sal de vuelta antes de las 3 p. m.', c:'#D3ECF2', i:'sailing'},
+  {n:'Medellín – Santa Fe de Antioquia', city:'Medellín', lvl:'Fácil', road:'Pavimentada', km:60, h:'1 h 30 min', tip:'El túnel de Occidente es largo: luces encendidas.', c:'#FFE3D3', i:'holiday_village'},
+  {n:'Medellín – Jardín', city:'Medellín', lvl:'Media', road:'Montaña con curvas', km:135, h:'3 h 30 min', tip:'Tanquea en Bolombolo: después hay pocas estaciones.', c:'#D5EEDC', i:'landscape'},
+  {n:'Bogotá – La Calera', city:'Bogotá', lvl:'Fácil', road:'Pavimentada', km:25, h:'1 h', tip:'Arriba hace frío: lleva guantes y chaqueta cerrada.', c:'#D3ECF2', i:'landscape'},
+  {n:'Bogotá – Villa de Leyva', city:'Bogotá', lvl:'Media', road:'Pavimentada', km:170, h:'4 h', tip:'Sal antes de las 7 a. m. para evitar el trancón de la salida norte.', c:'#FFE3D3', i:'holiday_village'},
+  {n:'Bogotá – Zipaquirá', city:'Bogotá', lvl:'Fácil', road:'Pavimentada', km:50, h:'1 h 30 min', tip:'La Catedral de Sal tiene parqueadero para motos.', c:'#E6E1F5', i:'church'},
+  {n:'Alto de La Línea', city:'Armenia', lvl:'Media', road:'Montaña con curvas', km:110, h:'2 h 30 min', tip:'Lleva chaqueta impermeable: arriba llueve aunque abajo haga sol.', c:'#D5EEDC', i:'landscape'},
+  {n:'Armenia – Salento – Valle de Cocora', city:'Armenia', lvl:'Fácil', road:'Pavimentada', km:60, h:'2 h', tip:'Los fines de semana hay mucha gente en Salento: llega temprano.', c:'#D5EEDC', i:'forest'},
+  {n:'Cañón del Chicamocha', city:'Bucaramanga', lvl:'Alta', road:'Montaña', km:54, h:'1 h 30 min', tip:'Para en el mirador del parque y tanquea antes de bajar.', c:'#E6E1F5', i:'terrain'},
+];
+const PLACES = [
+  {n:'Cristo Rey', city:'Cali', k:'mirador', km:6.2, d:'Mirador sobre Cali, a 1.440 m.', t:'La subida tiene curvas cerradas: ojo con los ciclistas.'},
+  {n:'Cerro de las Tres Cruces', city:'Cali', k:'naturaleza', km:4.8, d:'Sendero y vista a la ciudad.', t:'Deja la moto abajo, en el parqueadero.'},
+  {n:'Kilómetro 18', city:'Cali', k:'naturaleza', km:21, d:'Bosque de niebla y avistamiento de aves.', t:'Hay neblina en la tarde: luces encendidas.'},
+  {n:'Lago Calima', city:'Cali', k:'agua', km:86, d:'Embalse con deportes de viento.', t:'Almuerza en Darién: hay parqueo para motos.'},
+  {n:'Ginebra', city:'Cali', k:'pueblo', km:44, d:'Pueblo del sancocho y la música andina.', t:'En junio es el Festival Mono Núñez.'},
+  {n:'Termales de Santa Rosa', city:'Cali', k:'termales', km:210, d:'Aguas termales con cascada.', t:'Abren temprano. Entre semana hay menos gente.'},
+  {n:'Piedra del Peñol', city:'Medellín', k:'mirador', km:72, d:'Roca de 220 m con 740 escalones y vista al embalse.', t:'Sube temprano: al mediodía hay fila.'},
+  {n:'Guatapé', city:'Medellín', k:'pueblo', km:80, d:'Pueblo de los zócalos de colores.', t:'Parquea en las afueras: el centro es angosto.'},
+  {n:'Santa Elena', city:'Medellín', k:'naturaleza', km:17, d:'Bosque, silleteros y aire frío.', t:'Neblina en la tarde: luces encendidas.'},
+  {n:'Monserrate', city:'Bogotá', k:'mirador', km:3, d:'Mirador a 3.152 m sobre la ciudad.', t:'Se sube en teleférico o funicular: deja la moto abajo.'},
+  {n:'Villa de Leyva', city:'Bogotá', k:'pueblo', km:150, d:'Pueblo colonial con plaza empedrada.', t:'Las calles empedradas resbalan con lluvia.'},
+  {n:'Salento', city:'Armenia', k:'pueblo', km:24, d:'Pueblo cafetero de la calle Real.', t:'Llega temprano los fines de semana.'},
+  {n:'Valle de Cocora', city:'Armenia', k:'naturaleza', km:35, d:'Palmas de cera, el árbol nacional.', t:'La vía final es angosta: despacio.'},
+  {n:'Mesa de los Santos', city:'Bucaramanga', k:'mirador', km:40, d:'Meseta con vista al cañón.', t:'Hace viento fuerte en el borde.'},
+];
+const KIND = {mirador:['Mirador','visibility'], naturaleza:['Naturaleza','forest'], agua:['Agua','water'], pueblo:['Pueblo','holiday_village'], termales:['Termales','hot_tub']};
+/* Solo comercios (comida, café y talleres): los sitios turísticos van en Explorar. km = distancia desde el centro de la ciudad. */
+const VENUES = [
+  {id:'v1', n:'Parador El Mirador', type:'food', city:'Cali', km:35, badge:'Aliado Apex', kind:'Gastronomía & Descanso', promo:'Tinto gratis con el almuerzo', owner:true, open:true,
+    menu:[['Trucha al ajillo','Platos fuertes',32000],['Bandeja paisa','Platos fuertes',29000],['Limonada de coco','Bebidas',9000],['Tinto','Bebidas',2500]], r:4.7, rv:23},
+  {id:'v2', n:'Café La Cumbre', type:'cafe', city:'Cali', km:18, badge:'Mirador Especial', kind:'Café de origen & panorámica', promo:'10 % con cupón', owner:true, open:true,
+    menu:[['Capuchino','Bebidas',7000],['Pandebono','Entradas',3000]], r:4.9, rv:41},
+  {id:'v3', n:'Asadero Dapa', type:'food', city:'Cali', km:22, badge:'Aliado Apex', kind:'Gastronomía & Descanso', promo:'', owner:true, open:true, menu:[], r:0, rv:0},
+  {id:'v5', n:'MotoTaller La 5', type:'moto', city:'Cali', km:3, badge:'Asistencia técnica', kind:'Taller & asistencia', promo:'Revisión de cadena gratis', owner:true, open:true, menu:[], r:4.6, rv:12},
+  {id:'v7', n:'Fonda El Arriero', type:'food', city:'Medellín', km:17, badge:'Aliado Apex', kind:'Gastronomía & Descanso', promo:'Mazamorra gratis con la bandeja', owner:true, open:true,
+    menu:[['Bandeja paisa','Platos fuertes',31000],['Chicharrón','Entradas',12000],['Aguapanela','Bebidas',4000]], r:4.8, rv:31},
+  {id:'v8', n:'Café de la Represa', type:'cafe', city:'Medellín', km:38, badge:'Mirador Especial', kind:'Café de origen & panorámica', promo:'', owner:true, open:true, menu:[['Tinto campesino','Bebidas',3000]], r:4.6, rv:8},
+  {id:'v9', n:'MotoServicio La 80', type:'moto', city:'Medellín', km:4, badge:'Asistencia técnica', kind:'Taller & asistencia', promo:'Lavado de cadena gratis', owner:true, open:true, menu:[], r:4.5, rv:15},
+  {id:'v10', n:'Parador La Calera', type:'food', city:'Bogotá', km:20, badge:'Aliado Apex', kind:'Gastronomía & Descanso', promo:'Changua de cortesía', owner:true, open:true, menu:[['Changua','Entradas',9000],['Trucha','Platos fuertes',34000]], r:4.7, rv:19},
+  {id:'v6', n:'Parrilla La Línea', type:'food', city:'Armenia', km:28, badge:'Aliado Apex', kind:'Gastronomía & Descanso', promo:'Postre con el plato fuerte', owner:true, open:false,
+    menu:[['Churrasco','Platos fuertes',38000],['Aguapanela con queso','Bebidas',6000]], r:4.5, rv:9},
+];
+const CATS = [['food','Comida + Parqueo'],['cafe','Café & Mirador'],['moto','Talleres']];
+const FUEL = [
+  ['EDS El Triángulo','Bretaña',1.1,'Cali'],['Terpel San Juan Bosco','San Juan Bosco',1.1,'Cali'],['Estación Primax Versalles','Versalles',1.4,'Cali'],
+  ['Texaco 3 de Julio','3 de Julio',1.3,'Cali'],['EDS La Flora','La Flora',3.8,'Cali'],['Estación Mobil Pance','Pance',9.6,'Cali'],
+  ['Terpel Las Palmas','El Poblado',2.1,'Medellín'],['EDS La 80','Laureles',3.4,'Medellín'],['Primax Envigado','Envigado',8.2,'Medellín'],
+  ['Terpel Calle 80','Engativá',4.0,'Bogotá'],['EDS Autopista Norte','Usaquén',9.5,'Bogotá'],
+  ['EDS La Clarita','Centro',1.6,'Armenia'],['Terpel Cañaveral','Cañaveral',3.2,'Bucaramanga'],
+];
+const MEET = [
+  ['bomba','EDS El Triángulo','Bretaña, Cali','local_gas_station'],['super','Supermercado de cadena · Unicentro','Pance, Cali','shopping_cart'],
+  ['centro','Centro comercial Chipichape','Chipichape, Cali','storefront'],['peaje','Peaje Loboguerrero','Dagua','toll'],
+  ['bomba','Estación Primax Versalles','Versalles, Cali','local_gas_station'],['lugar','Cristo Rey','Los Cristales, Cali','place'],
+];
+const AV = ['#D94600','#0E7490','#1B8A3A','#6D4AA8','#B3261E'];
+let RODADAS = [
+  {id:'r1', n:'Domingo al Lago Calima', when: nextSat(1), meet:'EDS El Triángulo · Bretaña, Cali', dest:'Lago Calima', stops:['Café La Cumbre','Parador El Mirador'], style:'Ritmo medio', pub:true, seats:12,
+    members:[['@tú','Tú',0,'lead'],['@vale.moto','Vale',1],['@nico_ruta','Nico',2,'sweep'],['@andres.adv','Andrés',3]], code:'K7QM2XPA', mine:true, live:false},
+  {id:'r2', n:'Subida a Cristo Rey', when: nextSat(0, 17), meet:'Centro comercial Chipichape · Cali', dest:'Cristo Rey', stops:[], style:'Tranquilo', pub:true, seats:8,
+    members:[['@caro.r','Caro',4,'lead'],['@juan.k','Juan',2]], code:'P3WE9TRA', mine:false},
+];
+function nextSat(add, h = 7) { const d = new Date(); d.setDate(d.getDate() + ((6 - d.getDay() + 7) % 7 || 7) + add); d.setHours(h, 0, 0, 0); return d; }
+const whenLabel = d => d.toLocaleDateString('es-CO', {weekday:'short', day:'numeric', month:'short'}) + ' · ' + d.toLocaleTimeString('es-CO', {hour:'numeric', minute:'2-digit'});
+
+/* ───────── Estado ───────── */
+const NAME = 'Laura';
+const S = { route:null, call:null, ec:false, tab:'rut', rs:'home', back:null, city:'Cali', rentCity:null, radius:50, kind:'all', fl:'all', asMap:false, orders:[], sos:null, role:'rider', routes:12, ai:null, aiBusy:false,
+  budget:{km:180, kmgal:90, gal:16500, food:40000, riders:1} };
+/* Asistencia ya no es pestaña: aparece arriba solo en ruta (o con una asistencia abierta) y desde Mi perfil. */
+const TABS = { rider:[['rut','home','Inicio'],['com','storefront','Comercios'],['grp','groups','Comunidad'],['rent','two_wheeler','Rentar']],
+  shop:[['cpan','dashboard','Resumen'],['cped','receipt_long','Pedidos'],['cmenu','restaurant_menu','Menú'],['cneg','store','Negocio'],['ccan','qr_code_scanner','Canjes']] };
+/* Pantallas internas: llevan Volver y su título, sin la barra de abajo. */
+const INNER = { perfil:'Mi perfil', tal:'Asistencia técnica' };
+const cityOf = n => CITIES.find(c => c[0] === n) || CITIES[0];
+function hiLine(role) {
+  const h = new Date().getHours(), p = h >= 5 && h < 12 ? 0 : h < 18 ? 1 : 2;
+  return (role === 'shop' ? ['Buenos días. Que hoy lleguen muchos riders.', 'Buenas tardes. Revisa si hay pedidos nuevos.', 'Buenas noches. Deja listo el menú de mañana.']
+    : ['Buenos días. ¿Para dónde salimos hoy?', 'Buenas tardes. La vía te espera.', 'Buenas noches. Planea la rodada de mañana.'])[p];
+}
+
+function go(t) { if (INNER[t] && !INNER[S.tab]) S.back = S.tab; S.tab = t; closeSheet(); render(); $('#scr').scrollTop = 0; }
+function goBack() { go(S.back || TABS[S.role][0][0]); }
+function toast(m) { const t = $('#toast'); t.innerHTML = m; t.classList.add('on'); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove('on'), 2800); }
+function sheet(body, foot) { $('#sb').innerHTML = body; const f = $('#sf'); if (foot) { f.innerHTML = foot; f.hidden = false; } else f.hidden = true; $('#scrim').classList.add('on'); $('#sheet').classList.add('on'); $('#sb').scrollTop = 0; }
+function closeSheet() { $('#scrim').classList.remove('on'); $('#sheet').classList.remove('on'); closeMenu(); }
+const onRoute = () => !!S.route || RODADAS.some(r => r.live && r.members.some(m => m[0] === '@tú'));
+
+function render() {
+  const tabs = TABS[S.role];
+  if (!tabs.some(t => t[0] === S.tab) && !INNER[S.tab]) S.tab = tabs[0][0];
+  $('#nav').style.gridTemplateColumns = `repeat(${tabs.length}, 1fr)`;
+  $('#nav').innerHTML = tabs.map(([k, i, l]) => `<button class="${S.tab === k ? 'on' : ''}" onclick="go('${k}')" aria-label="${l}"><span class="pill"><span class="ms">${i}</span></span>${l}</button>`).join('');
+  $('#nav').hidden = !!INNER[S.tab];
+  // Sin marca arriba: en la pestaña principal saluda por el nombre; en las demás, el nombre de la sección.
+  $('#topL').innerHTML = INNER[S.tab]
+    ? `<div class="row"><button class="round" onclick="goBack()" aria-label="Volver"><span class="ms">arrow_back</span></button><div class="ttl">${INNER[S.tab]}</div></div>`
+    : S.tab === tabs[0][0] ? `<div class="hi">¡Hola, ${NAME}!</div><div class="hi2">${hiLine(S.role)}</div>`
+    : `<div class="ttl">${tabs.find(t => t[0] === S.tab)[2]}</div>`;
+  drawBars();
+  $('#view').innerHTML = ({rut:viewRutas, com:viewCom, grp:viewGrp, rent:viewRent, tal:viewTal, perfil:viewPerfil, cpan:viewShop, cped:viewShopOrders, cmenu:viewShopMenu, cneg:viewShopBiz, ccan:viewShopRedeem}[S.tab])();
+}
+
+/* ───────── INICIO (antes "Rutas") ───────── */
+const lvlc = l => l === 'Alta' ? 'rd' : l === 'Media' ? 'or' : 'gr';
+/* Dónde estás: la ciudad elegida, con el botón para cambiarla. La comparten Inicio, Explorar y Comercios. */
+function cityCard(title) {
+  const c = cityOf(S.city);
+  return `<div class="card"><div class="city"><span class="ci"><span class="ms">location_on</span></span>
+    <div class="grow"><div class="lbl">${title || 'Estás en'}</div><div class="b ellip" style="font-size:16px">${c[0]}, ${c[1]}</div></div>
+    <button class="chg" onclick="citySheet()">Cambiar</button></div></div>`;
+}
+function citySheet() {
+  sheet(`<h2>¿En qué ciudad estás?</h2>
+    <button class="btn full ghost" onclick="S.city='Cali';closeSheet();render();toast('Estás cerca de Cali. La ciudad se calcula en tu teléfono: tu ubicación no sale de él.')"><span class="ms">my_location</span>Usar mi ubicación</button>
+    ${CITIES.map(c => `<div class="opt" onclick="S.city='${c[0]}';closeSheet();render();toast('Ahora ves ${c[0]} en Inicio, Explorar y Comercios.')"><span class="ic"><span class="ms">location_city</span></span><div class="grow"><div class="b">${c[0]}</div><div class="lbl">${c[1]}</div></div>${S.city === c[0] ? '<span class="ms" style="color:var(--orange)">check</span>' : ''}</div>`).join('')}
+    <div class="lbl">En la app buscas entre 4.132 ciudades y pueblos de los 33 departamentos.</div>`);
+}
+function rideRow(r) {
+  return `<div class="card click" onclick="rideSheet(${RIDES.indexOf(r)})"><div class="row">
+    <div class="ib" style="background:var(--orange-soft);color:var(--orange-dark)"><span class="ms">route</span></div>
+    <div class="grow"><div class="b ellip">${r.n}</div><div class="lbl">${r.km} km · ${r.h} · ${r.road}</div></div>
+    <span class="pl ${lvlc(r.lvl)}">${r.lvl}</span></div></div>`;
+}
+function viewRutas() {
+  if (S.rs === 'home') return viewHome();
+  const cur = S.rs === 'bud' ? 'ia' : S.rs;
+  const seg = [['exp','explore','Explorar'],['ia','auto_awesome','Ruta IA']]
+    .map(([k, i, l]) => `<button class="${cur === k ? 'on' : ''}" onclick="S.rs='${k}';render()"><span class="ms">${i}</span>${l}</button>`).join('');
+  return `<div class="row"><button class="backpill" onclick="S.rs='home';render()"><span class="ms">arrow_back</span>Inicio</button><div class="seg two2 grow">${seg}</div></div>`
+    + ({exp:viewExplore, ia:() => viewAI() + `<button class="linkbtn" onclick="S.rs='bud';render()"><span class="ms" style="font-size:18px">calculate</span>¿Cuánto cuesta la salida? Calcular presupuesto</button>`, bud:viewBudget}[S.rs])();
+}
+/* Portada: ciudad → "¿A dónde vamos?" (se escribe ahí mismo y la IA responde debajo; Explorar abre su vista) → unas pocas rutas recomendadas. */
+function viewHome() {
+  const recs = RIDES.filter(r => r.city === S.city).slice(0, 3);
+  return cityCard() + `
+  <div class="card" style="padding:18px;gap:12px">
+    <div class="hd" style="font-size:27px;font-weight:900;line-height:1.1">¿A dónde vamos?</div>
+    <form class="ask" onsubmit="event.preventDefault();runAI('home')">
+      <span class="ms" style="color:var(--orange)">auto_awesome</span>
+      <input id="aiq" maxlength="300" autocomplete="off" placeholder="Ej: un mirador y almorzar trucha" value="${esc(S.aiq || '')}" oninput="S.aiq=this.value;$('#askb').classList.toggle('on',!!this.value.trim())" aria-label="¿A dónde vamos?">
+      <button id="askb" class="${(S.aiq || '').trim() ? 'on' : ''}" ${S.aiBusy ? 'disabled' : ''} aria-label="Armar ruta">${S.aiBusy ? '<span class="spin"></span>' : '<span class="ms">send</span>'}</button>
+    </form>
+    <div class="chips">${AI_EX.map(e => `<button class="chip" onclick="S.aiq='${e}';runAI('home')">${e}</button>`).join('')}</div>
+    <div class="lbl" style="font-size:12px">Escríbelo como se lo dirías a un amigo: la IA te arma la ruta con lugares reales. No escribas datos personales.</div>
+    <div style="height:1px;background:var(--surf3)"></div>
+    <button class="row" style="text-align:left" onclick="S.rs='exp';render()"><span class="avatar" style="background:var(--cyan-tint);color:var(--cyan-deep)"><span class="ms">explore</span></span>
+      <span class="grow"><span class="b" style="display:block">Explorar</span><span class="lbl">Lugares y rodadas famosas cerca</span></span><span class="ms" style="color:var(--muted)">chevron_right</span></button>
+  </div>
+  ${S.ai ? aiResult() + `<button class="linkbtn" style="justify-content:center" onclick="S.ai=null;S.aiq='';render()">Armar otra ruta</button>` : ''}
+  <div class="row"><div class="h grow"><span class="ms">thumb_up</span>Rutas recomendadas</div><button style="color:var(--cyan-deep);font-weight:700;font-size:14px" onclick="S.rs='exp';render()">Ver más</button></div>
+  ${recs.map(rideRow).join('') || '<div class="empty"><span class="ms">route</span>Todavía no hay rutas recomendadas para esta ciudad.</div>'}`;
+}
+function viewExplore() {
+  const list = PLACES.filter(p => p.city === S.city && p.km <= S.radius && (S.kind === 'all' || p.k === S.kind));
+  const rides = [...RIDES].sort((a, b) => (b.city === S.city) - (a.city === S.city));
+  return `
+  ${cityCard('Explorando desde')}
+  <div class="h"><span class="ms">two_wheeler</span>Rodadas famosas cerca</div>
+  <div class="rides">${rides.map(r => `
+    <div class="card click ride" onclick="rideSheet(${RIDES.indexOf(r)})" style="padding:0;gap:0">
+      <div style="height:78px;background:${r.c};border-radius:16px 16px 0 0;display:grid;place-items:center"><span class="ms" style="font-size:40px;color:var(--ink);opacity:.5">${r.i}</span></div>
+      <div style="padding:10px 12px 12px"><div class="b ellip">${r.n}</div><div class="lbl">${r.km} km · ${r.h}</div><div style="margin-top:6px"><span class="pl ${lvlc(r.lvl)}">${r.lvl}</span></div></div>
+    </div>`).join('')}</div>
+  <div class="h"><span class="ms">place</span>Lugares para visitar</div>
+  <div class="chips">${[25, 50, 100, 250].map(r => `<button class="chip ${S.radius === r ? 'on cy' : ''}" onclick="S.radius=${r};render()">${r} km</button>`).join('')}</div>
+  <div class="chips"><button class="chip ${S.kind === 'all' ? 'on' : ''}" onclick="S.kind='all';render()">Todos</button>${Object.entries(KIND).map(([k, [l, i]]) => `<button class="chip ${S.kind === k ? 'on' : ''}" onclick="S.kind='${k}';render()"><span class="ms">${i}</span>${l}</button>`).join('')}</div>
+  ${list.length ? list.map((p, i) => `
+    <div class="card click" onclick="placeSheet('${p.n}')"><div class="row">
+      <div class="ib" style="background:var(--cyan-tint)"><span class="ms">${KIND[p.k][1]}</span></div>
+      <div class="grow"><div class="b ellip">${p.n}</div><div class="lbl">${KIND[p.k][0]} · ${km(p.km)}</div></div>
+      <span class="ms" style="color:var(--muted)">chevron_right</span></div></div>`).join('')
+    : `<div class="empty"><span class="ms">travel_explore</span>No hay lugares de ese tipo a menos de ${S.radius} km de ${S.city}. Amplía la distancia.</div>`}
+  <div class="lbl" style="text-align:center">4.487 lugares de los 33 departamentos · © OpenStreetMap</div>`;
+}
+function rideSheet(i) {
+  const r = RIDES[i];
+  sheet(`<span class="pl ${lvlc(r.lvl)}" style="align-self:flex-start">Nivel ${r.lvl.toLowerCase()}</span>
+    <h2>${r.n}</h2><div class="lbl">${r.road} · ${r.km} km · ${r.h}${r.city === S.city ? ' · sale desde aquí' : ' · sale desde ' + r.city}</div>
+    <div class="card soft"><div class="line"><span class="ms">tips_and_updates</span>Consejo</div><div>${r.tip}</div></div>`,
+    `<button class="btn full" onclick="guide('${r.n}')"><span class="ms">navigation</span>Guiar esta ruta</button>
+     <button class="btn full ghost" onclick="closeSheet();createSheet({dest:'${r.n.split(/→|–/).pop().trim()}', name:'${r.n}'})"><span class="ms">group_add</span>Crear una rodada con esta ruta</button>`);
+}
+function placeSheet(n) {
+  const p = PLACES.find(x => x.n === n);
+  sheet(`<span class="pl cy" style="align-self:flex-start">${KIND[p.k][0]}</span><h2>${p.n}</h2><div class="lbl">A ${km(p.km)} de ${p.city} en línea recta</div><div>${p.d}</div>
+    <div class="card soft"><div class="line"><span class="ms">tips_and_updates</span>Consejo</div><div>${p.t}</div></div>`,
+    `<button class="btn full" onclick="guide('${p.n}')"><span class="ms">navigation</span>Guiar en la app</button>
+     <button class="btn full ghost" onclick="closeSheet();createSheet({dest:'${p.n}', name:'Rodada a ${p.n}'})"><span class="ms">group_add</span>Crear rodada aquí</button>`);
+}
+function guide(name) {
+  closeSheet(); S.route = name; drawBars();
+  sheet(`<div class="card" style="background:var(--ink);color:#fff"><div class="row"><span class="ms" style="font-size:44px;color:#FFB27A">turn_right</span>
+      <div class="grow"><div style="font:800 26px 'JetBrains Mono';color:#FFB27A">350 m</div><div class="b">Gira a la derecha por la Calle 5</div></div></div></div>
+    <div class="map"><svg class="route" viewBox="0 0 100 100" preserveAspectRatio="none"><path d="M15 85 C 30 70, 40 60, 55 50 S 75 25, 85 15" stroke="#D94600" stroke-width="2.6" fill="none" stroke-linecap="round"/></svg>
+      <div class="me" style="left:15%;top:85%"></div><div class="pin or" style="left:85%;top:15%"><span class="ms">flag</span></div><span class="osm">© OpenStreetMap</span></div>
+    <div class="row"><div class="grow"><div class="lbl">Hacia</div><div class="b">${esc(name)}</div></div><div style="text-align:right"><div class="num" style="font-size:18px">42 min</div><div class="lbl">llegas 9:48 a. m.</div></div></div>
+    <div class="lbl"><span class="ms" style="font-size:16px">volume_up</span> Guiado con voz. Si te sales de la ruta, se recalcula sola.</div>`,
+    `<button class="btn full red" onclick="closeSheet();S.route=null;S.routes++;render();toast('Ruta terminada: cuenta para tus medallas (+1).')"><span class="ms">close</span>Terminar guiado</button>`);
+}
+const AI_EX = ['Mirador y almuerzo, terminar en el lago', 'Ruta corta con café de origen', 'Algo tranquilo de medio día'];
+function viewAI() {
+  const r = S.ai;
+  return `
+  <div class="card">
+    <div class="h"><span class="ms">auto_awesome</span>¿Qué quieres hacer?</div>
+    <textarea id="aiq" maxlength="300" placeholder="Ej: salir de Cali, parar en un mirador, almorzar trucha y terminar en el Lago Calima">${esc(S.aiq || '')}</textarea>
+    <div class="chips">${AI_EX.map(e => `<button class="chip" onclick="$('#aiq').value='${e}'">${e}</button>`).join('')}</div>
+    <button class="btn full" onclick="runAI()" ${S.aiBusy ? 'disabled' : ''}>${S.aiBusy ? '<span class="spin"></span>Gemini está armando tu ruta…' : '<span class="ms">auto_awesome</span>Armar ruta con Gemini'}</button>
+    <div class="lbl">Gemini solo responde sobre rutas y elige entre lugares reales del catálogo y comercios aliados. Máximo 30 consultas al día.</div>
+    <button class="btn full ghost" onclick="stopsSheet()"><span class="ms">add_location_alt</span>Yo elijo destino y paradas</button>
+  </div>
+  ${r ? aiResult() : ''}`;
+}
+/* La ruta que armó la IA: se muestra en Inicio (debajo de "¿A dónde vamos?") y en Ruta IA. */
+function aiResult() {
+  const r = S.ai;
+  return `<div class="card" style="border:2px solid var(--orange-soft)">
+    <span class="pl or" style="align-self:flex-start">Ruta sugerida por Gemini</span>
+    <div class="hd" style="font-size:20px;font-weight:900">${r.title}</div><div>${r.summary}</div>
+    ${r.stops.map((s, i) => `<div class="row"><div class="avatar" style="background:${i === r.stops.length - 1 ? 'var(--orange)' : 'var(--cyan)'};width:30px;height:30px;font:800 13px 'JetBrains Mono'">${i + 1}</div><div class="grow"><div class="b">${s[0]}</div><div class="lbl">${s[1]}</div></div></div>`).join('')}
+    <div class="row"><div class="grow"><div class="lbl">Total</div><div class="num">${r.km} km · ${r.h}</div></div></div>
+    <div class="card soft"><div class="line"><span class="ms">tips_and_updates</span>Consejos</div>${r.tips.map(t => `<div>• ${t}</div>`).join('')}</div>
+    <button class="btn full" onclick="guide('${r.stops[r.stops.length - 1][0]}')"><span class="ms">navigation</span>Iniciar guiado</button>
+    <div class="lbl">Ruta sugerida: revisa el estado de la vía y el clima antes de salir.</div>
+  </div>`;
+}
+function runAI(src) {
+  const el = $('#aiq');
+  const q = (src === 'home' || !el ? S.aiq || '' : el.value).trim(); S.aiq = q;
+  if (!q) { toast('Escribe qué quieres hacer en la ruta.'); return; }
+  if (/contrase|configur|ignora|instruccion|prompt|sistema|c[oó]digo|script|hack/i.test(q)) { toast('Solo puedo ayudarte con rutas y recomendaciones para rodar.'); return; }
+  S.aiBusy = true; render();
+  setTimeout(() => {
+    S.aiBusy = false;
+    const lake = /lago|calima/i.test(q);
+    // Fuera de Cali, la ruta sale de los lugares y comercios de la ciudad elegida.
+    if (S.city !== 'Cali' && !lake) {
+      const pl = PLACES.filter(p => p.city === S.city), vs = VENUES.filter(v => v.city === S.city && v.type !== 'moto');
+      const stops = [...vs.slice(0, 1).map(v => [v.n, v.kind + ' · aliado']), ...pl.slice(0, 2).map(p => [p.n, KIND[p.k][0] + ' · ' + p.d])];
+      S.ai = { title: `${S.city} → ${stops.length ? stops[stops.length - 1][0] : 'ruta corta'}`, summary: `Sales de ${S.city}, paras en lo que pediste y cierras en ${stops.length ? stops[stops.length - 1][0] : 'un mirador'}.`,
+        stops: stops.length ? stops : [['Mirador cercano','Vista a la ciudad']], km: 70 + stops.length * 15, h: '2 h 10 min', tips: ['Tanquea antes de salir de la ciudad.', 'Revisa el estado de la vía en el #767.'] };
+      render(); return;
+    }
+    S.ai = { title: lake ? 'Cali → Lago Calima con mirador y trucha' : 'Café de origen por el Kilómetro 18',
+      summary: lake ? 'Subes por la vía a Buga con una parada de café, almuerzas trucha frente al embalse y cierras en el lago como pediste.' : 'Ruta corta de montaña con niebla, café de origen y regreso antes del mediodía.',
+      stops: lake ? [['Café La Cumbre','Café de origen y vista al valle · aliado'],['Parador El Mirador','Trucha al ajillo · aliado con parqueo'],['Lago Calima','Punto final que pediste']]
+                  : [['Kilómetro 18','Bosque de niebla'],['Café La Cumbre','Café de origen · aliado']],
+      km: lake ? 92 : 38, h: lake ? '2 h 05 min' : '55 min',
+      tips: lake ? ['Tanquea en Cali: después de Darién hay pocas estaciones.','Después de las 11 a. m. sube el viento: chaqueta cerrada.'] : ['Luces encendidas: hay neblina.','La vía es angosta: no adelantes en curva.'] };
+    render();
+  }, 1300);
+}
+function stopsSheet() {
+  const all = PLACES.slice(0, 5);
+  sheet(`<h2>Elige tu destino</h2><input placeholder="Buscar en toda Colombia…" oninput="toast('Busca entre 4.487 lugares y 4.132 poblaciones.')">
+    ${all.map(p => `<div class="opt" onclick="toast('${p.n} agregado como destino. Ahora puedes agregar paradas o un restaurante.')"><span class="ic"><span class="ms">${KIND[p.k][1]}</span></span><div class="grow"><div class="b">${p.n}</div><div class="lbl">${KIND[p.k][0]} · ${km(p.km)}</div></div></div>`).join('')}
+    <div class="two"><button class="btn ghost"><span class="ms">add_location</span>Agregar parada</button><button class="btn ghost"><span class="ms">restaurant</span>Restaurante</button></div>`,
+    `<button class="btn full" onclick="closeSheet();toast('Ruta lista con tus paradas, en el orden que elegiste.')"><span class="ms">check</span>Listo · 1 parada</button>`);
+}
+function viewBudget() {
+  const b = S.budget, fuel = b.km / b.kmgal * b.gal, total = fuel + b.food;
+  const f = (id, l, v, min, max, step, fmt) => `<div class="field"><label>${l}: <b style="color:var(--ink)">${fmt(v)}</b></label><input type="range" min="${min}" max="${max}" step="${step}" value="${v}" oninput="S.budget.${id}=+this.value;render()" style="padding:0;accent-color:var(--orange)"></div>`;
+  return `<div class="card">
+    <div class="h"><span class="ms">calculate</span>¿Cuánto me cuesta la rodada?</div>
+    ${f('km','Distancia ida y vuelta',b.km,20,600,10,v => v + ' km')}
+    ${f('kmgal','Tu moto rinde',b.kmgal,40,160,5,v => v + ' km por galón')}
+    ${f('gal','Precio del galón',b.gal,12000,20000,100,cop)}
+    ${f('food','Comida y paradas',b.food,0,150000,5000,cop)}
+    <div class="row" style="background:var(--surf0);border-radius:12px;padding:12px"><div class="grow"><div class="lbl">Gasolina</div><div class="b">${cop(fuel)}</div></div><div style="text-align:right"><div class="lbl">Total por rider</div><div class="num">${cop(total)}</div></div></div>
+  </div>`;
+}
+
+/* ───────── COMERCIOS ───────── */
+function canOrder(v) { return v.owner && v.menu.length > 0; }
+function reason(v) { return v.owner ? 'Todavía no ha subido su menú para pedir por la app. Puedes ir con la guía.' : 'Aún no está en ApexMoto: no recibe pedidos por la app, pero puedes ir con la guía.'; }
+const VT = {food:['#FFE3D3','restaurant','var(--orange)'], cafe:['#D3ECF2','local_cafe','var(--cyan-deep)'], moto:['#D5EEDC','build','var(--green)'], tour:['#E6E1F5','account_balance','#5B4B9A']};
+function viewCom() {
+  const fuel = S.fl === 'fuel';
+  // Solo comercios de la ciudad elegida (y alrededores), del más cercano al más lejano. Nada de sitios turísticos.
+  const list = VENUES.filter(v => v.city === S.city && (S.fl === 'all' || v.type === S.fl)).sort((a, b) => a.km - b.km);
+  const fuelHere = FUEL.filter(f => f[3] === S.city);
+  const active = S.orders.filter(o => o.st !== 'done');
+  let body;
+  if (S.asMap) {
+    const pts = fuel ? fuelHere.slice(0, 6).map((f, i) => [f[0], 20 + (i * 37) % 65, 22 + (i * 23) % 60]) : list.map((v, i) => [v.n, 25 + i * 18, 30 + (i * 29) % 50]);
+    body = `<div class="map" style="height:430px"><div class="me" style="left:48%;top:55%"></div>
+      ${pts.map(p => `<div class="pin ${fuel ? '' : 'or'}" style="left:${p[1]}%;top:${p[2]}%" onclick="${fuel ? `fuelSheet('${p[0]}')` : `venueSheet('${VENUES.find(v => v.n === p[0]).id}')`}"><span class="ms">${fuel ? 'local_gas_station' : 'location_on'}</span></div>`).join('')}
+      <button class="float" style="left:10px" onclick="S.asMap=false;render()"><span class="ms" style="font-size:16px">arrow_back</span>Lista</button>
+      <span class="float" style="right:10px">${pts.length} ${fuel ? 'gasolineras' : 'comercios'} · ${S.city}</span><span class="osm">© OpenStreetMap</span></div>`;
+  } else if (fuel) {
+    body = `<div class="row"><div class="grow"><div class="h"><span class="ms">local_gas_station</span>Gasolineras cerca de ${S.city}</div><div class="lbl">Distancia en línea recta. Datos de © OpenStreetMap, sin internet.</div></div></div>
+      ${fuelHere.map(f => `<div class="card"><div class="row"><div class="avatar" style="background:var(--green-tint);color:var(--green)"><span class="ms">local_gas_station</span></div>
+        <div class="grow"><div class="b ellip">${f[0]}</div><div class="lbl">${km(f[2])} · ${f[1]}, ${f[3]}</div></div>
+        <button class="ib" aria-label="Ir con guía" onclick="guide('${f[0]}')"><span class="ms">turn_right</span></button><button class="ib" aria-label="Abrir en Google Maps" onclick="toast('Se abriría en Google Maps.')"><span class="ms">map</span></button></div></div>`).join('')}`;
+  } else {
+    body = (list.length ? '' : `<div class="empty"><span class="ms">storefront</span>Todavía no hay comercios aliados en ${S.city}${S.fl === 'all' ? '' : ' con ese filtro'}. Prueba con otra ciudad.</div>`) + list.map(v => {
+      const t = VT[v.type], ok = canOrder(v);
+      return `<div class="card" style="padding:0;gap:0">
+        <div class="media" style="background:${t[0]};margin:0"><span class="ms big">${t[1]}</span>
+          <div class="grow"><div style="display:flex;gap:6px;margin-bottom:4px"><span class="pl" style="background:${t[2]};color:#fff">${v.badge}</span>${v.open ? '' : '<span class="pl rd">Cerrado</span>'}</div>
+          <div class="hd ellip" style="font-size:17px;font-weight:900">${v.n}</div><div class="lbl" style="color:var(--cyan-deep)">${v.kind} · a ${v.km} km</div></div>
+          <div>${v.rv ? `<span class="pl" style="background:#fff;color:var(--amber)">★ ${v.r}</span>` : '<span class="pl cy">Nuevo</span>'}</div></div>
+        <div style="padding:12px 14px 14px;display:flex;flex-direction:column;gap:10px">
+          ${v.promo ? `<div class="line" style="color:var(--orange-dark)"><span class="ms">sell</span>${v.promo}</div>` : ''}
+          ${ok ? `<div class="line" style="color:var(--green)"><span class="ms">restaurant_menu</span>${v.open ? 'Pide desde la app y te lo tienen listo al llegar' : 'Recibe pedidos cuando abra'}</div>`
+               : (v.type === 'food' || v.type === 'cafe' ? `<div class="line" style="color:var(--muted);font-weight:400"><span class="ms">info</span>${reason(v)}</div>` : '')}
+          <div class="row">${ok ? `<button class="btn grow" onclick="menuSheet('${v.id}')"><span class="ms">restaurant_menu</span>Menú</button>` : `<button class="btn grow" onclick="venueSheet('${v.id}')">Ver detalles</button>`}
+            <button class="ib" aria-label="Ir con guía" onclick="guide('${v.n}')"><span class="ms">turn_right</span></button>
+            <button class="ib" aria-label="Pedir cupón" ${v.owner ? '' : 'disabled style="opacity:.4"'} onclick="couponSheet('${v.n}')"><span class="ms">sell</span></button></div>
+        </div></div>`;
+    }).join('');
+  }
+  return `
+  ${active.length ? `<div class="card" style="border:1.5px solid var(--orange-soft)"><div class="line" style="color:var(--orange-dark)"><span class="ms">receipt_long</span>Pedidos activos</div>
+    ${active.map(o => `<div class="row" style="background:var(--surf0);border-radius:12px;padding:10px"><div class="grow"><div class="b">${o.venue}</div><div class="lbl">${o.qty} producto(s) · ${cop(o.total)} · llegas ${o.eta}</div></div><span class="pl ${o.st === 'ready' ? 'gr' : o.st === 'prep' ? 'cy' : 'or'}">${{new:'Enviado',prep:'Preparando',ready:'¡Listo!'}[o.st]}</span></div>`).join('')}</div>` : ''}
+  ${cityCard('Comercios en')}
+  <div class="chips">
+    <button class="chip ${S.asMap ? 'on ink' : ''}" onclick="S.asMap=!S.asMap;render()"><span class="ms">${S.asMap ? 'view_agenda' : 'map'}</span>${S.asMap ? 'Ver lista' : 'Ver mapa'}</button>
+    <button class="chip ${S.fl === 'all' ? 'on cy' : ''}" onclick="S.fl='all';render()">Todos</button>
+    <button class="chip ${fuel ? 'on cy' : ''}" onclick="S.fl='fuel';render()"><span class="ms">local_gas_station</span>Gasolineras</button>
+    ${CATS.map(([k, l]) => `<button class="chip ${S.fl === k ? 'on cy' : ''}" onclick="S.fl='${k}';render()">${l}</button>`).join('')}
+  </div>${body}`;
+}
+function fuelSheet(n) {
+  const f = FUEL.find(x => x[0] === n);
+  sheet(`<div class="h"><span class="ms">local_gas_station</span>${f[0]}</div><div class="lbl">${km(f[2])} en línea recta · ${f[1]}, ${f[3]}</div>`,
+    `<button class="btn full" onclick="guide('${f[0]}')"><span class="ms">navigation</span>Guiar en la app</button><button class="btn full ghost" onclick="toast('Se abriría en Google Maps.')"><span class="ms">map</span>Abrir en Google Maps</button>`);
+}
+function venueSheet(id) {
+  const v = VENUES.find(x => x.id === id);
+  sheet(`<div style="display:flex;gap:6px"><span class="pl or">${v.badge}</span>${v.open ? '' : '<span class="pl rd">Cerrado</span>'}</div><h2>${v.n}</h2>
+    <div class="lbl">${v.rv ? '★ ' + v.r + ' (' + v.rv + ' reseñas) · ' : ''}${v.kind} · a ${v.km} km de ${v.city}</div>
+    ${v.promo ? `<div class="line" style="color:var(--orange-dark)"><span class="ms">sell</span>${v.promo}</div>` : ''}
+    ${canOrder(v) ? '' : (v.type === 'food' || v.type === 'cafe' ? `<div class="line" style="color:var(--muted);font-weight:400"><span class="ms">info</span>${reason(v)}</div>` : '')}
+    <div class="h"><span class="ms">star</span>Reseñas</div>${v.rv ? `<div class="card" style="box-shadow:none;background:var(--surf0)"><div class="b">@vale.moto · ★★★★★</div><div>Llegamos y el pedido estaba listo. Buen parqueo.</div></div>` : '<div class="lbl">Todavía no tiene reseñas.</div>'}`,
+    `<button class="btn full" onclick="guide('${v.n}')"><span class="ms">navigation</span>Guiar en la app</button>${canOrder(v) ? `<button class="btn full ghost" onclick="menuSheet('${v.id}')"><span class="ms">restaurant_menu</span>Ver menú y pedir</button>` : ''}`);
+}
+let CART = {}, ETA = null;
+function menuSheet(id) {
+  const v = VENUES.find(x => x.id === id); CART = {}; ETA = null;
+  const cats = [...new Set(v.menu.map(m => m[1]))];
+  const draw = () => {
+    const total = v.menu.reduce((a, m, i) => a + (CART[i] || 0) * m[2], 0), qty = Object.values(CART).reduce((a, b) => a + b, 0);
+    const miss = []; if (!qty) miss.push('agregar al menos un producto'); if (!ETA) miss.push('elegir a qué hora llegas'); if (!v.open) miss.push('que el comercio abra');
+    sheet(`<h2>${v.n}</h2><div class="lbl">${v.open ? 'Abierto · recibe pedidos' : 'Cerrado por ahora'}</div>
+      ${cats.map(c => `<div class="h" style="font-size:15px">${c}</div>` + v.menu.map((m, i) => m[1] !== c ? '' : `<div class="row"><div class="grow"><div class="b">${m[0]}</div><div class="lbl">${cop(m[2])}</div></div>
+        <div class="qty"><button onclick="CART[${i}]=Math.max(0,(CART[${i}]||0)-1);menuSheet.r()" aria-label="Quitar">−</button><b style="min-width:18px;text-align:center">${CART[i] || 0}</b><button onclick="CART[${i}]=(CART[${i}]||0)+1;menuSheet.r()" aria-label="Agregar">+</button></div></div>`).join('')).join('')}
+      <div class="h" style="font-size:15px"><span class="ms">schedule</span>¿A qué hora llegas?</div>
+      <div class="lbl">Según el guiado llegas a las 10:40 a. m. No se puede pedir para antes.</div>
+      <div class="chips">${['Cuando llegue · 10:40','11:00','11:30','12:00'].map(t => `<button class="chip ${ETA === t ? 'on cy' : ''}" onclick="ETA='${t}';menuSheet.r()">${t}</button>`).join('')}</div>`,
+      `<div class="row"><div class="grow"><div class="lbl">${qty} producto(s)</div><div class="num">${cop(total)}</div></div>
+        <button class="btn" ${miss.length ? 'disabled' : ''} onclick="placeOrder('${v.n}',${qty},${total})"><span class="ms">send</span>Pedir</button></div>${missing(miss)}`);
+  };
+  menuSheet.r = draw; draw();
+}
+function placeOrder(n, qty, total) {
+  const o = {venue:n, qty, total, eta:ETA.replace('Cuando llegue · ', ''), st:'new'}; S.orders.push(o); closeSheet(); render();
+  toast('¡Pedido enviado! El comercio lo verá en su cuenta.');
+  setTimeout(() => { o.st = 'prep'; if (S.tab === 'com') render(); }, 4000);
+  setTimeout(() => { o.st = 'ready'; if (S.tab === 'com') render(); }, 9000);
+}
+function couponSheet(n) {
+  const code = 'APX-' + Math.random().toString(36).slice(2, 6).toUpperCase();
+  sheet(`<div class="h"><span class="ms">sell</span>Tu cupón</div><div style="background:var(--orange-soft);border:2px solid rgba(217,70,0,.35);border-radius:16px;padding:22px;text-align:center;font:800 32px 'JetBrains Mono';color:var(--orange-dark);letter-spacing:.08em">${code}</div>
+    <div class="lbl">Muéstralo en ${n} para canjear tu beneficio.</div>`, `<button class="btn full" onclick="closeSheet()">Listo</button>`);
+}
+
+/* ───────── COMUNIDAD ───────── */
+function viewGrp() {
+  const list = [...RODADAS].sort((a, b) => a.when - b.when);
+  return `
+  <div class="two"><button class="btn" onclick="createSheet()"><span class="ms">add</span>Crear rodada</button><button class="btn ghost" onclick="joinSheet()"><span class="ms">key</span>Unirme con código</button></div>
+  <div class="card"><div class="row"><span class="ms" style="color:var(--cyan)">group</span><div class="grow"><div class="b">Amigos</div><div class="lbl">3 en línea · 1 en rodada</div></div>
+    ${['@vale.moto','@nico_ruta','@andres.adv'].map((h, i) => `<div class="avatar" style="background:${AV[i + 1]};width:32px;height:32px;margin-left:-8px;border:2px solid #fff"><span class="ms" style="font-size:17px">two_wheeler</span></div>`).join('')}</div></div>
+  <div class="h"><span class="ms">event</span>Próximas rodadas</div>
+  ${list.map(r => `<div class="card click" onclick="rodadaSheet('${r.id}')">
+    <div class="row"><div class="grow"><div class="hd" style="font-size:17px;font-weight:900">${esc(r.n)}</div><div class="lbl" style="color:var(--cyan-deep)">${whenLabel(r.when)}</div></div>${r.pub ? '<span class="pl gr">Pública</span>' : '<span class="pl">Privada</span>'}</div>
+    <div class="line" style="font-weight:400"><span class="ms" style="color:var(--orange)">location_on</span>${esc(r.meet)}</div>
+    ${r.dest ? `<div class="line" style="font-weight:400"><span class="ms" style="color:var(--cyan)">flag</span>${esc(r.dest)}${r.stops.length ? ' · ' + r.stops.length + ' parada(s)' : ''}</div>` : ''}
+    <div class="row"><div class="grow lbl">${r.members.length}/${r.seats} riders · ${r.style}</div>${r.members.some(m => m[0] === '@tú') ? '<span class="pl or">Vas</span>' : '<button class="btn" style="min-height:38px;padding:8px 14px" onclick="event.stopPropagation();joinR(\'' + r.id + '\')">Unirme</button>'}</div>
+  </div>`).join('')}`;
+}
+function startRide(id) { const r = RODADAS.find(x => x.id === id); r.live = true; rodadaSheet(id); drawBars(); toast('¡Rodada en curso! Arriba aparecen Asistencia y el SOS mientras ruedan.'); }
+function joinR(id) { const r = RODADAS.find(x => x.id === id); r.members.push(['@tú','Tú',0]); render(); toast('Te uniste a ' + r.n + '.'); }
+function rodadaSheet(id) {
+  const r = RODADAS.find(x => x.id === id), lead = r.members.find(m => m[3] === 'lead');
+  sheet(`<div style="display:flex;gap:6px">${r.pub ? '<span class="pl gr">Pública</span>' : '<span class="pl">Privada</span>'}<span class="pl cy">${r.style}</span></div>
+    <h2>${esc(r.n)}</h2><div class="lbl" style="color:var(--cyan-deep)">${whenLabel(r.when)}</div>
+    <div class="map"><svg class="route" viewBox="0 0 100 100" preserveAspectRatio="none"><path d="M18 80 C 30 65, 45 62, 55 48 S 72 28, 84 20" stroke="#D94600" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-dasharray="${r.dest ? '0' : '3 3'}"/></svg>
+      <div class="pin or" style="left:18%;top:80%"><span class="ms">location_on</span><b>E</b></div>
+      ${r.stops.map((s, i) => `<div class="pin cy" style="left:${40 + i * 15}%;top:${60 - i * 15}%"><span class="ms">location_on</span><b>${i + 1}</b></div>`).join('')}
+      <div class="pin" style="left:84%;top:20%;color:var(--ink)"><span class="ms">flag</span></div>
+      ${r.members.slice(1).map((m, i) => `<div class="avatar" style="position:absolute;left:${22 + i * 9}%;top:${74 - i * 6}%;width:24px;height:24px;background:${AV[m[2]]};border:2px solid #fff;transform:translate(-50%,-50%)"><span class="ms" style="font-size:14px">two_wheeler</span></div>`).join('')}
+      <span class="osm">© OpenStreetMap</span></div>
+    ${r.mine && !r.live ? `<button class="btn full" onclick="startRide('${r.id}')"><span class="ms">play_arrow</span>Iniciar rodada</button>` : ''}
+    ${r.live ? '<span class="pl gr" style="align-self:flex-start">En curso</span>' : ''}
+    <button class="btn full ghost" onclick="guide('${esc(r.meet.split(' · ')[0])}')"><span class="ms">near_me</span>Llevarme al punto de encuentro</button>
+    ${r.members.some(m => m[0] === '@tú') ? `<div class="card" id="icCard" data-rid="${r.id}" style="box-shadow:none;border:1px solid var(--surf3)"></div>` : ''}
+    <div class="h"><span class="ms">route</span>Recorrido</div>
+    <div class="row"><div class="avatar" style="background:var(--orange);width:28px;height:28px;font:800 12px 'JetBrains Mono'">E</div><div class="grow"><div class="b">${esc(r.meet)}</div><div class="lbl">Encuentro</div></div></div>
+    ${r.stops.map((s, i) => `<div class="row"><div class="avatar" style="background:var(--cyan);width:28px;height:28px;font:800 12px 'JetBrains Mono'">${i + 1}</div><div class="grow b">${esc(s)}</div></div>`).join('')}
+    ${r.dest ? `<div class="row"><div class="avatar" style="background:var(--ink);width:28px;height:28px"><span class="ms" style="font-size:16px">flag</span></div><div class="grow b">${esc(r.dest)}</div></div>` : ''}
+    <div class="h"><span class="ms">group</span>Riders (${r.members.length}/${r.seats})</div>
+    ${r.members.map((m, i) => `<div class="row"><div class="avatar" style="background:${AV[m[2]]}"><span class="ms">two_wheeler</span></div>
+      <div class="grow"><div class="b">${m[1]} ${m[3] === 'lead' ? '<span class="pl or">Líder</span>' : m[3] === 'sweep' ? '<span class="pl cy">Cierra</span>' : ''}</div><div class="lbl">${m[0]}</div></div>
+      <button class="round" aria-label="Opciones de ${m[1]}" onclick="memberMenu(event,'${r.id}',${i})"><span class="ms">more_vert</span></button></div>`).join('')}
+    ${r.mine ? `<div class="card soft"><div class="b">Invitar</div><div style="font:800 26px 'JetBrains Mono';color:var(--orange-dark);letter-spacing:.08em">${r.code.slice(0, 4)} ${r.code.slice(4)}</div>
+      <div class="lbl">Comparte el enlace por WhatsApp: con un toque abre la invitación en ApexMoto. También pueden escribir el código en Comunidad → Unirme con código.</div>
+      <button class="btn cy" onclick="toast('Se abriría WhatsApp con: ¡Vamos a rodar! … https://apexmoto-prd.web.app/r/${r.code}')"><span class="ms">share</span>Compartir enlace</button></div>` : ''}`);
+  drawIc();
+}
+function memberMenu(ev, rid, i) {
+  closeMenu(); const r = RODADAS.find(x => x.id === rid), m = r.members[i], self = m[0] === '@tú';
+  const items = self ? [['person','Ver mi perfil',"go('perfil')"],['edit','Editar avatar y @usuario',"toast('Editar avatar: silueta y color de tu moto, sin fotos.')"],['share_location','Compartir mi ubicación',"toast('Ubicación compartida solo con el grupo y con la app abierta.')"],['logout','Salir de la rodada',"toast('Saliste de la rodada.')", 'rd']]
+    : [['person','Ver perfil',"toast('Perfil de " + m[1] + ": medallas y rutas completadas.')"], ['person_add','Añadir amigo',"toast('Solicitud enviada a " + m[0] + ".')"]]
+      .concat(r.mine ? [['flag','Asignar líder',"toast('" + m[1] + " ahora es el líder.')"],['shield','Cierra el grupo',"toast('" + m[1] + " cierra el grupo.')"],['person_remove','Expulsar',"toast('" + m[1] + " ya no está en la rodada.')", 'rd']] : []);
+  const menu = document.createElement('div'); menu.className = 'menu'; menu.id = 'menu';
+  menu.innerHTML = items.map(([ic, l, fn, cls]) => `<button class="${cls || ''}" onclick="closeMenu();${fn}"><span class="ms">${ic}</span>${l}</button>`).join('');
+  const ph = $('#phone').getBoundingClientRect(), b = ev.currentTarget.getBoundingClientRect();
+  menu.style.right = (ph.right - b.right + 8) + 'px'; menu.style.top = Math.min(b.bottom - ph.top, ph.height - 60 - items.length * 42) + 'px';
+  $('#phone').appendChild(menu); ev.stopPropagation();
+  setTimeout(() => document.addEventListener('click', closeMenu, {once: true}), 0);
+}
+function closeMenu() { const m = $('#menu'); if (m) m.remove(); }
+let NEW = {};
+function createSheet(preset) {
+  if (preset !== undefined || !NEW.init) NEW = {init:true, name:(preset && preset.name) || '', when:'', meet:'', dest:(preset && preset.dest) || '', pub:true, q:''};
+  const miss = []; if (!NEW.name.trim()) miss.push('el nombre'); if (!NEW.when) miss.push('la fecha y hora'); if (!NEW.meet) miss.push('el punto de encuentro');
+  sheet(`<h2>Crear rodada</h2>
+    <div class="field"><label>Nombre</label><input value="${esc(NEW.name)}" placeholder="Ej: Domingo al Lago Calima" oninput="NEW.name=this.value;createSheet.f()"></div>
+    <div class="field"><label>Fecha y hora</label><input type="datetime-local" value="${NEW.when}" onchange="NEW.when=this.value;createSheet()"></div>
+    <div class="field"><label>Punto de encuentro (de la lista, sin texto libre)</label>
+      <button class="opt" style="width:100%;background:var(--surf0);text-align:left" onclick="meetSheet()"><span class="ic"><span class="ms">${NEW.meet ? 'location_on' : 'search'}</span></span><div class="grow ${NEW.meet ? 'b' : 'lbl'}">${NEW.meet ? esc(NEW.meet) : 'Gasolinera, supermercado, centro comercial, peaje…'}</div></button></div>
+    <div class="field"><label>Destino y paradas (opcional)</label>
+      <button class="opt" style="width:100%;background:var(--surf0);text-align:left" onclick="NEW.dest=NEW.dest?'':'Lago Calima';createSheet()"><span class="ic"><span class="ms">flag</span></span><div class="grow ${NEW.dest ? 'b' : 'lbl'}">${NEW.dest ? esc(NEW.dest) : 'Agregar destino'}</div></button></div>
+    <div class="toggle"><button class="${NEW.pub ? 'on' : ''}" onclick="NEW.pub=true;createSheet()"><b>Pública</b><span class="lbl">Aparece en Comunidad y cualquiera se une</span></button>
+      <button class="${NEW.pub ? '' : 'on'}" onclick="NEW.pub=false;createSheet()"><b>Privada</b><span class="lbl">Solo con código, enlace o amigos invitados</span></button></div>`,
+    `<button class="btn full" id="cbtn" ${miss.length ? 'disabled' : ''} onclick="saveRodada()"><span class="ms">check</span>Crear rodada</button><div id="cmiss">${missing(miss)}</div>`);
+  createSheet.f = () => { const m = []; if (!NEW.name.trim()) m.push('el nombre'); if (!NEW.when) m.push('la fecha y hora'); if (!NEW.meet) m.push('el punto de encuentro'); $('#cbtn').disabled = m.length > 0; $('#cmiss').innerHTML = missing(m); };
+}
+function meetSheet() {
+  const q = (NEW.q || '').toLowerCase(), list = MEET.filter(m => !q || (m[1] + ' ' + m[2]).toLowerCase().includes(q));
+  const lab = {bomba:'Estación de servicio', super:'Supermercado', centro:'Centro comercial', peaje:'Peaje', lugar:'Lugar conocido'};
+  sheet(`<h2>Punto de encuentro</h2><div class="lbl">Lugares públicos y con parqueo: 6.927 en todo el país.</div>
+    <input id="mq" placeholder="Buscar: Terpel, Unicentro, peaje…" value="${esc(NEW.q || '')}" oninput="NEW.q=this.value;meetSheet();const e=$('#mq');e.focus();e.setSelectionRange(e.value.length,e.value.length)">
+    ${list.map(m => `<div class="opt" onclick="NEW.meet='${m[1]} · ${m[2]}';NEW.q='';createSheet()"><span class="ic"><span class="ms">${m[3]}</span></span><div class="grow"><div class="b">${m[1]}</div><div class="lbl">${lab[m[0]]} · ${m[2]}</div></div></div>`).join('') || '<div class="empty">Nada con ese nombre cerca.</div>'}`,
+    `<button class="btn full ghost" onclick="createSheet()"><span class="ms">arrow_back</span>Volver</button>`);
+}
+function saveRodada() {
+  const code = Array.from({length: 8}, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 32)]).join('');
+  RODADAS.push({id:'r' + Date.now(), n:NEW.name, when:new Date(NEW.when), meet:NEW.meet, dest:NEW.dest, stops:[], style:'Ritmo medio', pub:NEW.pub, seats:12, members:[['@tú','Tú',0,'lead']], code, mine:true});
+  NEW = {}; closeSheet(); go('grp'); toast('Rodada creada. Código de invitación: ' + code.slice(0, 4) + ' ' + code.slice(4));
+}
+function joinSheet() {
+  sheet(`<h2>Unirme con código</h2><div class="lbl">Escribe el código de 8 letras que te compartieron (o abre el enlace y llega aquí solo).</div>
+    <input id="jc" maxlength="9" placeholder="K7QM 2XPA" style="font:800 22px 'JetBrains Mono';letter-spacing:.1em;text-transform:uppercase" oninput="const ok=this.value.replace(/\\W/g,'').length===8;$('#jb').disabled=!ok;$('#jm').innerHTML=ok?'':'<div class=missing>Falta: el código completo (8 caracteres).</div>'">`,
+    `<button class="btn full" id="jb" disabled onclick="const c=$('#jc').value.toUpperCase().replace(/\\W/g,'');const r=RODADAS.find(x=>x.code===c);if(r){closeSheet();rodadaSheet(r.id)}else toast('No hay ninguna rodada con ese código. Prueba con P3WE9TRA.')"><span class="ms">search</span>Buscar rodada</button><div id="jm"></div>`);
+}
+
+/* ───────── RENTAR ───────── */
+const BIKES = [
+  {n:'Yamaha Ténéré 700', cc:689, cat:'Aventura', p:280000, city:'Cali', r:4.9, tr:27, inst:true, min:3, dep:800000, cap:3000000},
+  {n:'KTM 390 Adventure', cc:373, cat:'Aventura', p:190000, city:'Cali', r:4.8, tr:31, inst:false, min:1, dep:500000, cap:2000000},
+  {n:'Honda CB500X', cc:471, cat:'Touring', p:210000, city:'Medellín', r:4.85, tr:19, inst:true, min:2, dep:600000, cap:2500000},
+  {n:'Royal Enfield Himalayan', cc:411, cat:'Aventura', p:200000, city:'Bogotá', r:4.7, tr:40, inst:true, min:1, dep:500000, cap:2000000},
+];
+/* Rentar arranca con la ciudad de Inicio. Cambiarla aquí no cambia Inicio: se puede rentar donde se va a viajar. */
+function rentCitySheet() {
+  sheet(`<h2>¿En qué ciudad la recoges?</h2>
+    ${CITIES.map(c => { const n = BIKES.filter(b => b.city === c[0]).length; return `<div class="opt" onclick="S.rentCity='${c[0]}';closeSheet();render()"><span class="ic"><span class="ms">location_city</span></span><div class="grow"><div class="b">${c[0]}</div><div class="lbl">${c[1]} · ${n ? n + ' moto' + (n > 1 ? 's' : '') : 'sin motos todavía'}</div></div></div>`; }).join('')}
+    <div class="opt" onclick="S.rentCity='all';closeSheet();render()"><span class="ic"><span class="ms">public</span></span><div class="grow b">Todas las ciudades</div></div>`);
+}
+function viewRent() {
+  const city = S.rentCity || S.city;
+  const list = BIKES.filter(b => city === 'all' || b.city === city);
+  const others = {}; BIKES.filter(b => city !== 'all' && b.city !== city).forEach(b => others[b.city] = (others[b.city] || 0) + 1);
+  const oth = Object.entries(others);
+  return `<div class="card"><div class="field"><label>¿Dónde la recoges?</label>
+      <button class="opt" style="width:100%;background:var(--surf0);text-align:left" onclick="rentCitySheet()"><span class="ic" style="background:var(--orange-soft);color:var(--orange-dark)"><span class="ms">location_on</span></span><div class="grow b">${city === 'all' ? 'Todas las ciudades' : city}</div><span style="color:var(--cyan-deep);font-weight:700">Cambiar</span></button></div>
+    <div class="two"><div class="field"><label>Desde</label><input type="date" value="${iso(2)}"></div><div class="field"><label>Hasta</label><input type="date" value="${iso(4)}"></div></div></div>
+  <div class="card soft"><div class="line"><span class="ms">badge</span>Para rentar necesitas tu perfil de conductor</div><div class="lbl" style="color:var(--ink)">Licencia, categoría y años manejando. Solo lo ve el dueño de la moto que pidas.</div></div>
+  ${list.length ? '' : `<div class="empty"><span class="ms">two_wheeler</span>No hay motos en ${city} por ahora.</div>`}
+  ${oth.length ? `<div class="lbl">${list.length ? 'También hay motos en:' : 'Hay motos en:'}</div><div class="chips">${oth.map(([c, n]) => `<button class="chip" onclick="S.rentCity='${c}';render()"><span class="ms">location_city</span>${c} · ${n}</button>`).join('')}<button class="chip" onclick="S.rentCity='all';render()">Todas</button></div>` : ''}
+  ${list.map(b => { const i = BIKES.indexOf(b); return `<div class="card click" onclick="bikeSheet(${i})">
+    <div class="media" style="background:var(--surf0)"><span class="ms big">two_wheeler</span><div class="grow"><span class="pl cy">${b.cat} · ${b.cc} cc</span><div class="hd" style="font-size:17px;font-weight:900;margin-top:4px">${b.n}</div><div class="lbl">${b.city} · ★ ${b.r} · ${b.tr} viajes</div></div></div>
+    <div class="row"><div class="grow"><span class="num" style="font-size:19px">${cop(b.p)}</span><span class="lbl"> / día</span></div>${b.inst ? '<span class="pl gr"><span class="ms" style="font-size:14px">bolt</span>Reserva inmediata</span>' : '<span class="pl">Con aprobación</span>'}</div>
+    <div class="lbl">Mínimo ${b.min} año(s) manejando · Depósito ${cop(b.dep)} · Tope por daños ${cop(b.cap)}</div>
+  </div>`; }).join('')}`;
+}
+function iso(add) { const d = new Date(); d.setDate(d.getDate() + add); return d.toISOString().slice(0, 10); }
+let RENT = {};
+function bikeSheet(i) {
+  const b = BIKES[i]; RENT = {i, lic:RENT.i === i ? RENT.lic : false, agree:RENT.i === i ? RENT.agree : false};
+  const miss = ['tu perfil de conductor']; if (!RENT.lic) miss.push('declarar tu licencia'); if (!RENT.agree) miss.push('aceptar el acuerdo');
+  sheet(`<span class="pl cy" style="align-self:flex-start">${b.cat} · ${b.cc} cc</span><h2>${b.n}</h2><div class="lbl">${b.city} · ★ ${b.r} (${b.tr} viajes) · SOAT y revisión vigentes</div>
+    <div class="card" style="background:var(--surf0);box-shadow:none"><div class="b">Acuerdo de daños</div>
+      <div class="lbl" style="color:var(--ink)">Dejas un depósito de <b>${cop(b.dep)}</b> que te devuelven al entregar la moto sin daños nuevos. Lo máximo que pagas por daños es <b>${cop(b.cap)}</b>. Es un acuerdo entre ustedes, no un seguro.</div></div>
+    <label class="row"><input type="checkbox" style="width:22px;height:22px" ${RENT.lic ? 'checked' : ''} onchange="RENT.lic=this.checked;bikeSheet(${i})"><span>Tengo licencia vigente de la categoría y la llevo físicamente.</span></label>
+    <label class="row"><input type="checkbox" style="width:22px;height:22px" ${RENT.agree ? 'checked' : ''} onchange="RENT.agree=this.checked;bikeSheet(${i})"><span>Acepto el acuerdo de daños de esta moto.</span></label>
+    <div class="lbl">En la entrega y la devolución se firma un acta con kilometraje, gasolina y daños, confirmada por los dos.</div>`,
+    `<div class="row"><div class="grow"><div class="lbl">Total · 2 días</div><div class="num">${cop(b.p * 2)}</div>${missing(miss)}</div>
+      <button class="btn" disabled>${b.inst ? 'Reservar' : 'Solicitar'}</button></div>`);
+}
+
+/* ───────── ASISTENCIA TÉCNICA (antes "S.O.S." de taller) ───────── */
+const SOSK = [['flat','Pinchazo','tire_repair'],['battery','Batería','battery_alert'],['fuel','Sin gasolina','local_gas_station'],['tow','Grúa','rv_hookup'],['mech','Falla mecánica','build']];
+let SOSD = {};
+function viewTal() {
+  const s = S.sos;
+  if (s) {
+    const steps = ['Buscando taller cercano…','MotoTaller La 5 aceptó · llega en 12 min','MotoTaller La 5 va en camino','Llegó el taller'];
+    return `<div class="card" style="border:2px solid var(--orange-soft)"><div class="row"><span class="ms" style="color:var(--orange);font-size:30px">build_circle</span><div class="grow"><div class="b">Asistencia · ${SOSK.find(k => k[0] === s.k)[1]}</div><div class="lbl">${esc(s.ref)}</div></div><span class="pl or">Activa</span></div>
+      <div class="bar"><i style="width:${(s.step + 1) * 25}%"></i></div><div class="b">${steps[s.step]}</div>
+      ${s.step >= 1 ? `<div class="map"><div class="me" style="left:30%;top:65%"></div><div class="pin" style="left:${78 - s.step * 14}%;top:${25 + s.step * 12}%;color:var(--green)"><span class="ms">build_circle</span></div>
+        <span class="float" style="right:10px">${s.step >= 3 ? 'Llegó' : (3 - s.step) * 2.1 + ' km · ' + (3 - s.step) * 4 + ' min'}</span><span class="osm">© OpenStreetMap</span></div>
+        <div class="lbl">Ves al taller solo mientras viene hacia ti. Su ubicación se borra al terminar.</div>` : ''}
+      <div class="two">${s.step >= 1 ? `<button class="btn ghost" onclick="toast('Chat con el taller.')"><span class="ms">chat</span>Chat</button>` : '<span></span>'}
+        ${s.step >= 3 ? `<button class="btn" onclick="rateSheet()">Terminar y calificar</button>` : `<button class="btn ghost" style="color:var(--red)" onclick="S.sos=null;render();toast('Asistencia cancelada.')">Cancelar</button>`}</div></div>`;
+  }
+  return `<div class="card" style="align-items:center;text-align:center;padding:22px"><div class="avatar" style="width:64px;height:64px;background:var(--orange)"><span class="ms" style="font-size:32px">build</span></div><div class="hd" style="font-size:22px;font-weight:900">¿Varado en la ruta?</div><div class="lbl">Un taller móvil llega hasta donde estés.</div>
+      <button class="btn full" onclick="sosSheet()"><span class="ms">build</span>Pedir taller móvil</button>
+      <button class="row" style="color:var(--red);font-weight:600;justify-content:center" onclick="emergencySheet()"><span class="ms" style="font-size:18px">sos</span>¿Hay heridos o peligro? Usa el SOS de emergencia</button></div>
+    <div class="h"><span class="ms">build</span>Talleres que atienden en tu zona</div>
+    ${[['MotoTaller La 5','Pinchazo, batería, mecánica · hasta 40 km',4.6],['Grúas y Motos Express','Grúa y sin gasolina · hasta 80 km',4.8]].map(t => `<div class="card"><div class="row"><div class="avatar" style="background:var(--green-tint);color:var(--green)"><span class="ms">build</span></div><div class="grow"><div class="b">${t[0]}</div><div class="lbl">${t[1]}</div></div><span class="pl" style="color:var(--amber)">★ ${t[2]}</span></div></div>`).join('')}`;
+}
+function sosSheet() {
+  const miss = []; if (!SOSD.k) miss.push('qué pasó'); if (!(SOSD.ref || '').trim()) miss.push('decir dónde estás (o usar tu ubicación y escribir una referencia)');
+  sheet(`<h2>¿Qué pasó?</h2>${SOSK.map(([k, l, i]) => `<div class="opt" style="${SOSD.k === k ? 'background:var(--orange-soft)' : ''}" onclick="SOSD.k='${k}';sosSheet()"><span class="ic" style="${SOSD.k === k ? 'background:var(--orange);color:#fff' : ''}"><span class="ms">${i}</span></span><div class="grow b">${l}</div></div>`).join('')}
+    <div class="field"><label>¿Dónde estás?</label><input id="sref" value="${esc(SOSD.ref || '')}" placeholder="Ej: Km 12 vía a Dagua, frente al restaurante" oninput="SOSD.ref=this.value;sosSheet.f()"></div>
+    <button class="btn ghost full" onclick="SOSD.ref=(SOSD.ref||'')+' (ubicación del GPS)';sosSheet()"><span class="ms">my_location</span>Usar mi ubicación</button>`,
+    `<button class="btn full" id="sb2" ${miss.length ? 'disabled' : ''} onclick="startSOS()"><span class="ms">build</span>Pedir asistencia</button><div id="smiss">${missing(miss)}</div>`);
+  sosSheet.f = () => { const m = []; if (!SOSD.k) m.push('qué pasó'); if (!(SOSD.ref || '').trim()) m.push('decir dónde estás (o usar tu ubicación y escribir una referencia)'); $('#sb2').disabled = m.length > 0; $('#smiss').innerHTML = missing(m); };
+}
+function startSOS() {
+  S.sos = {k:SOSD.k, ref:SOSD.ref, step:0}; SOSD = {}; closeSheet(); render();
+  [3000, 6500, 11000].forEach((t, i) => setTimeout(() => { if (S.sos) { S.sos.step = i + 1; if (S.tab === 'tal') render(); } }, t));
+}
+function rateSheet() {
+  sheet(`<h2>¿Cómo te atendió MotoTaller La 5?</h2><div style="font-size:36px;color:var(--amber);text-align:center;letter-spacing:6px">★★★★★</div><textarea placeholder="Cuéntales a otros riders (opcional)"></textarea>`,
+    `<button class="btn full" onclick="S.sos=null;closeSheet();render();toast('Gracias. Tu reseña ayuda a otros riders.')">Enviar calificación</button>`);
+}
+
+
+/* ───────── SOS DE EMERGENCIA ───────── */
+const ELINES = [['123','Policía','Robo, riña, peligro. Línea única nacional','local_police'],['123','Ambulancia','Heridos o alguien inconsciente','medical_services'],
+  ['#767','Accidente en carretera','Policía de Tránsito y Carreteras','car_crash'],['119','Bomberos','Incendio, atrapados, derrames','local_fire_department'],['132','Cruz Roja','Atención y traslado de heridos','local_hospital']];
+const CONTACTS = [['Mamá','300 123 4567']];
+function emergencySheet() {
+  const ride = RODADAS.find(r => r.live && r.members.some(m => m[0] === '@tú'));
+  sheet(`<div class="row"><div class="avatar" style="background:var(--red)"><span class="ms">sos</span></div><div class="grow"><h2>Emergencia</h2><div class="lbl">Toca a quién llamar: se abre tu teléfono con el número listo.</div></div></div>
+    <button class="btn full red" style="min-height:64px;font-size:19px" onclick="dial('123')"><span class="ms" style="font-size:26px">call</span>Llamar al 123</button>
+    ${ELINES.map(l => `<button class="eline" onclick="dial('${l[0]}')"><span class="ei"><span class="ms">${l[3]}</span></span><span class="grow"><b>${l[1]}</b><span class="lbl" style="display:block">${l[2]}</span></span><span class="en">${l[0]}</span></button>`).join('')}
+    <div class="h"><span class="ms">contact_phone</span>Mis contactos de emergencia</div>
+    ${CONTACTS.map(c => `<div class="card" style="box-shadow:none;border:1px solid var(--surf3)"><div class="b">${esc(c[0])}</div><div class="lbl">${esc(c[1])}</div>
+      <div class="two"><button class="btn red" onclick="dial('${c[1]}')"><span class="ms">call</span>Llamar</button><button class="btn ghost" onclick="toast('Se abre tu app de mensajes con: Tengo una emergencia en la moto. Estoy aquí: https://maps.google.com/?q=3.6584,-76.6890')"><span class="ms">sms</span>Mensaje</button></div></div>`).join('')}
+    <div class="lbl">Se guardan solo en este teléfono, no se suben a ningún lado.</div>
+    <div class="h"><span class="ms">my_location</span>Dónde estás</div>
+    <div class="card" style="box-shadow:none;background:var(--surf0)"><div class="b">Cerca de Dagua</div><div style="font:800 15px 'JetBrains Mono'">3.65841, -76.68902</div><div class="lbl">Dicta estas coordenadas si no sabes la dirección.</div>
+      <button class="btn ghost" onclick="toast('Se abre Compartir para mandar tu ubicación por WhatsApp o mensaje.')"><span class="ms">share</span>Compartir mi ubicación</button></div>
+    ${ride ? `<div class="card" style="box-shadow:none;background:${S.ec ? 'var(--red-soft)' : '#fff'};border:1px solid var(--surf3)">${S.ec
+      ? `<div class="line" style="color:var(--red)"><span class="ms">campaign</span>Tu rodada ya ve la alerta.</div><button class="btn ghost" onclick="S.ec=false;emergencySheet()"><span class="ms">check_circle</span>Ya estoy bien, quitar la alerta</button>`
+      : `<div class="lbl">Tu rodada te ve en el mapa. Si los avisas, tu punto se pone rojo y les sale una alerta.</div><button class="btn red" onclick="S.ec=true;emergencySheet();toast('Tu rodada verá la alerta en unos segundos.')"><span class="ms">campaign</span>Avisar a mi rodada</button>`}</div>` : ''}
+    <div class="card" style="box-shadow:none;background:var(--surf3)"><div class="line" style="font-weight:400"><span class="ms">health_and_safety</span>Si hay heridos: no les quites el casco ni los muevas, señaliza la vía y espera a la ambulancia.</div></div>
+    <div class="lbl">¿Pinchazo, batería o sin gasolina? Eso es Asistencia técnica: en ruta, el botón naranja de arriba; fuera de ruta, en Mi perfil.</div>`);
+}
+function dial(n) {
+  sheet(`<div class="lbl" style="text-align:center">Así se abre el teléfono: el número ya está escrito y tú tocas Llamar.</div>
+    <div style="text-align:center;font-size:40px;letter-spacing:.03em;padding:18px 0">${esc(n)}</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">${'123456789*0#'.split('').map(d => `<span style="background:var(--surf0);border-radius:999px;text-align:center;padding:10px 0;font-size:20px">${d}</span>`).join('')}</div>`,
+    `<button class="btn full" style="background:#1E8E3E" onclick="toast('En el teléfono real aquí empieza la llamada.')"><span class="ms">call</span>Llamar</button><button class="btn full ghost" onclick="emergencySheet()"><span class="ms">arrow_back</span>Volver a ApexMoto</button>`);
+}
+
+/* ───────── FRANJAS: EN RUTA E INTERCOM ───────── */
+function drawBars() {
+  // En ruta (guiando o en una rodada en curso): Asistencia técnica y SOS arriba. Fuera de ruta no ocupan espacio.
+  const rider = S.role === 'rider';
+  $('#sosTop').hidden = !(rider && (onRoute() || S.tab === 'tal'));
+  $('#asTop').hidden = !(rider && (onRoute() || S.sos) && S.tab !== 'tal');
+  $('#asTop').classList.toggle('dot', !!S.sos);
+  const c = S.call, r = c && RODADAS.find(x => x.id === c.rid);
+  $('#bars').innerHTML = (S.route ? `<div class="rbar" style="background:var(--ink)"><span class="ms" style="color:#FFB27A">navigation</span><div class="grow ellip">Guiando hacia <b>${esc(S.route)}</b></div><button class="chip" style="padding:6px 12px;color:var(--ink)" onclick="guide(S.route)">Ver guiado</button></div>` : '')
+    + (r ? `<div class="rbar" style="background:var(--cyan-deep)"><span class="ms">headset_mic</span><div class="grow"><div class="b ellip">Intercom · ${esc(r.n)}</div><div style="font-size:11px;opacity:.85">${c.talk ? PEERS(r)[c.talk] + ' está hablando' : r.members.length + ' en la llamada'}</div></div>
+      ${c.ptt ? `<button class="rb" style="background:${c.press ? 'var(--green)' : 'var(--orange)'}" onpointerdown="icPress(event,true)" onpointerup="icPress(event,false)" onpointercancel="icPress(event,false)" aria-label="Mantén para hablar"><span class="ms">mic</span></button>`
+              : `<button class="rb" style="background:rgba(255,255,255,.18)" onclick="S.call.muted=!S.call.muted;drawIc()" aria-label="Silenciar"><span class="ms">${c.muted ? 'mic_off' : 'mic'}</span></button>`}
+      <button class="rb" style="background:var(--red)" onclick="icLeave()" aria-label="Salir de la llamada"><span class="ms">call_end</span></button></div>` : '');
+}
+
+/* ───────── INTERCOM DE LA RODADA ───────── */
+const PEERS = r => r.members.map(m => m[1]);
+const icTx = () => S.call && (S.call.ptt ? S.call.press : !S.call.muted);
+function icJoin(rid) {
+  if (S.call && S.call.timer) clearInterval(S.call.timer);
+  S.call = {rid, ptt:false, muted:false, press:false, talk:null};
+  const n = RODADAS.find(x => x.id === rid).members.length;
+  S.call.timer = setInterval(() => { if (!S.call) return; S.call.talk = n > 1 && Math.random() < .55 ? 1 + Math.floor(Math.random() * (n - 1)) : null; drawIc(); }, 1700);
+  drawIc(); toast('Estás en la llamada. Sigue sonando con la pantalla apagada.');
+}
+function icLeave() { if (S.call) clearInterval(S.call.timer); S.call = null; drawIc(); toast('Saliste de la llamada.'); }
+function icPress(e, on) { if (e) e.preventDefault(); if (!S.call) return; S.call.press = on; drawIc(); }
+function drawIc() {
+  drawBars();
+  const box = $('#icCard'); if (!box) return;
+  const rid = box.dataset.rid, r = RODADAS.find(x => x.id === rid), c = S.call, here = c && c.rid === rid;
+  box.style.background = here ? 'var(--cyan-tint)' : '#fff';
+  if (!here) {
+    box.innerHTML = `<div class="h"><span class="ms">headset_mic</span>Intercom de la rodada</div>
+      <div class="lbl">Hablen por voz mientras ruedan, como un intercomunicador. Funciona con el intercom Bluetooth del casco o audífonos y sigue sonando con la pantalla apagada.</div>
+      ${c ? '<div class="lbl" style="color:var(--orange-dark)">Estás en otra llamada. Si entras aquí, sales de esa.</div>' : ''}
+      <button class="btn full" onclick="icJoin('${rid}')"><span class="ms">call</span>${c ? 'Cambiar a esta llamada' : 'Entrar a la llamada'}</button>`;
+    return;
+  }
+  const names = PEERS(r);
+  box.innerHTML = `<div class="row"><div class="h grow"><span class="ms">headset_mic</span>Intercom de la rodada</div><span class="pl gr">En llamada</span></div>
+    ${names.map((n, i) => { const t = i === 0 ? (c.ptt && c.press) : c.talk === i; const st = t ? '<span class="lbl" style="color:var(--green)">hablando</span>' : i !== 0 ? '' : !icTx() ? '<span class="ms" style="font-size:18px;color:var(--muted)">mic_off</span>' : '<span class="lbl">micrófono abierto</span>'; return `<div class="row"><span class="dot ${t ? 'on' : ''}"></span><span class="grow ${t ? 'b' : ''}">${i === 0 ? 'Tú' : esc(n)}</span>${st}</div>`; }).join('')}
+    <div class="toggle"><button class="${c.ptt ? '' : 'on'}" onclick="S.call.ptt=false;S.call.press=false;drawIc()"><b>Micrófono abierto</b><span class="lbl">Hablas cuando quieras</span></button>
+      <button class="${c.ptt ? 'on' : ''}" onclick="S.call.ptt=true;S.call.press=false;drawIc()"><b>Pulsar para hablar</b><span class="lbl">Como un walkie-talkie</span></button></div>
+    ${c.ptt ? `<button class="ptt ${c.press ? 'on' : ''}" onpointerdown="icPress(event,true)" onpointerup="icPress(event,false)" onpointercancel="icPress(event,false)" onpointerleave="icPress(event,false)" aria-label="Mantén para hablar"><span><span class="ms">mic</span><small>${c.press ? 'Hablando' : 'Mantén<br>para hablar'}</small></span></button>`
+            : `<button class="btn ${c.muted ? '' : 'ghost'} full" onclick="S.call.muted=!S.call.muted;drawIc()"><span class="ms">${c.muted ? 'mic' : 'mic_off'}</span>${c.muted ? 'Activar micrófono' : 'Silenciar'}</button>`}
+    <button class="btn full" style="background:var(--red-soft);color:var(--red)" onclick="icLeave()"><span class="ms">call_end</span>Salir de la llamada</button>
+    <div class="lbl">La voz pasa por los servidores de Agora y no se graba.</div>`;
+}
+
+/* ───────── PERFIL ───────── */
+const MEDALS = [[5,'Principiante','#8A5A00','workspace_premium'],[10,'Explorador','#0E7490','explore'],[20,'Rodador','#1B8A3A','two_wheeler'],[35,'Trotamundos','#6D4AA8','public'],[50,'Rutero experto','#D94600','military_tech']];
+function viewPerfil() {
+  const n = S.routes, next = MEDALS.find(m => m[0] > n), cur = [...MEDALS].reverse().find(m => m[0] <= n);
+  // Una sola tarjeta: primero el perfil y, como complemento, su trayectoria.
+  return `<div class="card" style="border:2px solid var(--orange-soft)"><div class="row">
+    <div class="avatar" style="width:60px;height:60px;background:var(--orange)"><span class="ms" style="font-size:34px">two_wheeler</span></div>
+    <div class="grow"><div class="hd" style="font-size:20px;font-weight:900">${NAME} Rueda</div><div class="lbl" style="color:var(--cyan-deep)">@laura.rueda</div>
+      <div style="display:flex;gap:6px;margin-top:4px"><span class="pl or">Rider</span>${cur ? `<span class="pl" style="background:${cur[2]};color:#fff"><span class="ms" style="font-size:14px">${cur[3]}</span>${cur[1]}</span>` : ''}</div></div></div>
+    <div style="height:1px;background:var(--surf3);margin:4px 0"></div>
+    <div class="h"><span class="ms">emoji_events</span>Trayectoria</div><div class="row" style="text-align:center">
+      <div class="grow"><div class="num">${n}</div><div class="lbl">rutas</div></div><div class="grow"><div class="num">3</div><div class="lbl">meses</div></div><div class="grow"><div class="num">${MEDALS.filter(m => m[0] <= n).length}</div><div class="lbl">medallas</div></div></div>
+    ${next ? `<div><div class="lbl">Te faltan ${next[0] - n} ruta(s) para <b style="color:var(--ink)">${next[1]}</b></div><div class="bar" style="margin-top:6px"><i style="width:${n / next[0] * 100}%"></i></div></div>` : '<div class="b">¡Tienes todas las medallas!</div>'}
+    <div class="row" style="align-items:flex-start">${MEDALS.map(m => `<div class="medal ${m[0] <= n ? '' : 'off'}"><div class="c" style="background:${m[2]}"><span class="ms">${m[3]}</span></div><small>${m[1]}<br>${m[0]} rutas</small></div>`).join('')}</div>
+    <div class="lbl">Cuentan las rutas de 2 km o más que terminas con el guiado de la app.</div>
+    <button class="btn ghost" onclick="S.routes++;render()"><span class="ms">add</span>Terminar una ruta</button></div>
+  ${S.role === 'rider' ? `<div class="card"><div class="h"><span class="ms">health_and_safety</span>Emergencia y asistencia</div>
+    <div class="lbl">En ruta los tienes arriba, en el encabezado. Aquí puedes dejar listos tus contactos de emergencia.</div>
+    <button class="btn full red" onclick="emergencySheet()"><span class="ms">call</span>SOS · emergencia y contactos</button>
+    <button class="btn full ghost" onclick="go('tal')"><span class="ms">handyman</span>Asistencia técnica</button></div>` : ''}
+  <div class="card"><div class="b">Ver la app como…</div>
+    <div class="toggle"><button class="${S.role === 'rider' ? 'on' : ''}" onclick="S.role='rider';go('rut')"><b>Rider</b><span class="lbl">Rutas, comercios, rodadas</span></button>
+      <button class="${S.role === 'shop' ? 'on' : ''}" onclick="S.role='shop';go('cpan')"><b>Comercio</b><span class="lbl">Pedidos, menú, canjes</span></button></div></div>
+  <div class="card"><div class="opt" onclick="toast('Términos, privacidad y aviso de ubicación, con la versión que aceptaste.')"><span class="ic"><span class="ms">gavel</span></span><div class="grow b">Legal y privacidad</div></div>
+    <div class="opt" onclick="toast('Configuración: estilo del mapa y guía por voz.')"><span class="ic"><span class="ms">settings</span></span><div class="grow b">Configuración</div></div>
+    <div class="opt" onclick="toast('Borrar la cuenta elimina tus datos y tu trayectoria.')"><span class="ic" style="color:var(--red)"><span class="ms">delete</span></span><div class="grow b" style="color:var(--red)">Borrar mi cuenta</div></div></div>`;
+}
+
+/* ───────── COMERCIO ───────── */
+const SHOP = {n:'Asadero Dapa', open:false, menu:[], placed:false};
+function viewShop() {
+  const noMenu = SHOP.menu.length === 0;
+  return `<div class="card"><div class="row"><div class="grow"><div class="hd" style="font-size:20px;font-weight:900">${SHOP.n}</div><div class="lbl" style="color:var(--cyan-deep)">Gastronomía & Descanso · Cali</div></div><span class="pl or">Aliado Apex</span></div>
+    <div class="row" style="background:var(--surf0);border-radius:12px;padding:12px"><span style="width:10px;height:10px;border-radius:50%;background:${SHOP.open ? 'var(--green)' : 'var(--red)'}"></span><div class="grow"><div class="b">${SHOP.open ? 'Abierto' : 'Cerrado'}</div><div class="lbl">Los riders ven tu estado en tiempo real</div></div>
+      <input type="checkbox" style="width:24px;height:24px" ${SHOP.open ? 'checked' : ''} onchange="SHOP.open=this.checked;render()" aria-label="Abierto"></div></div>
+  ${noMenu || !SHOP.placed || !SHOP.open ? `<div class="card soft"><div class="line" style="color:var(--orange-dark)"><span class="ms">info</span>Para recibir pedidos por la app te falta:</div>
+    ${noMenu ? `<div class="row"><div class="grow">• Subir tu menú (al menos un producto con precio, encendido)</div><button class="btn ghost" style="min-height:38px;padding:8px 12px" onclick="go('cmenu')">Menú</button></div>` : ''}
+    ${!SHOP.placed ? `<div class="row"><div class="grow">• Marcar tu ubicación en el mapa, para que te encuentren con la guía</div><button class="btn ghost" style="min-height:38px;padding:8px 12px" onclick="go('cneg')">Negocio</button></div>` : ''}
+    ${!SHOP.open ? '<div>• Ponerte en "Abierto" con el interruptor de arriba</div>' : ''}</div>`
+    : `<div class="card" style="background:var(--green-tint);box-shadow:none"><div class="line" style="color:var(--green)"><span class="ms">check_circle</span>Listo: los riders ya te pueden hacer pedidos.</div></div>`}
+  <div class="two"><div class="card"><div class="num" style="color:var(--cyan-deep)">0</div><div class="lbl">Pedidos nuevos</div></div><div class="card"><div class="num" style="color:var(--green)">$0</div><div class="lbl">Ventas</div></div></div>`;
+}
+function viewShopMenu() {
+  return `<div class="row"><div class="h grow"><span class="ms">restaurant_menu</span>Tu menú</div><button class="btn" onclick="SHOP.menu.push(['Sancocho de gallina', 28000]);render();toast('Producto agregado y encendido.')"><span class="ms">add</span>Agregar</button></div>
+    ${SHOP.menu.length ? SHOP.menu.map(m => `<div class="card"><div class="row"><div class="grow"><div class="b">${m[0]}</div><div class="lbl">${cop(m[1])}</div></div><span class="pl gr">Encendido</span></div></div>`).join('') : '<div class="empty"><span class="ms">restaurant_menu</span>Agrega tu primer plato o servicio.</div>'}`;
+}
+function viewShopBiz() {
+  return `<div class="card"><div class="h"><span class="ms">store</span>Ubicación en el mapa</div><div class="lbl">Toca el mapa para fijar el punto. Los riders usarán esta ubicación para la guía.</div>
+    <div class="map" onclick="SHOP.placed=true;render();toast('Ubicación guardada.')">${SHOP.placed ? '<div class="pin or" style="left:55%;top:55%"><span class="ms">location_on</span></div>' : '<span class="float" style="left:10px">Toca para marcar</span>'}<span class="osm">© OpenStreetMap</span></div>
+    <button class="btn ghost full" onclick="SHOP.placed=true;render();toast('Usamos tu ubicación actual.')"><span class="ms">my_location</span>Usar mi ubicación actual</button></div>`;
+}
+function viewShopOrders() { return `<div class="empty"><span class="ms">receipt_long</span>Todavía no hay pedidos. Se ordenan por la hora a la que llega cada rider.</div>`; }
+function viewShopRedeem() {
+  return `<div class="card"><div class="h"><span class="ms">qr_code_scanner</span>Canjear cupón</div><input placeholder="APX-XXXX" style="font:800 20px 'JetBrains Mono';text-transform:uppercase" oninput="$('#rb').disabled=this.value.length<4">
+    <button class="btn full" id="rb" disabled onclick="toast('Cupón canjeado.')"><span class="ms">check</span>Canjear</button></div>`;
+}
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
+render();
+</script>
+
+</body></html>

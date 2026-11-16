@@ -1,0 +1,12 @@
+/* Letras de ApexMoto servidas desde el mismo sitio (Chivo, Space Grotesk y JetBrains Mono: SIL OFL; Material Symbols: Apache 2.0). */
+@font-face { font-family: Chivo; font-weight: 700; font-display: swap; src: url(/assets/fonts/chivo_bold.ttf) format("truetype"); }
+@font-face { font-family: Chivo; font-weight: 800; font-display: swap; src: url(/assets/fonts/chivo_extrabold.ttf) format("truetype"); }
+@font-face { font-family: Chivo; font-weight: 900; font-display: swap; src: url(/assets/fonts/chivo_black.ttf) format("truetype"); }
+@font-face { font-family: "Space Grotesk"; font-weight: 400; font-display: swap; src: url(/assets/fonts/space_grotesk_regular.ttf) format("truetype"); }
+@font-face { font-family: "Space Grotesk"; font-weight: 500; font-display: swap; src: url(/assets/fonts/space_grotesk_medium.ttf) format("truetype"); }
+@font-face { font-family: "Space Grotesk"; font-weight: 600 700; font-display: swap; src: url(/assets/fonts/space_grotesk_bold.ttf) format("truetype"); }
+@font-face { font-family: "JetBrains Mono"; font-weight: 500; font-display: swap; src: url(/assets/fonts/jetbrains_mono_medium.ttf) format("truetype"); }
+@font-face { font-family: "JetBrains Mono"; font-weight: 600; font-display: swap; src: url(/assets/fonts/jetbrains_mono_semibold.ttf) format("truetype"); }
+@font-face { font-family: "JetBrains Mono"; font-weight: 700; font-display: swap; src: url(/assets/fonts/jetbrains_mono_bold.ttf) format("truetype"); }
+@font-face { font-family: "JetBrains Mono"; font-weight: 800; font-display: swap; src: url(/assets/fonts/jetbrains_mono_extrabold.ttf) format("truetype"); }
+@font-face { font-family: "Material Symbols Rounded"; font-style: normal; font-weight: 500; font-display: block; src: url(/assets/fonts/material-symbols-rounded.woff2) format("woff2"); }

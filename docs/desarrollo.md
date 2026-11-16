@@ -92,6 +92,23 @@ firebase deploy --only hosting --project apexmotoxz      # pruebas → https://a
 firebase deploy --only hosting --project apexmoto-prd    # real   → https://apexmoto-prd.web.app
 ```
 
+### Demo y presentación en Firebase Hosting
+
+Para presentar el proyecto en clase hay dos páginas en el Hosting del proyecto de pruebas:
+
+- `https://apexmotoxz.web.app/demo`: el prototipo navegable. En el celular ocupa toda la pantalla, se puede instalar con "Agregar a la pantalla principal" (abre como app, sin barra del navegador) y funciona sin internet después de abrirlo una vez.
+- `https://apexmotoxz.web.app/presentacion`: la comparación prototipo de octubre vs. app de hoy, con un QR a la demo (en la portada y en el botón flotante "QR de la demo", que lo muestra en grande para proyectarlo).
+
+Las fuentes de las páginas están en `tools/presentacion/` (`prototipo.html`, `comparacion.html`). Para cambiarlas: edita esas fuentes, sube `VERSION` en `tools/presentacion/build.py` si quieres que los celulares olviden la copia guardada, y ejecuta
+
+```
+python tools/presentacion/build.py
+firebase deploy --only hosting --project apexmotoxz
+```
+
+El script copia las letras a `hosting/public/assets/fonts/` (la política de seguridad del Hosting no deja cargar Google Fonts), y genera el manifest, los íconos y el service worker de la demo. Las páginas solo tienen datos de ejemplo.
+
+
 Si la consola pide activar Hosting, entra a Firebase → **Hosting → Comenzar** en ese proyecto y repite el `deploy`.
 
 - `assetlinks.json` tiene la huella SHA-256 del certificado de depuración de este PC: los APK compilados aquí abren el enlace directo en la app. **Al firmar para Google Play**, agrega la huella de la firma de Play (Play Console → Integridad de la app → Firma de apps) y vuelve a publicar.
