@@ -64,12 +64,25 @@ fun RentScreen(vm: AppViewModel, nav: NavController) {
 @Composable
 private fun ColumnScope.BikesList(vm: AppViewModel, nav: NavController) {
     val bikes by vm.bikes.collectAsState()
-    var city by rememberSaveable { mutableStateOf("all") }
+    // Ciudad donde se recoge: empieza en la ciudad de la persona (la de Inicio) y se cambia con las ciudades del catálogo.
+    // Cambiarla aquí no cambia la de Inicio: se puede rentar en la ciudad a la que se va a viajar.
+    val cp = rememberCatalogAndPlace(vm)
+    var picked by rememberSaveable { mutableStateOf<String?>(null) }   // null = la de Inicio; "all" = todas
+    val city = picked ?: cp?.second?.town?.name ?: cp?.second?.label?.substringBefore(",")
+    var pickCity by remember { mutableStateOf(false) }
+    val askLocation = rememberLocationRequest(vm) { la, ln -> cp?.first?.nearestTown(la, ln)?.let { picked = it.name } }
+    fun sameCity(b: Bike) = city == null || city == "all" || norm(b.city.trim()) == norm(city)
     var cat by rememberSaveable { mutableStateOf("all") }
     var sort by rememberSaveable { mutableStateOf("rec") }
     val days = maxOf(1, daysBetween(vm.rentFrom, vm.rentTo) + 1)
     Card2 {
-        Drop("¿Dónde?", listOf("all" to "Todas las ciudades") + bikes.map { it.city }.distinct().sorted().map { it to it }, city, { city = it })
+        Lbl("¿Dónde la recoges?")
+        Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).clip(RoundedCornerShape(10.dp)).background(Surf0).clickable(enabled = cp != null) { pickCity = true }.padding(horizontal = 14.dp),
+            verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Filled.LocationOn, null, tint = OrangeDark); Spacer(Modifier.width(10.dp))
+            Text(when (city) { null -> "Buscando tu ciudad…"; "all" -> "Todas las ciudades"; else -> city }, Modifier.weight(1f), fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text("Cambiar", color = CyanDeep, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             DateField("Recoges", vm.rentFrom, today(), Modifier.weight(1f)) { vm.rentFrom = it; if (vm.rentTo < it) vm.rentTo = addDays(it, 1) }
             DateField("Devuelves", vm.rentTo, vm.rentFrom, Modifier.weight(1f)) { vm.rentTo = it }
@@ -81,13 +94,27 @@ private fun ColumnScope.BikesList(vm: AppViewModel, nav: NavController) {
     }
     // Una moto sin reseñas no cuenta como "5,0": va después de las calificadas.
     fun score(b: Bike) = if (b.reviews > 0) b.rating else 0.0
-    val list = bikes.filter { it.available && (city == "all" || it.city == city) && (cat == "all" || it.category == cat) }
+    val list = bikes.filter { it.available && sameCity(it) && (cat == "all" || it.category == cat) }
         .let { l -> when (sort) { "pa" -> l.sortedBy { it.pricePerDay }; "pd" -> l.sortedByDescending { it.pricePerDay }; "rt" -> l.sortedByDescending { score(it) }; else -> l.sortedByDescending { score(it) * 10 + it.reviews / 100.0 } } }
     Row(verticalAlignment = Alignment.CenterVertically) {
         Lbl("${list.size} moto${if (list.size == 1) "" else "s"} · $days día${if (days == 1) "" else "s"}", modifier = Modifier.weight(0.9f))
         Drop("", listOf("rec" to "Recomendadas", "pa" to "Menor precio", "pd" to "Mayor precio", "rt" to "Mejor calificadas"), sort, { sort = it }, Modifier.weight(1.1f))
     }
-    if (list.isEmpty()) Empty("No hay motos con esos filtros.", Icons.Filled.TwoWheeler)
+    if (list.isEmpty()) Empty(if (city != null && city != "all") "No hay motos en $city con esos filtros." else "No hay motos con esos filtros.", Icons.Filled.TwoWheeler)
+    // Otras ciudades con motos disponibles, para no quedarse en una lista vacía.
+    val others = bikes.filter { it.available && (cat == "all" || it.category == cat) && !sameCity(it) }.groupingBy { it.city.trim() }.eachCount()
+    if (city != "all" && others.isNotEmpty()) {
+        Lbl(if (list.isEmpty()) "Hay motos en:" else "También hay motos en:")
+        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            others.entries.sortedByDescending { it.value }.forEach { (c, n) -> Chip("$c · $n", false, Icons.Filled.LocationCity, accent = Cyan) { picked = c } }
+            Chip("Todas", false, accent = Cyan) { picked = "all" }
+        }
+    }
+    cp?.first?.let { c ->
+        if (pickCity) CityPicker(c, onDismiss = { pickCity = false }, onGps = { pickCity = false; askLocation() }, title = "¿En qué ciudad la recoges?") { t ->
+            pickCity = false; picked = t.name
+        }
+    }
     list.forEachIndexed { i, b ->
         val busy = overlaps(b.booked, vm.rentFrom, vm.rentTo)
         Card2(Modifier.alpha(if (busy) 0.6f else 1f), index = i, padding = 0.dp, onClick = { nav.navigate("bike/${b.id}") }) {

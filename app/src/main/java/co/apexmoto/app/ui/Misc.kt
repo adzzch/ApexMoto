@@ -45,6 +45,8 @@ fun ProfileScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
     var confirmClear by remember { mutableStateOf(false) }
     val myReviews by vm.myReviews.collectAsState()
     var reviewOrder by remember { mutableStateOf<Order?>(null) }
+    var emergency by remember { mutableStateOf(false) }
+    if (emergency) EmergencySheet(vm) { emergency = false }
     reviewOrder?.let { o ->
         ReviewSheet("¿Cómo te fue en ${o.venueName}?", { reviewOrder = null }) { stars, comment ->
             vm.act("¡Gracias por tu reseña!") { vm.repo.submitReview(Review(kind = "order", serviceId = o.id, targetType = "venue", targetId = o.venueId,
@@ -67,7 +69,12 @@ fun ProfileScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
     )
     val profile by vm.myProfile.collectAsState()
     Screen {
-        Card2(index = 0) {
+        // La trayectoria va primero: es lo que destaca al rider.
+        if (u.role == Role.RIDER) {
+            val stats by remember(u.id) { vm.repo.riderStats(u.id) }.collectAsState(initial = null)
+            RiderStatsCard(stats, vm.repo.auth.currentUser?.metadata?.creationTimestamp, own = true, featured = true)
+        }
+        Card2(index = 1) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 val p = profile
                 if (p != null) MotoAvatar(p.moto, p.color, 60.dp) else Avatar(u.name, 60.dp)
@@ -90,9 +97,12 @@ fun ProfileScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
                 Btn("Mis amigos", Modifier.fillMaxWidth(), Icons.Filled.People, kind = BK.Ghost) { vm.communityTab = "amigos"; nav.navigate("grp") }
             }
         }
-        if (u.role == Role.RIDER) {
-            val stats by remember(u.id) { vm.repo.riderStats(u.id) }.collectAsState(initial = null)
-            RiderStatsCard(stats, vm.repo.auth.currentUser?.metadata?.creationTimestamp, own = true)
+        // Fuera de ruta, el SOS y la asistencia técnica (pedirla, seguirla o calificar la última) se abren desde aquí.
+        if (u.role == Role.RIDER) Card2 {
+            H("Emergencia y asistencia", Icons.Filled.HealthAndSafety)
+            Sub("En ruta los tienes arriba, en el encabezado. Aquí puedes dejar listos tus contactos de emergencia.")
+            Btn("SOS · emergencia y contactos", Modifier.fillMaxWidth(), Icons.Filled.Call, kind = BK.Sos) { emergency = true }
+            Btn("Asistencia técnica", Modifier.fillMaxWidth(), Icons.Filled.Handyman, kind = BK.Ghost) { nav.navigate("tal") }
         }
         if (u.role == Role.RIDER) RiderProfileCard(vm, u)
         if (orders.isNotEmpty()) {

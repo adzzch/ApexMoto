@@ -102,8 +102,9 @@ fun tabsFor(role: String): List<NavTab> = when (role) {
     Role.WORKSHOP -> listOf(NavTab("tpan", Icons.Filled.Dashboard, "Resumen"), NavTab("tsos", Icons.Filled.Handyman, "Asistencias"),
         NavTab("tsrv", Icons.Filled.Build, "Servicios"), NavTab("tneg", Icons.Filled.Store, "Mi taller"), NavTab("ccan", Icons.Filled.QrCodeScanner, "Canjes"))
     Role.OWNER -> listOf(NavTab("ofl", Icons.Filled.Garage, "Mi flota"), NavTab("oreq", Icons.Filled.Inbox, "Solicitudes"), NavTab("oing", Icons.Filled.Payments, "Ingresos"))
-    else -> listOf(NavTab("rut", Icons.Filled.Route, "Rutas"), NavTab("com", Icons.Filled.Storefront, "Comercios"),
-        NavTab("grp", Icons.Filled.Groups, "Comunidad"), NavTab("rent", Icons.Filled.TwoWheeler, "Rentar"), NavTab("tal", Icons.Filled.Build, "Asistencia"))
+    // Asistencia técnica ya no es pestaña: sale en el encabezado solo en ruta (ver MainScaffold).
+    else -> listOf(NavTab("rut", Icons.Filled.Home, "Inicio"), NavTab("com", Icons.Filled.Storefront, "Comercios"),
+        NavTab("grp", Icons.Filled.Groups, "Comunidad"), NavTab("rent", Icons.Filled.TwoWheeler, "Rentar"))
 }
 
 @Composable
@@ -227,15 +228,23 @@ fun MainScaffold(vm: AppViewModel, u: AppUser) {
     val route = nav.currentBackStackEntryAsState().value?.destination?.route
     val isTab = route == null || tabs.any { it.route == route }
     val section = if (isTab) tabs.firstOrNull { it.route == route }?.label ?: tabs.first().label else titleFor(route)
-    // S.O.S. de emergencia: siempre a un toque desde el encabezado, en cualquier pantalla.
+    // En la pestaña principal de cada rol, el encabezado saluda por el nombre en vez de mostrar el título.
+    val greeting = if (isTab && (route ?: start) == start) "¡Hola, ${firstName(u.name).ifBlank { "rider" }}!" to remember(u.role) { greetingLine(u.role) } else null
+    // En ruta = guiando o en una rodada en curso de la que es miembro.
+    val inRoute = route == "navigate" || activeRide != null
+    // Asistencia técnica: solo en ruta, o mientras el rider tenga una asistencia abierta (para seguir al taller).
+    val openAssist = u.role == Role.RIDER && sosList.any { it.fromId == u.id && it.status in listOf("new", "ok", "go", "site") }
+    val showAssist = u.role == Role.RIDER && (inRoute || openAssist) && route != "tal"
+    // S.O.S. de emergencia: a un toque desde el encabezado, en ruta.
     var emergency by rememberSaveable { mutableStateOf(false) }
     if (emergency) EmergencySheet(vm) { emergency = false }
     Scaffold(
         topBar = {
             Column {
-                ApexHeader(isTab, section, spaceFor(u.role), onBack = { nav.popBackStack() }, onProfile = { nav.navigate("profile") }, onSettings = { nav.navigate("settings") },
-                    // El SOS solo se muestra en ruta: guiando o en una rodada en curso de la que es miembro.
-                    onSos = if (route == "navigate" || activeRide != null) ({ emergency = true }) else null)
+                ApexHeader(isTab, section, greeting, onBack = { nav.popBackStack() }, onProfile = { nav.navigate("profile") },
+                    // En Asistencia también: a esa pantalla solo se llega en ruta o con una asistencia abierta.
+                    onSos = if (inRoute || route == "tal") ({ emergency = true }) else null,
+                    onAssist = if (showAssist) ({ nav.navigate("tal") { launchSingleTop = true } }) else null, assistActive = openAssist)
                 IntercomBar(vm) { rid -> if (route != "rodada/{id}") nav.navigate("rodada/$rid") }
             }
         },
@@ -281,24 +290,29 @@ fun MainScaffold(vm: AppViewModel, u: AppUser) {
     }
 }
 
-private fun spaceFor(role: String) = when (role) { Role.SHOP -> "Espacio Negocio"; Role.OWNER -> "Espacio Dueño"; Role.WORKSHOP -> "Espacio Taller"; else -> "Espacio Rider" }
-
-/** Encabezado de marca: logo, nombre y "Espacio · sección". En pantallas internas muestra Volver y el título. */
+/**
+ * Encabezado sin marca (la persona ya sabe dónde está). En la pestaña principal saluda: "¡Hola, Ana!" y una línea
+ * según la hora; en las demás pestañas muestra el nombre de la sección; en pantallas internas, Volver y el título.
+ * A la derecha, solo en ruta: Asistencia técnica y SOS. El perfil (y desde él, Configuración) siempre a un toque.
+ */
 @Composable
-private fun ApexHeader(isTab: Boolean, section: String, space: String, onBack: () -> Unit, onProfile: () -> Unit, onSettings: () -> Unit, onSos: (() -> Unit)?) {
+private fun ApexHeader(isTab: Boolean, section: String, greeting: Pair<String, String>?, onBack: () -> Unit, onProfile: () -> Unit,
+                       onSos: (() -> Unit)?, onAssist: (() -> Unit)?, assistActive: Boolean) {
     Surface(color = Color.White) {
         Column(Modifier.statusBarsPadding()) {
-            Row(Modifier.fillMaxWidth().height(64.dp).padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.fillMaxWidth().height(if (greeting != null) 72.dp else 60.dp).padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                 if (isTab) {
-                    Spacer(Modifier.width(4.dp)); BrandMark(36.dp); Spacer(Modifier.width(10.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text("ApexMoto", fontFamily = Chivo, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, lineHeight = 20.sp)
-                        AnimatedContent(section, label = "sec", transitionSpec = {
-                            (fadeIn(tween(220)) + slideInVertically(tween(260)) { it / 2 }) togetherWith fadeOut(tween(120))
-                        }) { sec -> Text(if (LocalConfiguration.current.screenWidthDp >= 400) "$space · $sec" else "${space.removePrefix("Espacio ")} · $sec", color = OrangeDark, fontFamily = JetBrainsMono, fontWeight = FontWeight.SemiBold, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+                    Spacer(Modifier.width(6.dp))
+                    AnimatedContent(greeting to section, Modifier.weight(1f), label = "sec", transitionSpec = {
+                        (fadeIn(tween(220)) + slideInVertically(tween(260)) { it / 3 }) togetherWith fadeOut(tween(120))
+                    }) { (g, sec) ->
+                        if (g != null) Column {
+                            Text(g.first, fontFamily = Chivo, fontWeight = FontWeight.Black, fontSize = 24.sp, lineHeight = 28.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(g.second, color = Muted, fontSize = 13.sp, lineHeight = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        } else Text(sec, fontFamily = Chivo, fontWeight = FontWeight.ExtraBold, fontSize = 22.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
-                    if (onSos != null) SosHeaderButton(onSos)
-                    IconButton(onSettings) { Icon(Icons.Filled.Settings, "Configuración", tint = Muted) }
+                    if (onAssist != null) { AssistHeaderButton(assistActive, onAssist); Spacer(Modifier.width(6.dp)) }
+                    if (onSos != null) { SosHeaderButton(onSos); Spacer(Modifier.width(8.dp)) }
                     Box(Modifier.size(40.dp).clip(CircleShape).background(Surf4).clickable(onClickLabel = "Perfil", onClick = onProfile), contentAlignment = Alignment.Center) {
                         Icon(Icons.Filled.Person, "Perfil", tint = CyanDeep)
                     }
@@ -306,11 +320,23 @@ private fun ApexHeader(isTab: Boolean, section: String, space: String, onBack: (
                 } else {
                     IconButton(onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Volver", tint = Ink) }
                     Text(section, Modifier.weight(1f), style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    if (onAssist != null) { AssistHeaderButton(assistActive, onAssist); Spacer(Modifier.width(6.dp)) }
                     if (onSos != null) { SosHeaderButton(onSos); Spacer(Modifier.width(4.dp)) }
                 }
             }
             HorizontalDivider(color = Surf3)
         }
+    }
+}
+
+/** Botón naranja de asistencia técnica (pinchazo, batería…). Con una asistencia abierta lleva un punto. */
+@Composable
+private fun AssistHeaderButton(active: Boolean, onClick: () -> Unit) {
+    Box {
+        Box(Modifier.size(36.dp).clip(CircleShape).background(OrangeSoft).clickable(onClickLabel = "Asistencia técnica", onClick = onClick), contentAlignment = Alignment.Center) {
+            Icon(Icons.Filled.Handyman, "Asistencia técnica", Modifier.size(19.dp), tint = OrangeDark)
+        }
+        if (active) Box(Modifier.align(Alignment.TopEnd).size(10.dp).clip(CircleShape).background(Color.White).padding(2.dp).clip(CircleShape).background(Orange))
     }
 }
 
@@ -345,7 +371,8 @@ private fun ApexNavBar(tabs: List<NavTab>, current: String, onGo: (String) -> Un
 }
 
 private fun titleFor(route: String?) = when {
-    route == null -> "ApexMoto"
+    route == null -> ""
+    route == "tal" -> "Asistencia técnica"
     route.startsWith("menu") -> "Menú"
     route.startsWith("bike") -> "Moto"
     route.startsWith("rodada") -> "Rodada"
@@ -355,7 +382,7 @@ private fun titleFor(route: String?) = when {
     route == "profile" -> "Mi perfil"
     route == "settings" -> "Configuración"
     route == "legal" -> "Legal y privacidad"
-    else -> "ApexMoto"
+    else -> ""
 }
 
 private tailrec fun Context.findActivity(): Activity? = when (this) {

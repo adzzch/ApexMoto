@@ -64,60 +64,58 @@ private fun fmtHours(h: Double) = if (h < 1) "${(h * 60).toInt()} min" else if (
  * La ciudad sale de la ubicación del teléfono (si ya dio permiso) o de la que elija a mano; la ubicación nunca sale
  * del teléfono: la ciudad se calcula con el catálogo que viene dentro de la app.
  */
+/** Catálogo y ciudad compartida, ya resueltos; null mientras cargan. */
 @Composable
-fun ColumnScope.ExploreSection(vm: AppViewModel, nav: NavController, u: AppUser) {
-    var cat by remember { mutableStateOf<PlacesCatalog?>(null) }
-    LaunchedEffect(Unit) { cat = runCatching { vm.container.places.get() }.getOrNull() }
-    val c = cat
-    if (c == null) { Card2 { Row(verticalAlignment = Alignment.CenterVertically) { CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp); Spacer(Modifier.width(10.dp)); Sub("Cargando lugares de Colombia…") } }; return }
+fun rememberCatalogAndPlace(vm: AppViewModel): Pair<PlacesCatalog, HomePlace>? {
+    val c = rememberCatalog(vm)
+    LaunchedEffect(Unit) { vm.resolvePlace() }
+    val p = vm.place
+    return if (c != null && p != null) c to p else null
+}
 
-    // Dónde está la persona: GPS (sin guardar) o ciudad elegida (se guarda solo el nombre).
-    var lat by rememberSaveable { mutableDoubleStateOf(C.CALI_LAT) }
-    var lng by rememberSaveable { mutableDoubleStateOf(C.CALI_LNG) }
-    var where by rememberSaveable { mutableStateOf("") }
-    var fromGps by rememberSaveable { mutableStateOf(false) }
-    fun useTown(t: Town, save: Boolean) { lat = t.lat; lng = t.lng; where = t.label; fromGps = false; if (save) vm.container.prefs.exploreTown = t.label }
-    val askLocation = rememberLocationRequest(vm) { la, ln ->
-        lat = la; lng = ln; fromGps = true
-        where = c.nearestTown(la, ln)?.label ?: "tu ubicación"
-        vm.container.prefs.exploreTown = ""
-    }
-    LaunchedEffect(c) {
-        if (where.isNotEmpty()) return@LaunchedEffect
-        val saved = vm.container.prefs.exploreTown.takeIf { it.isNotBlank() }?.let { c.town(it) }
-        when {
-            saved != null -> useTown(saved, save = false)
-            vm.locationConsented && vm.container.location.hasPermission() -> {
-                val l = vm.container.location.last()
-                if (l != null) { lat = l.latitude; lng = l.longitude; fromGps = true; where = c.nearestTown(l.latitude, l.longitude)?.label ?: "tu ubicación" }
-                else c.town("Cali")?.let { useTown(it, save = false) }
+@Composable
+fun LoadingCard(text: String) {
+    Card2 { Row(verticalAlignment = Alignment.CenterVertically) { CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp); Spacer(Modifier.width(10.dp)); Sub(text) } }
+}
+
+/**
+ * "Dónde estás": la ciudad elegida (o la más cercana a la ubicación) con el botón para cambiarla. La comparten Inicio,
+ * Explorar y Comercios: si se cambia aquí, cambia en las tres.
+ */
+@Composable
+fun CityBar(vm: AppViewModel, c: PlacesCatalog, p: HomePlace, title: String? = null) {
+    var pick by remember { mutableStateOf(false) }
+    val askLocation = rememberLocationRequest(vm) { la, ln -> vm.pickGps(c, la, ln) }
+    Card2(padding = 12.dp) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(40.dp).clip(CircleShape).background(OrangeSoft), contentAlignment = Alignment.Center) {
+                Icon(if (p.gps) Icons.Filled.MyLocation else Icons.Filled.LocationOn, null, tint = OrangeDark)
             }
-            else -> { where = c.town("Cali")?.label ?: "Cali"; lat = C.CALI_LAT; lng = C.CALI_LNG }
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f)) {
+                Lbl(title ?: if (p.gps) "Estás cerca de" else "Estás en")
+                Text(p.label, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            TextButton({ pick = true }) { Text("Cambiar", color = CyanDeep, fontWeight = FontWeight.Bold) }
         }
     }
+    if (pick) CityPicker(c, onDismiss = { pick = false }, onGps = { pick = false; askLocation() }) { t -> pick = false; vm.pickTown(t) }
+}
 
-    var pickCity by remember { mutableStateOf(false) }
+@Composable
+fun ColumnScope.ExploreSection(vm: AppViewModel, nav: NavController, u: AppUser) {
+    val cp = rememberCatalogAndPlace(vm)
+    if (cp == null) { LoadingCard("Cargando lugares de Colombia…"); return }
+    val (c, p) = cp
+    val lat = p.lat; val lng = p.lng
+
     var openRide by remember { mutableStateOf<FamousRide?>(null) }
     var openPlace by remember { mutableStateOf<Near<Place>?>(null) }
     var allRides by remember { mutableStateOf(false) }
     var rodadaPreset by remember { mutableStateOf<RodadaPreset?>(null) }
 
     // ── Dónde estoy ──
-    Card2(padding = 12.dp) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(40.dp).clip(CircleShape).background(OrangeSoft), contentAlignment = Alignment.Center) {
-                Icon(if (fromGps) Icons.Filled.MyLocation else Icons.Filled.LocationCity, null, tint = OrangeDark)
-            }
-            Spacer(Modifier.width(10.dp))
-            Column(Modifier.weight(1f)) {
-                Lbl(if (fromGps) "Estás cerca de" else "Recomendaciones para")
-                Text(where.ifBlank { "…" }, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-            TextButton({ pickCity = true }) { Text("Cambiar", color = CyanDeep, fontWeight = FontWeight.Bold) }
-        }
-        if (!fromGps) Text("Usar mi ubicación", Modifier.clip(RoundedCornerShape(8.dp)).clickable { askLocation() }.padding(vertical = 4.dp, horizontal = 2.dp),
-            color = CyanDeep, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-    }
+    CityBar(vm, c, p, title = if (p.gps) "Explorando cerca de" else "Explorando desde")
 
     // ── Rodadas famosas cerca ──
     val rides = rememberInBackground(c, lat, lng, initial = emptyList<Near<FamousRide>>()) { c.ridesNear(lat, lng) }
@@ -165,18 +163,43 @@ fun ColumnScope.ExploreSection(vm: AppViewModel, nav: NavController, u: AppUser)
     }
 
     // ── Hojas ──
-    if (pickCity) CityPicker(c, onDismiss = { pickCity = false }, onGps = { pickCity = false; askLocation() }) { t -> pickCity = false; useTown(t, save = true) }
     openPlace?.let { n ->
         PlaceSheet(n, onDismiss = { openPlace = null },
             onGuide = { openPlace = null; vm.navSession = NavSession(n.item.name, listOf(NavStop(n.item.name, n.item.lat, n.item.lng))); nav.navigate("navigate") })
     }
-    openRide?.let { r ->
-        RideSheet(r, distanceKm(lat, lng, r.start.lat, r.start.lng), onDismiss = { openRide = null },
-            onGuide = { openRide = null; vm.navSession = NavSession(r.name, r.pts.map { NavStop(it.name, it.lat, it.lng) }); nav.navigate("navigate") },
-            onRodada = { openRide = null; rodadaPreset = RodadaPreset(r.name, r.start.name, r.name, r.pts.map { RodadaStop(it.name, it.lat, it.lng) }) })
-    }
+    openRide?.let { r -> RideSheetFor(vm, nav, r, lat, lng, onDismiss = { openRide = null }) { rodadaPreset = it } }
     if (allRides) AllRidesSheet(rides, onDismiss = { allRides = false }) { r -> allRides = false; openRide = r }
-    rodadaPreset?.let { p -> CreateRodadaSheet(vm, nav, u, onDismiss = { rodadaPreset = null }, preset = p) }
+    rodadaPreset?.let { pr -> CreateRodadaSheet(vm, nav, u, onDismiss = { rodadaPreset = null }, preset = pr) }
+}
+
+/** Hoja de una rodada famosa con sus acciones: guiarla o crear una rodada con esa ruta. */
+@Composable
+fun RideSheetFor(vm: AppViewModel, nav: NavController, r: FamousRide, lat: Double, lng: Double, onDismiss: () -> Unit, onRodada: (RodadaPreset) -> Unit) {
+    RideSheet(r, distanceKm(lat, lng, r.start.lat, r.start.lng), onDismiss = onDismiss,
+        onGuide = { onDismiss(); vm.navSession = NavSession(r.name, r.pts.map { NavStop(it.name, it.lat, it.lng) }); nav.navigate("navigate") },
+        onRodada = { onDismiss(); onRodada(RodadaPreset(r.name, r.start.name, r.name, r.pts.map { RodadaStop(it.name, it.lat, it.lng) })) })
+}
+
+/** Fila compacta de una rodada famosa (para listas verticales como la de Inicio). */
+@Composable
+fun RideRow(n: Near<FamousRide>, index: Int, onClick: () -> Unit) {
+    val r = n.item
+    val (lv, lc) = LEVEL[r.level] ?: ("" to Muted)
+    Card2(onClick = onClick, index = index, padding = 12.dp) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)).background(OrangeSoft), contentAlignment = Alignment.Center) {
+                Icon(Icons.Filled.Route, null, tint = OrangeDark)
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(r.name, fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Lbl(listOf("${r.km} km", fmtHours(r.hours), ROAD[r.road].orEmpty(), if (n.km < 15) "sale desde aquí" else "sale a ${fmtKm(n.km)}")
+                    .filter { it.isNotBlank() }.joinToString(" · "))
+            }
+            Spacer(Modifier.width(8.dp))
+            Pill(lv, lc.copy(alpha = 0.12f), lc)
+        }
+    }
 }
 
 @Composable
@@ -284,12 +307,12 @@ private fun AllRidesSheet(rides: List<Near<FamousRide>>, onDismiss: () -> Unit, 
 }
 
 @Composable
-private fun CityPicker(c: PlacesCatalog, onDismiss: () -> Unit, onGps: () -> Unit, onPick: (Town) -> Unit) {
+fun CityPicker(c: PlacesCatalog, onDismiss: () -> Unit, onGps: (() -> Unit)?, title: String = "¿Desde dónde vas a rodar?", onPick: (Town) -> Unit) {
     var q by remember { mutableStateOf("") }
     val list = rememberInBackground(c, q, initial = c.searchTowns(""), debounceMs = 120) { c.searchTowns(q) }
     Sheet(onDismiss) {
-        H("¿Desde dónde vas a rodar?", Icons.Filled.LocationCity)
-        Btn("Usar mi ubicación", Modifier.fillMaxWidth(), Icons.Filled.MyLocation, kind = BK.Ghost) { onGps() }
+        H(title, Icons.Filled.LocationCity)
+        if (onGps != null) Btn("Usar mi ubicación", Modifier.fillMaxWidth(), Icons.Filled.MyLocation, kind = BK.Ghost) { onGps() }
         Field("", q, { q = it.take(40) }, hint = "Escribe tu ciudad o municipio", leading = Icons.Filled.Search)
         AnimatedVisibility(list.isEmpty()) { Sub("No encontramos «$q».") }
         list.forEach { t ->
