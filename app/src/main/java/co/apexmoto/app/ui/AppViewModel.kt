@@ -133,7 +133,10 @@ class AppViewModel(val container: AppContainer) : ViewModel() {
         else toast("Activa la ubicación para compartirla con el grupo.")
     }
 
-    /** S.O.S. en el que el taller le muestra al rider dónde va (solo con la app abierta, ver MainScaffold). */
+    /** La persona avisó a su rodada de una emergencia (S.O.S.): su punto sale rojo en el mapa del grupo. */
+    var emergencyOn by mutableStateOf(false)
+
+    /** Asistencia técnica en la que el taller le muestra al rider dónde va (solo con la app abierta, ver MainScaffold). */
     var sharingSos by mutableStateOf<String?>(null); private set
 
     fun startSosSharing(id: String) {
@@ -146,6 +149,7 @@ class AppViewModel(val container: AppContainer) : ViewModel() {
     fun stopSharing(uid: String) {
         val rid = sharingRodada ?: return
         sharingRodada = null
+        emergencyOn = false
         viewModelScope.launch { repo.stopLive(rid, uid) }
     }
 

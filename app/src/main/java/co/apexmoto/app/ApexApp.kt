@@ -31,6 +31,10 @@ class Prefs(ctx: Context) {
     var aiCount: Int
         get() = sp.getInt("aiCount", 0)
         set(v) { sp.edit().putInt("aiCount", v).apply() }
+    /** Contactos de emergencia del S.O.S. (JSON). Solo en este teléfono: no se suben a Firestore. */
+    var emergencyContacts: String
+        get() = sp.getString("emergencyContacts", "[]").orEmpty()
+        set(v) { sp.edit().putString("emergencyContacts", v).apply() }
     var exploreTown: String
         get() = sp.getString("exploreTown", "").orEmpty()
         set(v) { sp.edit().putString("exploreTown", v).apply() }
