@@ -15,7 +15,7 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y 
 - **Comercios solo muestra comercios** (comida, café y talleres, más gasolineras) de la ciudad elegida y alrededores (40 km), del más cercano al más lejano, en lista y en el mapa. Se quitaron los corredores (Cali, Lago Calima, La Línea, Las Palmas, Chicamocha) y los sitios turísticos, que siguen en Explorar.
 - **Asistencia técnica deja de ser pestaña:** sale como botón naranja en el encabezado solo en ruta (guiado o rodada en curso) o mientras haya una asistencia abierta. El SOS también se ve dentro de Asistencia. Fuera de ruta, ambos se abren desde Mi perfil → "Emergencia y asistencia" (SOS con los contactos de emergencia, y Asistencia técnica para pedirla o calificar la última).
 - **Rentar** empieza en la ciudad de la persona; "Cambiar" muestra las ciudades del catálogo y sugiere otras ciudades con motos disponibles.
-- **Mi perfil:** la trayectoria (rutas y medallas) va primero, destacada.
+- **Mi perfil:** una sola tarjeta con el perfil (nombre, @usuario, rol, correo) y, debajo, su trayectoria (rutas y medallas).
 
 ### Agregado
 - **Intercom de voz en las rodadas (Agora):** en la pantalla de la rodada, "Entrar a la llamada" abre una llamada de voz con los miembros, como un intercomunicador. Dos modos: micrófono abierto (con silenciar) o pulsar para hablar. Muestra quién está conectado y quién habla, reduce el ruido del viento y del motor, suena por el intercom Bluetooth del casco o audífonos y sigue con la pantalla apagada (notificación fija con "Salir"). Mientras está abierta, una franja bajo el encabezado permite hablar o salir desde cualquier pantalla. Requiere `AGORA_APP_ID` en `local.properties`.

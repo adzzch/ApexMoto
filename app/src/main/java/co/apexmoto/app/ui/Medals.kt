@@ -58,13 +58,18 @@ private fun sinceText(ms: Long): String {
 
 /** Tarjeta de estadísticas y medallas. [sinceFallback]: fecha de creación de la cuenta si aún no hay estadísticas. */
 @Composable
-fun RiderStatsCard(stats: RiderStats?, sinceFallback: Long?, own: Boolean, featured: Boolean = false) {
+fun RiderStatsCard(stats: RiderStats?, sinceFallback: Long?, own: Boolean) {
+    Card2 { RiderStats(stats, sinceFallback, own) }
+}
+
+/** Contenido de la trayectoria (rutas, rango, medallas), para ponerlo dentro de otra tarjeta, como la del perfil propio. */
+@Composable
+fun ColumnScope.RiderStats(stats: RiderStats?, sinceFallback: Long?, own: Boolean) {
     val routes = stats?.routes ?: 0
     val since = stats?.since?.takeIf { it > 0 } ?: sinceFallback
     val current = medalOf(routes)
     val next = MEDALS.firstOrNull { routes < it.routes }
-    // Destacada (primera tarjeta del perfil propio): borde naranja.
-    Card2(border = if (featured) OrangeSoft else null, index = if (featured) 0 else -1) {
+    run {
         H("Trayectoria", Icons.Filled.EmojiEvents)
         // Los dos recuadros con la misma altura aunque la cifra de uno sea más corta.
         Row(Modifier.height(IntrinsicSize.Max), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
