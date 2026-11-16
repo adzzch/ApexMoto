@@ -167,7 +167,7 @@ fun NavigationScreen(vm: AppViewModel, nav: androidx.navigation.NavController) {
             val next = steps.getOrNull(idx + 1)?.start ?: stops.last()
             val dNext = pos?.let { haversine(it.latitude, it.longitude, next.latitude, next.longitude) }
             Card(Modifier.align(Alignment.TopCenter).padding(12.dp).fillMaxWidth(), shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = Ink), elevation = CardDefaults.cardElevation(8.dp)) {
-                Column(Modifier.padding(14.dp)) {
+                Column(Modifier.padding(Gap.card)) {
                     Text(if (arrived) "¡Llegaste a tu destino!" else steps.getOrNull(idx)?.text ?: "Sigue la ruta", color = androidx.compose.ui.graphics.Color.White, style = MaterialTheme.typography.titleLarge)
                     if (!arrived && dNext != null) Text("en ${fmtDist(dNext)}", color = NavAccent, fontFamily = JetBrainsMono, fontWeight = FontWeight.Bold)
                 }
@@ -176,7 +176,7 @@ fun NavigationScreen(vm: AppViewModel, nav: androidx.navigation.NavController) {
 
         // Panel inferior
         Card(Modifier.align(Alignment.BottomCenter).padding(12.dp).fillMaxWidth(), shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = androidx.compose.ui.graphics.Color.White), elevation = CardDefaults.cardElevation(8.dp)) {
-            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(Modifier.padding(Gap.card), verticalArrangement = Arrangement.spacedBy(Gap.inside)) {
                 Text(session.title, style = MaterialTheme.typography.titleMedium)
                 if (session.stops.size > 1) Sub(session.stops.joinToString(" → ") { it.name })
                 when {

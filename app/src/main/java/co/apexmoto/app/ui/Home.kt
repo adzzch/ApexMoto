@@ -59,7 +59,7 @@ fun ColumnScope.HomeSection(vm: AppViewModel, nav: NavController, u: AppUser, on
         val from = cp?.second?.let { co.apexmoto.app.maps.LatLng(it.lat, it.lng) } ?: ref
         requestAiRoute(vm, scope, cp?.first, from, venues, f, onStart = { busy = true; note = null }) { r, n, _ -> result = r; note = n; busy = false }
     }
-    Card2(padding = 18.dp) {
+    Card2 {
         Text("¿A dónde vamos?", fontFamily = Chivo, fontWeight = FontWeight.Black, fontSize = 26.sp, lineHeight = 30.sp)
         Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(Surf0).padding(start = 16.dp, end = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Filled.AutoAwesome, null, Modifier.size(20.dp), tint = Orange)
@@ -108,7 +108,7 @@ fun ColumnScope.HomeSection(vm: AppViewModel, nav: NavController, u: AppUser, on
         val rides = rememberInBackground(c, p.lat, p.lng, initial = emptyList<Near<FamousRide>>()) { c.ridesNear(p.lat, p.lng).take(3) }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.weight(1f)) { H("Rutas recomendadas", Icons.Filled.ThumbUp) }
-            TextButton({ onGo("exp") }) { Text("Ver más", color = CyanDeep, fontWeight = FontWeight.Bold, fontSize = 13.sp) }
+            TextButton({ onGo("exp") }, contentPadding = EdgeLink) { Text("Ver más", color = CyanDeep, fontWeight = FontWeight.Bold, fontSize = 13.sp) }
         }
         rides.forEachIndexed { i, n -> RideRow(n, i) { open = n.item } }
         open?.let { r -> RideSheetFor(vm, nav, r, p.lat, p.lng, onDismiss = { open = null }) { preset = it } }

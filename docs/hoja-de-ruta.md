@@ -17,7 +17,7 @@ En **todas** las fases se incluyen las reglas de Firestore con sus pruebas, la a
 
 ### Fase 0 · Dos ambientes y app lista para probar con amigos (en curso)
 
-- [x] Variantes `pruebas` y `prod`, cada una con su proyecto de Firebase. Datos demo solo en pruebas, con franja y botón para borrarlos.
+- [x] Variantes `pruebas` y `prod`, cada una con su proyecto de Firebase. Datos demo solo en pruebas, con botón para borrarlos.
 - [x] Rol "Guía de rutas" retirado: registro, pantallas, reglas, pruebas y textos legales. Las cuentas que lo tenían pasan solas a rider.
 - [x] Datos del responsable en los textos legales desde `legal.properties`, sin guardarlos en el repositorio.
 - [x] [Plan de pruebas](plan-de-pruebas.md) por rol.

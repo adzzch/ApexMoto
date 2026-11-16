@@ -119,13 +119,13 @@ private fun ColumnScope.BikesList(vm: AppViewModel, nav: NavController) {
         val busy = overlaps(b.booked, vm.rentFrom, vm.rentTo)
         Card2(Modifier.alpha(if (busy) 0.6f else 1f), index = i, padding = 0.dp, onClick = { nav.navigate("bike/${b.id}") }) {
             MediaHeader(bikeTint(b), Icons.Filled.TwoWheeler, 150.dp) {
-                if (b.instant) Box(Modifier.align(Alignment.TopStart).padding(10.dp)) { Pill("Instantánea", Color.White, OrangeDark, Icons.Filled.Bolt) }
-                Row(Modifier.align(Alignment.BottomEnd).padding(10.dp).glow(Orange, RoundedCornerShape(9.dp), elevation = 6.dp).clip(RoundedCornerShape(9.dp)).background(Orange).padding(horizontal = 10.dp, vertical = 5.dp),
+                if (b.instant) Box(Modifier.align(Alignment.TopStart).padding(Gap.card)) { Pill("Instantánea", Color.White, OrangeDark, Icons.Filled.Bolt) }
+                Row(Modifier.align(Alignment.BottomEnd).padding(Gap.card).glow(Orange, RoundedCornerShape(9.dp), elevation = 6.dp).clip(RoundedCornerShape(9.dp)).background(Orange).padding(horizontal = 10.dp, vertical = 5.dp),
                     verticalAlignment = Alignment.Bottom) {
                     Num(cop(b.pricePerDay), Color.White, 16); Text(" /día", color = Color.White.copy(alpha = 0.9f), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
-            Column(Modifier.padding(start = 14.dp, end = 14.dp, bottom = 14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Column(Modifier.padding(start = Gap.card, end = Gap.card, bottom = Gap.card), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(b.name, Modifier.weight(1f), style = MaterialTheme.typography.titleMedium.copy(fontSize = 17.sp, fontWeight = FontWeight.ExtraBold), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     if (b.reviews > 0) Stars(b.rating) else Pill("Nueva")
@@ -181,7 +181,7 @@ fun BikeDetailScreen(vm: AppViewModel, nav: NavController, u: AppUser, id: Strin
                     Row(verticalAlignment = Alignment.CenterVertically) { RatingLine(b.rating, b.reviews); Spacer(Modifier.width(10.dp)); Lbl(b.city) }
                 }
             }
-            Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Column(Modifier.padding(horizontal = Gap.screen, vertical = Gap.between), verticalArrangement = Arrangement.spacedBy(Gap.between)) {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Pill("${b.cc} cc"); Pill(b.category); b.specs.forEach { Pill(it) }
                 }
@@ -205,7 +205,7 @@ fun BikeDetailScreen(vm: AppViewModel, nav: NavController, u: AppUser, id: Strin
                         ReqLine(catOk, if (catOk) "Licencia $cat: tienes ${p.licenseCat}" else "Pide licencia $cat y la tuya es ${p.licenseCat}")
                         ReqLine(licenseValid, if (licenseValid) "Tu licencia está vigente hasta ${yearDate(p.licenseUntil)}" else "Tu licencia vence antes de devolver la moto (${yearDate(p.licenseUntil)})")
                         if (b.minYears > 0) ReqLine(yearsOk, "Pide ${b.minYears}+ años manejando: tienes ${yearsLabel(p.since)}")
-                        TextButton({ editProfile = true }) { Text("Editar mi perfil de conductor", color = CyanDeep) }
+                        TextButton({ editProfile = true }, contentPadding = EdgeLink) { Text("Editar mi perfil de conductor", color = CyanDeep) }
                         // Declaración del rider. No se pide foto ni número de la licencia: el dueño la verifica al entregar.
                         CheckRow(license, "Declaro que mi licencia de conducción categoría ${p.licenseCat} está vigente y que la presentaré al recibir la moto.") { license = it }
                     }

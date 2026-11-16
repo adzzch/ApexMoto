@@ -74,7 +74,7 @@ fun RoutesScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
             }
         }
         AnimatedContent(tab, label = "rutas", transitionSpec = { fadeIn(tween(240)) togetherWith fadeOut(tween(120)) }) { t ->
-            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(Gap.between)) {
                 when (t) {
                     "home" -> HomeSection(vm, nav, u) { tab = it }
                     "exp" -> ExploreSection(vm, nav, u)
@@ -287,11 +287,11 @@ fun AiRouteCard(vm: AppViewModel, nav: NavController, u: AppUser, r: RoutePlanRe
             if (r.inferred.isNotEmpty()) FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Lbl("Entendí:"); r.inferred.forEach { Pill(it, CyanSoft, CyanDeep) }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Stat("${r.km} km", "ida y vuelta", Modifier.weight(1f)); Stat("${r.mins / 60} h ${r.mins % 60} m", "tiempo total", Modifier.weight(1f))
+            Row(Modifier.height(IntrinsicSize.Max), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Stat("${r.km} km", "ida y vuelta", Modifier.weight(1f).fillMaxHeight()); Stat("${r.mins / 60} h ${r.mins % 60} m", "tiempo total", Modifier.weight(1f).fillMaxHeight())
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Stat(cop(r.fuelCost), "gasolina", Modifier.weight(1f), OrangeDark); Stat(cop(r.food), "comida p/p", Modifier.weight(1f), OrangeDark)
+            Row(Modifier.height(IntrinsicSize.Max), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Stat(cop(r.fuelCost), "gasolina", Modifier.weight(1f).fillMaxHeight(), OrangeDark); Stat(cop(r.food), "comida p/p", Modifier.weight(1f).fillMaxHeight(), OrangeDark)
             }
             Spacer(Modifier.height(4.dp))
             r.stops.forEachIndexed { i, s ->
@@ -360,8 +360,8 @@ private fun BudgetCalc() {
                 }
             }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Stat(cop(fuel), "gasolina", Modifier.weight(1f)); Stat(cop(food), "comida", Modifier.weight(1f))
+        Row(Modifier.height(IntrinsicSize.Max), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Stat(cop(fuel), "gasolina", Modifier.weight(1f).fillMaxHeight()); Stat(cop(food), "comida", Modifier.weight(1f).fillMaxHeight())
         }
         Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(OrangeSoft).padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
             Lbl("Total estimado", OrangeDark, Modifier.weight(1f)); Num(cop(animatedMoney(Math.round(total.toDouble()))), OrangeDark, 24)

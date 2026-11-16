@@ -107,22 +107,12 @@ fun tabsFor(role: String): List<NavTab> = when (role) {
         NavTab("grp", Icons.Filled.Groups, "Comunidad"), NavTab("rent", Icons.Filled.TwoWheeler, "Rentar"))
 }
 
+/**
+ * Raíz de la app. La versión de pruebas ya no lleva franja arriba (a pedido del usuario): se distingue por su nombre
+ * ("ApexMoto Pruebas"), su ícono cian y su paquete (co.apexmoto.dev).
+ */
 @Composable
-fun ApexRoot(vm: AppViewModel) {
-    // La versión de pruebas lleva una franja fija arriba, en todas las pantallas, para no confundirla con la app real.
-    if (BuildConfig.PRUEBAS) Column(Modifier.fillMaxSize().background(Color.White).statusBarsPadding()) {
-        PruebasStrip()
-        Box(Modifier.weight(1f).fillMaxWidth()) { RootContent(vm) }
-    } else RootContent(vm)
-}
-
-@Composable
-private fun PruebasStrip() {
-    Box(Modifier.fillMaxWidth().background(CyanDeep).padding(vertical = 4.dp), contentAlignment = Alignment.Center) {
-        Text("AMBIENTE DE PRUEBAS · DATOS DE EJEMPLO", color = Color.White, fontFamily = JetBrainsMono, fontWeight = FontWeight.SemiBold,
-            fontSize = 10.sp, letterSpacing = 0.6.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-    }
-}
+fun ApexRoot(vm: AppViewModel) = RootContent(vm)
 
 @Composable
 private fun RootContent(vm: AppViewModel) {
@@ -300,9 +290,10 @@ private fun ApexHeader(isTab: Boolean, section: String, greeting: Pair<String, S
                        onSos: (() -> Unit)?, onAssist: (() -> Unit)?, assistActive: Boolean) {
     Surface(color = Color.White) {
         Column(Modifier.statusBarsPadding()) {
-            Row(Modifier.fillMaxWidth().height(if (greeting != null) 72.dp else 60.dp).padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+            // Mismo margen que el contenido (16 dp): el saludo y el botón de perfil quedan alineados con las tarjetas.
+            Row(Modifier.fillMaxWidth().height(if (greeting != null) 76.dp else 60.dp)
+                .padding(start = if (isTab) Gap.screen else 4.dp, end = Gap.screen), verticalAlignment = Alignment.CenterVertically) {
                 if (isTab) {
-                    Spacer(Modifier.width(6.dp))
                     AnimatedContent(greeting to section, Modifier.weight(1f), label = "sec", transitionSpec = {
                         (fadeIn(tween(220)) + slideInVertically(tween(260)) { it / 3 }) togetherWith fadeOut(tween(120))
                     }) { (g, sec) ->
@@ -311,17 +302,16 @@ private fun ApexHeader(isTab: Boolean, section: String, greeting: Pair<String, S
                             Text(g.second, color = Muted, fontSize = 13.sp, lineHeight = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         } else Text(sec, fontFamily = Chivo, fontWeight = FontWeight.ExtraBold, fontSize = 22.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
-                    if (onAssist != null) { AssistHeaderButton(assistActive, onAssist); Spacer(Modifier.width(6.dp)) }
+                    if (onAssist != null) { AssistHeaderButton(assistActive, onAssist); Spacer(Modifier.width(8.dp)) }
                     if (onSos != null) { SosHeaderButton(onSos); Spacer(Modifier.width(8.dp)) }
                     Box(Modifier.size(40.dp).clip(CircleShape).background(Surf4).clickable(onClickLabel = "Perfil", onClick = onProfile), contentAlignment = Alignment.Center) {
                         Icon(Icons.Filled.Person, "Perfil", tint = CyanDeep)
                     }
-                    Spacer(Modifier.width(4.dp))
                 } else {
                     IconButton(onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Volver", tint = Ink) }
                     Text(section, Modifier.weight(1f), style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    if (onAssist != null) { AssistHeaderButton(assistActive, onAssist); Spacer(Modifier.width(6.dp)) }
-                    if (onSos != null) { SosHeaderButton(onSos); Spacer(Modifier.width(4.dp)) }
+                    if (onAssist != null) { AssistHeaderButton(assistActive, onAssist); Spacer(Modifier.width(8.dp)) }
+                    if (onSos != null) SosHeaderButton(onSos)
                 }
             }
             HorizontalDivider(color = Surf3)

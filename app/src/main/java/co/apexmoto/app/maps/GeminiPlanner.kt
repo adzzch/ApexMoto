@@ -98,23 +98,30 @@ object GeminiPlanner {
      * Arma la lista de candidatos. Recorre miles de lugares del catálogo, así que se llama siempre fuera del hilo de la
      * pantalla (ver [plan] y [localPlan]); en el hilo principal congelaba la app con pedidos largos.
      */
-    private fun candidates(text: String, originLat: Double, originLng: Double, catalog: PlacesCatalog?, venues: List<Venue>): Candidates {
+    private fun candidates(text: String, originLat: Double, originLng: Double, catalog: PlacesCatalog?, venues: List<Venue>, radiusKm: Int = 150): Candidates {
         // Candidatos: lugares del catálogo a menos de 150 km (los famosos primero) y comercios aliados abiertos.
-        val places = catalog?.placesNear(originLat, originLng, 150).orEmpty().take(45).map { n ->
+        val places = catalog?.placesNear(originLat, originLng, radiusKm).orEmpty().take(45).map { n ->
             Venue(id = n.item.id, name = n.item.name, types = listOf("tour"), kind = placeKind(n.item.kind), lat = n.item.lat, lng = n.item.lng,
                 km = n.km.roundToInt(), desc = n.item.desc, badge = if (n.item.famous) "Recomendado" else "")
         }
         val allies = venues.filter { it.open && it.lat != 0.0 }
             .map { it.copy(km = distanceKm(originLat, originLng, it.lat, it.lng).roundToInt()) }
-            .filter { it.km <= 150 }.sortedBy { it.km }.take(25)
+            .filter { it.km <= radiusKm }.sortedBy { it.km }.take(25)
         // Lugares que la persona nombra ("termina en el Lago Calima"): se buscan en todo el catálogo y se agregan aunque estén lejos.
         val named = catalog?.let { cat ->
             val stop = setOf("quiero", "quisiera", "luego", "despues", "pasar", "terminar", "termina", "llegar", "comer", "algo", "como", "para", "donde",
                 "desde", "hasta", "hacia", "rodada", "ruta", "final", "finalizar", "primero", "ir", "por", "una", "unos", "unas", "con", "que", "del", "los", "las",
                 "ganas", "ganoso", "tirarme", "comerme", "alguito", "norte", "sur", "oriente", "occidente", "centro", "bueno", "rico", "chevere")
             val words = co.apexmoto.app.core.norm(text).split(Regex("[^a-z0-9]+")).filter { it.length >= 3 && it !in stop }.take(12)
+            // Palabras de tipo de lugar o de comida: no son nombres. Buscarlas solas en todo el país traía "Mirador del Valle"
+            // a 300 km cuando la persona solo pidió "un mirador". Esas se resuelven con los candidatos cercanos.
+            val generic = setOf("mirador", "miradores", "cascada", "cascadas", "pueblo", "pueblos", "lago", "laguna", "rio", "playa", "playas",
+                "termales", "parque", "montana", "cerro", "iglesia", "museo", "trucha", "truchas", "almorzar", "almuerzo", "desayuno", "desayunar",
+                "cafe", "cafecito", "comida", "comer", "pescado", "carne", "asado", "parrilla", "postre", "helado", "paisaje", "vista", "naturaleza",
+                "curvas", "corta", "larga", "tranquila", "tranquilo", "barato", "barata", "cerca", "lejos", "manana", "tarde", "noche", "hoy", "domingo", "sabado")
             // Frases de 1 a 3 palabras seguidas: "lago calima", "km 18", "cristo rey". Como mucho 24 búsquedas.
-            val phrases = (3 downTo 1).flatMap { n -> words.windowed(n).map { it.joinToString(" ") } }.distinct().take(24)
+            val phrases = (3 downTo 1).flatMap { n -> words.windowed(n).map { it.joinToString(" ") } }.distinct()
+                .filter { ph -> ph.split(" ").any { it !in generic } }.take(24)
             phrases.flatMap { ph -> cat.search(ph, originLat, originLng, 3) }.distinctBy { it.item.id }.take(15).map { n ->
                 Venue(id = n.item.id, name = n.item.name, types = listOf("tour"), kind = placeKind(n.item.kind), lat = n.item.lat, lng = n.item.lng,
                     km = n.km.roundToInt(), desc = n.item.desc, badge = "Nombrado por la persona")
@@ -129,7 +136,7 @@ object GeminiPlanner {
      */
     suspend fun localPlan(text: String, f: RouteFilters, originLat: Double, originLng: Double, city: String,
                           catalog: PlacesCatalog?, venues: List<Venue>): RoutePlanResult? = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
-        val c = candidates(text, originLat, originLng, catalog, venues)
+        val c = candidates(text, originLat, originLng, catalog, venues, if (f.full) 150 else 80)
         val sights = (c.named.filter { it.km <= 200 } + c.places.filter { it.badge.isNotBlank() } + c.places).distinctBy { it.id }.take(2)
         val food = c.allies.firstOrNull { "food" in it.types || "cafe" in it.types }
         val stops = (sights + listOfNotNull(food)).sortedBy { it.km }
@@ -144,7 +151,7 @@ object GeminiPlanner {
         text: String, f: RouteFilters, originLat: Double, originLng: Double, city: String,
         catalog: PlacesCatalog?, venues: List<Venue>,
     ): Plan = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) {
-        val (named, places, allies) = candidates(text, originLat, originLng, catalog, venues).let { Triple(it.named, it.places, it.allies) }
+        val (named, places, allies) = candidates(text, originLat, originLng, catalog, venues, if (f.full) 150 else 80).let { Triple(it.named, it.places, it.allies) }
         val byId = (named + places + allies).associateBy { it.id }
         if (byId.isEmpty()) error("No hay lugares cerca para armar la ruta.")
 
@@ -165,6 +172,8 @@ object GeminiPlanner {
             if (f.cuisines.isNotEmpty()) add("Comida preferida: ${f.cuisines.joinToString()}")
             if (f.cats.isNotEmpty()) add("Tipo de parada: ${f.cats.joinToString { C.CATS[it]?.first ?: it }}")
             add("Presupuesto de comida por persona: ${f.budget} COP")
+            add(if (f.full) "Distancia: paradas a menos de 120 km de la salida, salvo un lugar que la persona nombre"
+                else "Distancia: paradas a menos de 60 km de la salida, salvo un lugar que la persona nombre")
         }
         val clean = AiGuard.cleanInput(text)
         AiGuard.checkInput(clean)?.let { throw AiGuard.OffTopic() }

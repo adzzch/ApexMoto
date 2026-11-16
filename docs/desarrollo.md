@@ -105,14 +105,14 @@ Copia `legal.properties.example` a `legal.properties` en la raíz y llena cada v
 ## 3. Ejecutar
 
 1. Sincroniza Gradle (**Sync Now**).
-2. En **Build Variants** elige `pruebasDebug` (la de siempre) o `prodDebug`, y ejecuta `app`. Las dos se pueden tener instaladas a la vez: la de pruebas se llama "ApexMoto Pruebas", tiene el ícono cian y una franja "Ambiente de pruebas · datos de ejemplo" arriba en todas las pantallas.
+2. En **Build Variants** elige `pruebasDebug` (la de siempre) o `prodDebug`, y ejecuta `app`. Las dos se pueden tener instaladas a la vez: la de pruebas se llama "ApexMoto Pruebas" y tiene el ícono cian (ya no lleva franja arriba).
 3. **Datos demo** (solo en pruebas y siendo administrador): Perfil → Datos demo → **Cargar**, **Reiniciar** o **Borrar**. Se cargan comercios, motos y rodadas del prototipo; borrarlos no toca lo que crearon los usuarios.
 4. Los datos demo no tienen cuenta propietaria: pedidos y solicitudes hacia ellos quedan en "Enviado/Pendiente". Para probar el flujo completo crea una cuenta Comercio (o Taller) y otra Rider, en dos dispositivos o cerrando sesión entre una y otra.
 
 ### 3.1 Para una presentación
 
 1. Abre ApexMoto Pruebas con tu cuenta de administrador y toca **Cargar datos demo** (o **Reiniciar**, si ya estaban).
-2. Presenta. La franja deja claro que son datos de ejemplo.
+2. Presenta. Aclara al presentar que son datos de ejemplo.
 3. Si quieres dejar el ambiente limpio, toca **Borrar datos demo** al terminar.
 
 ### 3.2 Entregar la app a otras personas (prueba cerrada)

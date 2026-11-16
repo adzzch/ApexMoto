@@ -148,7 +148,7 @@ fun VenuesScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
     BackHandler(asMap) { asMap = false }   // el botón Atrás del teléfono vuelve a la lista
 
     Column(Modifier.fillMaxSize()) {
-        Column(Modifier.padding(top = 14.dp, bottom = 4.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(Modifier.padding(top = Gap.screen, bottom = 4.dp), verticalArrangement = Arrangement.spacedBy(Gap.between)) {
             Box(Modifier.padding(horizontal = 16.dp)) {
                 if (catalog != null && place != null) CityBar(vm, catalog, place, title = "Comercios en") else LoadingCard("Buscando tu ciudad…")
             }
@@ -192,7 +192,7 @@ fun VenuesScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
                     }
                 }
             } else {
-                Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).wrapContentWidth().widthIn(max = 640.dp).padding(horizontal = 16.dp, vertical = 10.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).wrapContentWidth().widthIn(max = 640.dp).padding(horizontal = Gap.screen, vertical = Gap.between), verticalArrangement = Arrangement.spacedBy(Gap.between)) {
                     if (active.isNotEmpty()) Card2(tone = Surf1, border = OrangeSoft) {
                         IconLine(Icons.Filled.ReceiptLong, "Pedidos activos")
                         active.forEach { o ->
@@ -211,7 +211,7 @@ fun VenuesScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
                         val canOrder = v.menu.any { it.on && it.cat != "Servicios" } && v.ownerId.isNotBlank()
                         Card2(index = i, padding = 0.dp, onClick = { detail = v }) {
                             MediaHeader(venueTint(v), venueIcon(v), 116.dp) {
-                                Column(Modifier.align(Alignment.BottomStart).fillMaxWidth(0.76f).padding(start = 14.dp, bottom = 10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Column(Modifier.align(Alignment.BottomStart).fillMaxWidth(0.76f).padding(start = Gap.card, bottom = 10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                                         Pill(v.badge, venueBadge(v), Color.White)
                                         if (!v.open) Pill("Cerrado", RedSoft, Red)
@@ -219,9 +219,9 @@ fun VenuesScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
                                     Text(v.name, style = MaterialTheme.typography.titleMedium.copy(fontSize = 17.sp, fontWeight = FontWeight.ExtraBold), maxLines = 1, overflow = TextOverflow.Ellipsis)
                                     Lbl("${v.kind} · ${fmtKmShort(distOf[v.id] ?: 0.0)}", CyanDeep)
                                 }
-                                Box(Modifier.align(Alignment.BottomEnd).padding(end = 14.dp, bottom = 12.dp)) { if (v.reviews > 0) Stars(v.rating) else Pill("Nuevo", CyanSoft, CyanDeep) }
+                                Box(Modifier.align(Alignment.BottomEnd).padding(end = Gap.card, bottom = 12.dp)) { if (v.reviews > 0) Stars(v.rating) else Pill("Nuevo", CyanSoft, CyanDeep) }
                             }
-                            Column(Modifier.padding(start = 14.dp, end = 14.dp, bottom = 14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Column(Modifier.padding(start = Gap.card, end = Gap.card, bottom = Gap.card), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                                 if (v.promo.isNotBlank()) IconLine(Icons.Filled.LocalOffer, v.promo)
                                 if (canOrder) IconLine(Icons.Filled.RestaurantMenu, if (v.open) "Pide desde la app y te lo tienen listo al llegar" else "Recibe pedidos cuando abra", Green)
                                 else if ("food" in v.types || "cafe" in v.types) IconLine(Icons.Filled.Info, noOrderReason(v), Muted, bold = false)
@@ -307,7 +307,7 @@ fun MenuScreen(vm: AppViewModel, nav: NavController, u: AppUser, venueId: String
                     if (v.promo.isNotBlank()) IconLine(Icons.Filled.LocalOffer, v.promo)
                 }
             }
-            Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(Modifier.padding(horizontal = Gap.screen, vertical = Gap.between), verticalArrangement = Arrangement.spacedBy(Gap.between)) {
                 var n = 0
                 C.MENU_CATS.forEach { cat ->
                     val xs = items.filter { it.cat == cat }

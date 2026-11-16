@@ -154,7 +154,7 @@ fun WorkshopSosScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
     Screen {
         Segmented(listOf(Triple("new", "Nuevos · ${news.size}", null), Triple("act", "En curso · ${active.size}", null), Triple("his", "Historial", null)), tab) { tab = it }
         AnimatedContent(tab, label = "tsos", transitionSpec = { fadeIn(tween(220)) togetherWith fadeOut(tween(120)) }) { t ->
-            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(Gap.between)) {
                 when (t) {
                     "new" -> {
                         if (!v.sosOn) Card2(tone = Surf1, border = RedSoft) {

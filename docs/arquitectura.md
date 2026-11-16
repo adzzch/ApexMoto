@@ -60,7 +60,7 @@ Ruta base: `app/src/main/java/co/apexmoto/app/`
 
 Variantes de compilación:
 
-- **Ambiente** (`productFlavors`): `pruebas` (paquete `co.apexmoto.dev`, `BuildConfig.PRUEBAS = true`) y `prod` (`co.apexmoto.prd`). El `namespace` (paquete del código, `R` y `BuildConfig`) sigue siendo `co.apexmoto.app`. Cada uno lee su `google-services.json` de `src/pruebas/` o `src/prod/`. Con `PRUEBAS` se muestran las herramientas de datos demo, el diagnóstico de la clave de rutas y la franja "Ambiente de pruebas" (`ApexRoot`). `src/pruebas/res/` cambia el nombre y el color del ícono.
+- **Ambiente** (`productFlavors`): `pruebas` (paquete `co.apexmoto.dev`, `BuildConfig.PRUEBAS = true`) y `prod` (`co.apexmoto.prd`). El `namespace` (paquete del código, `R` y `BuildConfig`) sigue siendo `co.apexmoto.app`. Cada uno lee su `google-services.json` de `src/pruebas/` o `src/prod/`. Con `PRUEBAS` se muestran las herramientas de datos demo y el diagnóstico de la clave de rutas (la franja "Ambiente de pruebas" se quitó el 16-nov-2026). `src/pruebas/res/` cambia el nombre y el color del ícono.
 - **Tipo** (`buildTypes`): `src/debug/` y `src/release/` aportan cada uno su `AppCheckInstaller` (token de depuración en debug, Play Integrity en release).
 - **Textos legales:** se escriben en `src/main/legal/` y la tarea `fill<Variante>LegalTexts` los copia a los assets con los datos de `legal.properties` (ver [desarrollo.md](desarrollo.md) §6).
 
