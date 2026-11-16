@@ -12,7 +12,14 @@ object C {
      * Modelo de Gemini para la Ruta IA (Firebase AI Logic, API para desarrolladores de Gemini). Si Google lo retira,
      * cámbialo aquí por el modelo "flash" vigente (consola de Firebase → AI Logic → modelos disponibles).
      */
-    const val GEMINI_MODEL = "gemini-3.5-flash"
+    const val GEMINI_MODEL = "gemini-3.5-flash-lite"
+    /**
+     * Modelos a los que se pasa si el principal falla o se satura ("high demand"), en orden. El 16-nov-2026 los "flash"
+     * grandes tardaban más de 45 s o respondían 500 por demanda; los "lite" contestaban en ~2 s con el mismo formato.
+     */
+    val GEMINI_FALLBACKS = listOf("gemini-flash-lite-latest")
+    /** Espera máxima por modelo antes de pasar al siguiente (o al respaldo local). */
+    const val GEMINI_TIMEOUT_MS = 20_000L
 
     // Coordenadas aproximadas del centro de cada corredor (ajústalas a tus puntos reales).
     val CORRIDORS = listOf(

@@ -259,9 +259,11 @@ internal fun requestAiRoute(vm: AppViewModel, scope: kotlinx.coroutines.Coroutin
                 if (e is AiGuard.OffTopic) { vm.toast(AiGuard.ONLY_ROUTES); onDone(null, null, false); return@launch }
                 // Sin IA (sin conexión, AI Logic sin activar o sin cupo): se arma con el planificador local.
                 android.util.Log.w("RutaIA", "Gemini falló", e)
-                vm.toast("La IA no está disponible ahora; te armé la ruta con los comercios aliados." +
-                    if (co.apexmoto.app.BuildConfig.PRUEBAS) " (${e.javaClass.simpleName}: ${e.message?.take(160)})" else "")
-                onDone(RoutePlanner.generate(venues, f), null, true)
+                vm.toast("La IA no respondió a tiempo; te armé una ruta cerca de ${city.substringBefore(",")} con lugares recomendados." +
+                    if (co.apexmoto.app.BuildConfig.PRUEBAS) " (${e.javaClass.simpleName}: ${e.message?.take(120)})" else "")
+                // Respaldo desde la misma ciudad (no desde los corredores del Valle); si no hay nada cerca, el planificador de siempre.
+                val local = runCatching { GeminiPlanner.localPlan(text, f, ref.latitude, ref.longitude, city, catalog, venues) }.getOrNull()
+                onDone(local ?: RoutePlanner.generate(venues, f), null, true)
             }
     }
 }

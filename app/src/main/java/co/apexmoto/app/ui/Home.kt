@@ -76,7 +76,10 @@ fun ColumnScope.HomeSection(vm: AppViewModel, nav: NavController, u: AppUser, on
                 else Icon(Icons.AutoMirrored.Filled.Send, "Armar ruta", tint = Color.White, modifier = Modifier.size(20.dp))
             }
         }
-        Text("Escríbelo como se lo dirías a un amigo: la IA te arma la ruta con lugares reales. No escribas datos personales.",
+        if (busy) Row(verticalAlignment = Alignment.CenterVertically) {
+            CircularProgressIndicator(Modifier.size(14.dp), color = Orange, strokeWidth = 2.dp); Spacer(Modifier.width(8.dp))
+            Text("Armando tu ruta con lugares reales…", color = OrangeDark, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+        } else Text("Escríbelo como se lo dirías a un amigo: la IA te arma la ruta con lugares reales. No escribas datos personales.",
             color = Muted, fontSize = 11.sp, lineHeight = 15.sp)
         HorizontalDivider(color = Surf3)
         // Explorar: la otra forma de elegir, en su propia vista.
