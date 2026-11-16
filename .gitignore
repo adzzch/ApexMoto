@@ -30,3 +30,6 @@ google-services.json
 
 # Notas internas del propietario (no se publican)
 /HANDOFF.md
+
+# Caché de Python (tools/)
+__pycache__/

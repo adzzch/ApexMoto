@@ -90,6 +90,10 @@ fun ProfileScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
                 Btn("Mis amigos", Modifier.fillMaxWidth(), Icons.Filled.People, kind = BK.Ghost) { vm.communityTab = "amigos"; nav.navigate("grp") }
             }
         }
+        if (u.role == Role.RIDER) {
+            val stats by remember(u.id) { vm.repo.riderStats(u.id) }.collectAsState(initial = null)
+            RiderStatsCard(stats, vm.repo.auth.currentUser?.metadata?.creationTimestamp, own = true)
+        }
         if (u.role == Role.RIDER) RiderProfileCard(vm, u)
         if (orders.isNotEmpty()) {
             H("Mis pedidos")

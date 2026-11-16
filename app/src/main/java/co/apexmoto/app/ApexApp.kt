@@ -20,6 +20,20 @@ class Prefs(ctx: Context) {
     var voice: Boolean
         get() = sp.getBoolean("voice", true)
         set(v) { sp.edit().putBoolean("voice", v).apply() }
+    /** Ciudad elegida a mano en Explorar (solo el nombre, nunca la ubicación GPS). Vacío = sin elegir. */
+    /** Límite de la Ruta IA en este teléfono: última consulta, día y cuántas van ese día. */
+    var aiLastAt: Long
+        get() = sp.getLong("aiLastAt", 0L)
+        set(v) { sp.edit().putLong("aiLastAt", v).apply() }
+    var aiDay: String
+        get() = sp.getString("aiDay", "").orEmpty()
+        set(v) { sp.edit().putString("aiDay", v).apply() }
+    var aiCount: Int
+        get() = sp.getInt("aiCount", 0)
+        set(v) { sp.edit().putInt("aiCount", v).apply() }
+    var exploreTown: String
+        get() = sp.getString("exploreTown", "").orEmpty()
+        set(v) { sp.edit().putString("exploreTown", v).apply() }
 }
 
 /** Contenedor de dependencias (inyección manual, sin Hilt, para mantener el proyecto simple). */
@@ -31,6 +45,7 @@ class AppContainer(ctx: Context) {
     val prefs = Prefs(ctx)
     val google = GoogleSignIn()
     val phone = PhoneAuth(repo.auth)
+    val places = co.apexmoto.app.data.PlacesLoader(ctx.applicationContext)
 }
 
 class ApexApp : Application() {

@@ -64,6 +64,19 @@ En cada proyecto:
   Hay una plantilla en `local.properties.example`. `local.properties` **nunca se sube**. En la versión de pruebas, la pantalla Configuración indica si la clave quedó cargada.
 - El plan gratuito tiene un límite diario de peticiones; si se agota, la app muestra un aviso.
 
+### 2.3.1 Ruta IA con Gemini (Firebase AI Logic, gratis)
+
+La Ruta IA usa Gemini a través de **Firebase AI Logic**, así que no hay ninguna clave de Gemini dentro de la app. En **cada** proyecto (ApexMoto-dev y ApexMoto-prd):
+
+1. Consola de Firebase → menú **AI Logic** (en "Compilación" / "Build") → **Comenzar**.
+2. Elige **API para desarrolladores de Gemini** (Gemini Developer API), que funciona con el plan gratuito Spark. **No** elijas Vertex AI: exige el plan Blaze.
+3. Acepta habilitar las APIs que pide. No hace falta volver a descargar `google-services.json`.
+
+El modelo está en `core/Constants.kt` (`C.GEMINI_MODEL`, hoy `gemini-3.5-flash`). Si Google lo retira, cámbialo por el modelo "flash" vigente; en noviembre de 2026 `gemini-2.5-flash` ya no se daba a usuarios nuevos y `gemini-3.8-flash` tardaba ~55 s por respuesta. En la app de pruebas, el aviso de error muestra el motivo técnico.
+
+**App Check:** mientras se prueba con APK instalados a mano, App Check **no** debe estar "Aplicado" para Firebase AI Logic (consola → App Check → APIs), o Gemini responde "App Check token is invalid". Para que funcione solo con abrir la app y con App Check obligatorio, hay que distribuir por Google Play (prueba interna o cerrada) con Play Integrity: ver `docs/seguridad.md`. Si la IA no responde (sin activar, sin conexión o sin cupo), la app arma la ruta con el planificador local y lo avisa.
+Cuando se active App Check con aplicación obligatoria (ver `docs/seguridad.md`), actívalo también para AI Logic.
+
 ### 2.4 Datos del responsable (solo para la versión real)
 
 Copia `legal.properties.example` a `legal.properties` en la raíz y llena cada valor (fecha, responsable, documento, dirección, correos y teléfono). Ese archivo **no se sube** al repositorio: los datos personales del responsable solo viven en tu computador y en la app compilada. Sin él la variante `prod` no compila (ver el punto 6).
@@ -138,4 +151,6 @@ Cambiar un texto tiene un procedimiento (archivar la versión, subir `Legal.DOCS
 | Las rutas no se calculan | `ORS_API_KEY` ausente o límite diario agotado |
 | Google Sign-In no abre el selector | Faltan huellas SHA en ese proyecto o `google-services.json` desactualizado; el emulador no tiene Google Play |
 | `npm test` no encuentra Java | Pon un JDK 21+ en el PATH (por ejemplo, la carpeta `jbr` de Android Studio) y verifica `java -version` |
+| La Ruta IA dice que la IA no está disponible | Falta activar Firebase AI Logic (Gemini Developer API) en ese proyecto (punto 2.3.1), no hay conexión o se agotó el cupo gratuito del día |
+| Explorar no muestra lugares de una zona | El catálogo `assets/places/colombia.json` se genera con `tools/places/` (ver su README); vuelve a generarlo |
 | No aparecen las herramientas de datos demo | Solo existen en la variante `pruebas`, y hay que ser administrador para usarlas |

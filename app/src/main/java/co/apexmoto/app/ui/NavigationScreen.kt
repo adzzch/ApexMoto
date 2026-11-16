@@ -139,6 +139,8 @@ fun NavigationScreen(vm: AppViewModel, nav: androidx.navigation.NavController) {
             if (haversine(here.latitude, here.longitude, dest.latitude, dest.longitude) < 40) {
                 arrived = true; guiding = false
                 if (vm.voice) tts?.speak("Llegaste a tu destino", TextToSpeech.QUEUE_FLUSH, null, "arrived")
+                // Cuenta para las medallas del perfil solo si la ruta tenía al menos 2 km.
+                if (p.distanceM >= 2000) vm.routeCompleted()
                 return@collect
             }
             if (reached < stops.size - 1 && haversine(here.latitude, here.longitude, stops[reached].latitude, stops[reached].longitude) < 60) {

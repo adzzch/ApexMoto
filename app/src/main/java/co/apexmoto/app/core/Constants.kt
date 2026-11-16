@@ -8,6 +8,12 @@ object C {
     const val CALI_LAT = 3.4516
     const val CALI_LNG = -76.5320
 
+    /**
+     * Modelo de Gemini para la Ruta IA (Firebase AI Logic, API para desarrolladores de Gemini). Si Google lo retira,
+     * cámbialo aquí por el modelo "flash" vigente (consola de Firebase → AI Logic → modelos disponibles).
+     */
+    const val GEMINI_MODEL = "gemini-3.5-flash"
+
     // Coordenadas aproximadas del centro de cada corredor (ajústalas a tus puntos reales).
     val CORRIDORS = listOf(
         Corridor("cali", "Cali", 3.4516, -76.5320),

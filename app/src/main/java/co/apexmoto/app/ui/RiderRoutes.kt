@@ -2,6 +2,9 @@
 
 package co.apexmoto.app.ui
 
+import kotlinx.coroutines.launch
+import co.apexmoto.app.maps.GeminiPlanner
+import co.apexmoto.app.maps.AiGuard
 import androidx.compose.animation.SizeTransform
 import co.apexmoto.app.core.norm
 import androidx.compose.animation.AnimatedContent
@@ -50,11 +53,14 @@ import kotlin.math.roundToInt
 
 @Composable
 fun RoutesScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
-    var tab by rememberSaveable { mutableStateOf("ia") }
+    var tab by rememberSaveable { mutableStateOf("exp") }
     Screen {
-        Segmented(listOf(Triple("ia", "Ruta IA", Icons.Filled.AutoAwesome), Triple("bud", "Presupuesto", Icons.Filled.Calculate)), tab) { tab = it }
+        Segmented(listOf(Triple("exp", "Explorar", Icons.Filled.Explore), Triple("ia", "Ruta IA", Icons.Filled.AutoAwesome),
+            Triple("bud", "Presupuesto", Icons.Filled.Calculate)), tab) { tab = it }
         AnimatedContent(tab, label = "rutas", transitionSpec = { fadeIn(tween(240)) togetherWith fadeOut(tween(120)) }) { t ->
-            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) { if (t == "ia") RouteAI(vm, nav, u) else BudgetCalc() }
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                when (t) { "exp" -> ExploreSection(vm, nav, u); "ia" -> RouteAI(vm, nav, u); else -> BudgetCalc() }
+            }
         }
     }
 }
@@ -71,7 +77,12 @@ private fun ColumnScope.RouteAI(vm: AppViewModel, nav: NavController, u: AppUser
     var big by rememberSaveable { mutableStateOf(true) }
     var open by rememberSaveable { mutableStateOf(false) }
     var mode by rememberSaveable { mutableStateOf("ia") }           // ia = Sorpréndeme · dest = yo elijo destino
-    var dests by rememberSaveable { mutableStateOf(listOf<String>()) }
+    var dests by remember { mutableStateOf(listOf<PickedStop>()) }
+    var aiBusy by remember { mutableStateOf(false) }
+    var aiNote by remember { mutableStateOf<GeminiPlanner.Plan?>(null) }
+    val scope = rememberCoroutineScope()
+    val ref = rememberRefPoint(vm)
+    val catalog = rememberCatalog(vm)
     var extras by rememberSaveable { mutableIntStateOf(1) }
     var picking by remember { mutableStateOf(false) }
     var budget by remember { mutableFloatStateOf(60000f) }
@@ -83,11 +94,11 @@ private fun ColumnScope.RouteAI(vm: AppViewModel, nav: NavController, u: AppUser
 
     Card2 {
         H("¿Qué ruta quieres hacer?", Icons.Filled.AutoAwesome)
-        Segmented(listOf(Triple("ia", "Sorpréndeme", Icons.Filled.AutoAwesome), Triple("dest", "Yo elijo destino", Icons.Filled.Place)), mode) { mode = it; result = null; tried = false }
+        Segmented(listOf(Triple("ia", "Sorpréndeme", Icons.Filled.AutoAwesome), Triple("dest", "Yo elijo destino", Icons.Filled.Place)), mode) { mode = it; result = null; tried = false; aiNote = null }
         AnimatedContent(mode, label = "modo", transitionSpec = { fadeIn(tween(220)) togetherWith fadeOut(tween(120)) using SizeTransform(clip = false) }) { md ->
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 if (md == "ia") {
-                    Field("", text, { text = it }, lines = 3, hint = "Ej: trucha con vista al lago, parqueo vigilado y económico")
+                    Field("", text, { text = it.take(AiGuard.MAX_INPUT) }, lines = 3, hint = "Ej: primero al Km 18, luego almorzar y terminar en el Lago Calima")
                     Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { open = !open }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Filled.Tune, null, Modifier.size(18.dp), tint = Muted); Spacer(Modifier.width(8.dp))
                         Lbl("Personalizar", modifier = Modifier.weight(1f))
@@ -116,24 +127,56 @@ private fun ColumnScope.RouteAI(vm: AppViewModel, nav: NavController, u: AppUser
                             ApexSlider(budget, { budget = it }, 20000f..120000f, steps = 9)
                         }
                     }
-                    Btn("Generar ruta", Modifier.fillMaxWidth(), Icons.Filled.AutoAwesome) {
-                        tried = true
-                        result = RoutePlanner.generate(venues, RouteFilters(text, cor, start, full, pace, big, cuisines, cats, budget.roundToLong()))
-                    }
-                } else {
-                    Lbl("¿A dónde quieres ir?")
-                    val picked = dests.mapNotNull { id -> venues.firstOrNull { it.id == id } }
-                    if (picked.isEmpty()) Text("Elige uno o varios lugares: un mirador, un sitio turístico, un restaurante… La IA arma el recorrido.",
-                        color = Muted, style = MaterialTheme.typography.bodySmall)
-                    picked.forEachIndexed { i, v ->
-                        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Surf0).padding(start = 12.dp, top = 6.dp, bottom = 6.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Box(Modifier.size(32.dp).clip(CircleShape).background(venueBadge(v)), contentAlignment = Alignment.Center) { Num("${i + 1}", Color.White, 13) }
-                            Spacer(Modifier.width(10.dp))
-                            Column(Modifier.weight(1f)) { Text(v.name, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis); Lbl("${C.corridor(v.corridor).name} · ${v.kind}") }
-                            IconButton({ dests = dests - v.id }) { Icon(Icons.Filled.Close, "Quitar ${v.name}", tint = Muted) }
+                    Btn("Generar ruta con IA", Modifier.fillMaxWidth(), Icons.Filled.AutoAwesome, loading = aiBusy) {
+                        val f = RouteFilters(text, cor, start, full, pace, big, cuisines, cats, budget.roundToLong())
+                        val prefs = vm.container.prefs
+                        val today = java.time.LocalDate.now().toString()
+                        // Fuera de tema o con trucos: ni se envía a Gemini.
+                        AiGuard.checkInput(AiGuard.cleanInput(text))?.let { msg -> vm.toast(msg); result = null; aiNote = null; return@Btn }
+                        val (ok, why) = AiGuard.allow(prefs.aiLastAt, prefs.aiDay, prefs.aiCount, today)
+                        if (!ok) { vm.toast(why ?: AiGuard.ONLY_ROUTES); return@Btn }
+                        prefs.aiLastAt = System.currentTimeMillis()
+                        prefs.aiCount = (if (prefs.aiDay == today) prefs.aiCount else 0) + 1; prefs.aiDay = today
+                        aiBusy = true; aiNote = null
+                        scope.launch {
+                            val city = catalog?.nearestTown(ref.latitude, ref.longitude)?.label ?: "Cali"
+                            runCatching { GeminiPlanner.plan(text, f, ref.latitude, ref.longitude, city, catalog, venues) }
+                                .onSuccess { result = it.result; aiNote = it }
+                                .onFailure { e ->
+                                    if (e is AiGuard.OffTopic) { result = null; vm.toast(AiGuard.ONLY_ROUTES); tried = false; aiBusy = false; return@launch }
+                                    // Sin IA (sin conexión, AI Logic sin activar o sin cupo): se arma con el planificador local.
+                                    android.util.Log.w("RutaIA", "Gemini falló", e)
+                                    result = RoutePlanner.generate(venues, f)
+                                    vm.toast("La IA no está disponible ahora; te armé la ruta con los comercios aliados." +
+                                        if (co.apexmoto.app.BuildConfig.PRUEBAS) " (${e.javaClass.simpleName}: ${e.message?.take(160)})" else "")
+                                }
+                            tried = true; aiBusy = false
                         }
                     }
-                    Btn(if (picked.isEmpty()) "Elegir destino" else "Agregar otro destino", Modifier.fillMaxWidth(), Icons.Filled.AddLocationAlt, kind = BK.Ghost) { picking = true }
+                    Text("Usa Gemini de Google: lo que escribas y la ciudad aproximada se envían para armar la ruta. No escribas datos personales.",
+                        color = Muted, fontSize = 11.sp, lineHeight = 15.sp)
+                } else {
+                    Lbl("¿A dónde quieres ir?")
+                    // Destinos elegidos: lugares (miradores, pueblos…) y, aparte, restaurantes aliados.
+                    val picked = dests.map { d ->
+                        venues.firstOrNull { it.id == d.venueId }?.takeIf { d.food }
+                            ?.copy(km = co.apexmoto.app.data.distanceKm(ref.latitude, ref.longitude, d.lat, d.lng).roundToInt())
+                            ?: Venue(id = d.id, name = d.name, types = listOf("tour"), kind = d.subtitle.substringBefore(" · "), lat = d.lat, lng = d.lng,
+                                km = co.apexmoto.app.data.distanceKm(ref.latitude, ref.longitude, d.lat, d.lng).roundToInt())
+                    }
+                    if (dests.isEmpty()) Text("Elige a dónde quieres ir: un mirador, un pueblo, una cascada… y si quieres, restaurantes aliados para parar.",
+                        color = Muted, style = MaterialTheme.typography.bodySmall)
+                    dests.forEachIndexed { i, d ->
+                        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Surf0).padding(start = 12.dp, top = 6.dp, bottom = 6.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Box(Modifier.size(32.dp).clip(CircleShape).background(if (d.food) Orange else CyanDeep), contentAlignment = Alignment.Center) {
+                                if (d.food) Icon(Icons.Filled.Restaurant, null, Modifier.size(16.dp), tint = Color.White) else Num("${i + 1}", Color.White, 13)
+                            }
+                            Spacer(Modifier.width(10.dp))
+                            Column(Modifier.weight(1f)) { Text(d.name, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis); Lbl(d.subtitle) }
+                            IconButton({ dests = dests - d }) { Icon(Icons.Filled.Close, "Quitar ${d.name}", tint = Muted) }
+                        }
+                    }
+                    Btn(if (dests.isEmpty()) "Elegir destino" else "Agregar o cambiar paradas", Modifier.fillMaxWidth(), Icons.Filled.AddLocationAlt, kind = BK.Ghost) { picking = true }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Field("Hora de salida", start, { start = it }, Modifier.weight(1f), hint = "07:00")
                         Drop("Ritmo", listOf("t" to "Tranquilo", "m" to "Medio", "r" to "Rápido"), pace, { pace = it }, Modifier.weight(1f))
@@ -155,7 +198,7 @@ private fun ColumnScope.RouteAI(vm: AppViewModel, nav: NavController, u: AppUser
         }
     }
 
-    if (picking) DestinationPicker(venues, dests, onDone = { dests = it; picking = false })
+    if (picking) StopPickerSheet(vm, dests, title = "¿A dónde quieres ir?") { dests = it; picking = false }
 
     val r = result
     if (r != null) {
@@ -164,6 +207,11 @@ private fun ColumnScope.RouteAI(vm: AppViewModel, nav: NavController, u: AppUser
         Card2(Modifier.reveal(0), border = OrangeSoft) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) { H(title, Icons.Filled.Route); Lbl("Salida $start · regreso aprox. ${r.end}") }
+            }
+            aiNote?.let { a ->
+                if (a.summary.isNotBlank()) Text(a.summary, style = MaterialTheme.typography.bodyMedium)
+                a.tips.forEach { t -> IconLine(Icons.Filled.TipsAndUpdates, t, CyanDeep, bold = false) }
+                Lbl("Ruta armada con Gemini. Revisa el estado de la vía antes de salir.")
             }
             if (r.inferred.isNotEmpty()) FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Lbl("Entendí:"); r.inferred.forEach { Pill(it, CyanSoft, CyanDeep) }
@@ -202,7 +250,7 @@ private fun ColumnScope.RouteAI(vm: AppViewModel, nav: NavController, u: AppUser
             }
         }
     } else if (tried) Empty(if (mode == "dest") "Elige al menos un destino para armar la ruta." else "No encontré paradas con esos filtros. Prueba otra zona o quita algún filtro.", Icons.Filled.SearchOff)
-    else Text("Te armamos la ruta con comercios aliados según lo que escribas y tus filtros.", color = Muted, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+    else Text("Escribe qué se te antoja y la IA te arma la ruta con lugares reales y comercios aliados cerca de ti.", color = Muted, style = MaterialTheme.typography.bodySmall, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
 
     if (saved.isNotEmpty()) {
         H("Mis rutas guardadas", Icons.Filled.Bookmark)
@@ -222,51 +270,6 @@ private fun ColumnScope.RouteAI(vm: AppViewModel, nav: NavController, u: AppUser
     }
 }
 
-
-/** Buscador de destinos agrupado por zona. Se pueden marcar varios; el orden de selección se conserva. */
-@Composable
-private fun DestinationPicker(venues: List<Venue>, initial: List<String>, onDone: (List<String>) -> Unit) {
-    var sel by remember { mutableStateOf(initial) }
-    var q by remember { mutableStateOf("") }
-    var cat by remember { mutableStateOf("all") }
-    val nq = norm(q.trim())
-    val shown = venues.filter { v ->
-        (cat == "all" || cat in v.types) && (nq.isEmpty() || norm(v.name + " " + v.kind + " " + v.tags.joinToString(" ")).contains(nq))
-    }
-    Sheet({ onDone(sel) }) {
-        H("¿A dónde quieres ir?", Icons.Filled.Place)
-        Field("", q, { q = it }, hint = "Busca: Cristo Rey, trucha, mirador…", leading = Icons.Filled.Search)
-        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Chip("Todos", cat == "all", accent = Cyan) { cat = "all" }
-            C.CATS.forEach { (k, v) -> Chip(v.first, cat == k, accent = Cyan) { cat = k } }
-        }
-        if (shown.isEmpty()) Empty("No encontramos lugares con esa búsqueda.", Icons.Filled.SearchOff)
-        C.CORRIDORS.forEach { c ->
-            val xs = shown.filter { it.corridor == c.key }.sortedBy { it.km }
-            if (xs.isNotEmpty()) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(corridorIcon(c.key), null, Modifier.size(16.dp), tint = OrangeDark); Spacer(Modifier.width(6.dp)); Lbl(c.name, OrangeDark)
-                }
-                xs.forEach { v ->
-                    val on = v.id in sel
-                    val n = sel.indexOf(v.id) + 1
-                    Row(
-                        Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(if (on) CyanSoft.copy(alpha = 0.15f) else Surf0)
-                            .clickable { sel = if (on) sel - v.id else sel + v.id }.padding(horizontal = 12.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Box(Modifier.size(36.dp).clip(CircleShape).background(venueTint(v)), contentAlignment = Alignment.Center) { Icon(venueIcon(v), null, Modifier.size(18.dp), tint = venueBadge(v)) }
-                        Spacer(Modifier.width(10.dp))
-                        Column(Modifier.weight(1f)) { Text(v.name, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis); Lbl("${v.kind} · Km ${v.km}") }
-                        if (on) Box(Modifier.size(28.dp).clip(CircleShape).background(CyanDeep), contentAlignment = Alignment.Center) { Num("$n", Color.White, 13) }
-                        else Icon(Icons.Filled.AddCircleOutline, "Agregar ${v.name}", tint = Outline)
-                    }
-                }
-            }
-        }
-        Btn(if (sel.isEmpty()) "Cerrar" else "Listo · ${sel.size} destino${if (sel.size == 1) "" else "s"}", Modifier.fillMaxWidth(), Icons.Filled.Check) { onDone(sel) }
-    }
-}
 
 private fun Float.roundToLong() = this.toDouble().let { Math.round(it) }
 

@@ -89,6 +89,7 @@ dependencies {
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.auth)
     implementation(libs.firebase.firestore)
+    implementation(libs.firebase.ai)                                // Gemini con Firebase AI Logic (Ruta IA), sin clave en la app
     implementation(libs.firebase.installations)                     // identificador de instalación para el registro de aceptaciones
     releaseImplementation(libs.firebase.appcheck.playintegrity)     // App Check real (Play Integrity)
     debugImplementation(libs.firebase.appcheck.debug)               // App Check con token de depuración

@@ -33,7 +33,9 @@ Solo pedimos los datos necesarios para cada función.
 - Mensajes de chat con el aliado de cada servicio.
 - **Perfil público**, si lo creas para usar Amigos: tu @usuario, el nombre que elijas mostrar y tu avatar (una silueta de moto y un color; no hay fotos).
 - **Amigos:** las solicitudes que envías y recibes, tus amistades y las personas que bloqueas.
-- **Rodadas:** las que creas o en las que participas (nombre, fecha, punto de encuentro, ruta y miembros), las invitaciones y solicitudes para unirte, y si eres líder o cierras el grupo.
+- **Rodadas:** las que creas o en las que participas (nombre, fecha, punto de encuentro, ruta y miembros), las invitaciones y solicitudes para unirte, el código de invitación que usaste para entrar, y si eres líder o cierras el grupo.
+- **Trayectoria:** desde cuándo usas la aplicación y cuántas rutas has completado con el guiado. Con eso se muestran tus medallas, y la pueden ver los demás usuarios en tu perfil.
+- **Ruta IA:** lo que escribes para pedir una ruta y tus filtros (hora, ritmo, comida, presupuesto). Ver la sección 6.
 - **Estado para tus amigos:** si estás en línea o en una rodada, y la hora de tu última actividad en la aplicación. Puedes apagarlo en tu perfil.
 
 **Comercio aliado y taller mecánico**
@@ -58,6 +60,8 @@ En esta versión no pedimos ni guardamos fotos de documentos, selfis de verifica
 - **S.O.S.:** si tocas "Usar mi ubicación", guardamos el punto donde estás en ese momento. Lo ven los talleres aliados mientras tu S.O.S. busca taller, y después solo el taller que lo aceptó. Si vas en una moto rentada, también lo ve el dueño de esa moto. Las coordenadas se borran cuando el S.O.S. termina o se cancela.
 - **Negocios:** el comercio o taller puede fijar la ubicación de su local con el GPS.
 - **Mapa de comercios:** tu ubicación se usa en tu teléfono para mostrarte en el mapa. No se guarda.
+- **Explorar y recomendaciones:** con tu ubicación calculamos, en tu teléfono, en qué ciudad estás para recomendarte lugares, rodadas y puntos de encuentro cercanos. No se envía ni se guarda; si prefieres, eliges la ciudad a mano y solo guardamos ese nombre en tu teléfono.
+- **Ruta IA:** para armar la ruta enviamos a Gemini la ciudad aproximada desde la que sales (no tu posición exacta).
 - **Mapa del grupo:** si lo activas en una rodada en curso, tu posición (y si tienes un S.O.S. abierto) la ven solo los miembros de esa rodada, como mucho cada 12 segundos. Se borra al dejar de compartir, salir de la rodada o terminarla.
 - **Taller en camino:** si eres taller y lo activas al ir hacia un S.O.S., tu posición la ve solo ese rider. Se borra al llegar, terminar o liberar el S.O.S.
 - No usamos la ubicación en segundo plano ni compartimos tu posición en tiempo real con otros usuarios, salvo en el mapa del grupo o, si eres taller, con el rider que vas a atender, y solo cuando tú lo activas.
@@ -83,7 +87,7 @@ No usamos tus datos para publicidad de terceros ni los vendemos. Si queremos env
 
 - **Con la otra parte de cada servicio:** el comercio ve tu nombre y tu pedido; el dueño de la moto ve tu nombre, los datos de la solicitud, tu perfil de conductor (el contacto de emergencia, mientras la renta está activa), las actas y, si pides un S.O.S. mientras tienes su moto, ese S.O.S.; el taller ve tu nombre, el tipo de emergencia y el lugar. Tú ves el nombre público del aliado. El dueño de la moto usa esos datos solo para esa renta.
 - **Con otros usuarios:** tu perfil público (nombre, @usuario y avatar) lo puede ver cualquier usuario con sesión iniciada que busque tu @usuario exacto; no publicamos listados de personas. Tu estado solo lo ven tus amigos. Tus reseñas, con tu nombre, las ven todos los usuarios, salvo las que un dueño hace de un rider: esas las ven solo los dueños de moto y ese rider. Nadie ve tu correo ni tu celular.
-- **Con proveedores que tratan datos por encargo nuestro:** Google (Firebase Authentication y Cloud Firestore) para las cuentas y la base de datos; OpenRouteService (HeiGIT gGmbH, Alemania) para calcular rutas; los servidores de mapas de OpenStreetMap y OpenTopoMap, que reciben tu dirección IP y las zonas del mapa que consultas.
+- **Con proveedores que tratan datos por encargo nuestro:** Google (Firebase Authentication y Cloud Firestore) para las cuentas y la base de datos; Google (Gemini, a través de Firebase AI Logic) para la Ruta IA: recibe lo que escribes para pedir la ruta, tus filtros, la ciudad aproximada de salida y una lista de lugares y comercios cercanos, pero no tu nombre, tu correo ni tu ubicación exacta. Mientras usemos el plan gratuito de Gemini, Google puede usar ese contenido para mejorar sus productos, por eso no escribas datos personales en ese campo; OpenRouteService (HeiGIT gGmbH, Alemania) para calcular rutas; los servidores de mapas de OpenStreetMap y OpenTopoMap, que reciben tu dirección IP y las zonas del mapa que consultas.
 - **Con autoridades**, cuando lo exija una norma o una orden.
 - **Con un consumidor que lo pida para reclamar**, entregamos los datos de identificación del oferente con el que contrató, como lo exige la ley.
 
@@ -96,6 +100,8 @@ Los servidores de Google y de los proveedores de mapas y rutas pueden estar fuer
 - **Datos de la cuenta y del perfil:** mientras la cuenta exista. Al eliminarla se borran de inmediato.
 - **Coordenadas de un S.O.S.:** hasta que el S.O.S. termina o se cancela.
 - **Rutas guardadas:** hasta que las borres o elimines la cuenta.
+- **Trayectoria (rutas completadas y fecha de inicio):** hasta que elimines la cuenta.
+- **Texto de la Ruta IA:** no lo guardamos. Google lo procesa para responder según sus condiciones del servicio de Gemini.
 - **Perfil público, amistades, solicitudes y bloqueos:** hasta que los borres o elimines la cuenta.
 - **Estado para tus amigos:** se reemplaza en cada actividad y se borra al apagarlo o al eliminar la cuenta.
 - **Ubicación en el mapa del grupo:** hasta que dejas de compartir, sales de la rodada o la rodada termina.

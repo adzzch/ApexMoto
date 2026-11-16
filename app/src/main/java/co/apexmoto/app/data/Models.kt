@@ -112,7 +112,25 @@ data class Rodada(
     var leaderId: String = "", var sweeperId: String = "",
     var status: String = "planned", var startedAt: Date? = null, var endedAt: Date? = null,
     var routeName: String = "", var stops: List<RodadaStop> = emptyList(),
+    /** Fecha y hora de salida (milisegundos). 0 en las rodadas creadas antes de tener calendario: se usa whenLabel. */
+    var startsAt: Long = 0,
+    /** Punto de encuentro elegido de la lista (bomba, supermercado, centro comercial, peaje…). 0,0 = sin coordenada. */
+    var meetLat: Double = 0.0, var meetLng: Double = 0.0,
+    /** Código para invitar por enlace (rodada_codes/{código}). Solo lo ven los miembros. */
+    var inviteCode: String = "",
 )
+
+/** Código de invitación de una rodada: quien lo tiene puede ver lo básico y unirse, aunque la rodada sea privada. */
+data class RodadaCode(
+    @DocumentId var id: String = "", var rodadaId: String = "", var creatorId: String = "", var name: String = "",
+    var whenLabel: String = "", var meet: String = "",
+)
+
+/**
+ * Estadísticas públicas de un rider (rider_stats/{uid}): desde cuándo usa la app y cuántas rutas ha completado con el
+ * guiado. De ahí salen las medallas.
+ */
+data class RiderStats(@DocumentId var id: String = "", var since: Long = 0, var routes: Int = 0, @ServerTimestamp var lastAt: Date? = null)
 
 /** Posición en vivo de un miembro en una rodada activa (rodadas/{id}/live/{uid}). Se borra al dejar de compartir. */
 data class LivePos(

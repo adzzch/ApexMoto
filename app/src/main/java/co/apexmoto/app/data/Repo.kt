@@ -223,6 +223,7 @@ class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth, private val consen
         }
         runCatching { col("providers").document(u.id).delete().await() }
         runCatching { col("rider_profiles").document(u.id).delete().await() }
+        runCatching { col("rider_stats").document(u.id).delete().await() }
         runCatching { deleteSocial(u.id) }
         col("users").document(u.id).delete().await()
         fu.delete().await()
@@ -246,6 +247,7 @@ class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth, private val consen
         col("rodadas").whereEqualTo("creatorId", uid).get().await().documents.forEach { d ->
             runCatching {
                 d.reference.collection("live").get().await().documents.forEach { it.reference.delete().await() }
+                d.getString("inviteCode")?.takeIf { it.isNotBlank() }?.let { col("rodada_codes").document(it).delete().await() }
                 d.reference.delete().await()
             }
         }
@@ -253,6 +255,7 @@ class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth, private val consen
             .forEach { runCatching { leaveRodada(it, uid) } }
         col("rodadas").whereArrayContains("pending", uid).get().await().toObjects(Rodada::class.java).forEach { runCatching { cancelJoinRequest(it, uid) } }
         col("rodadas").whereArrayContains("invited", uid).get().await().toObjects(Rodada::class.java).forEach { runCatching { declineInvite(it, uid) } }
+        col("link_joins").whereEqualTo("uid", uid).get().await().documents.forEach { runCatching { it.reference.delete().await() } }
         // Reseñas: llevan el nombre de la persona, así que se borran (el promedio del comercio no cambia).
         col("reviews").whereEqualTo("authorId", uid).get().await().documents.forEach { runCatching { it.reference.delete().await() } }
     }
@@ -490,11 +493,51 @@ class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth, private val consen
 
     fun rodada(id: String) = col("rodadas").document(id).liveDoc<Rodada>()
 
+    /** Crea la rodada y, en el mismo lote, su código de invitación (para compartirla por enlace). */
     suspend fun createRodada(r: Rodada): String {
         val ref = col("rodadas").document()
-        ref.set(r.copy(joined = listOf(r.creatorId), pending = emptyList(), invited = emptyList(), lastInvited = "", leaderId = r.creatorId,
-            sweeperId = "", status = "planned", startedAt = null, endedAt = null)).await()
+        val code = newInviteCode()
+        val b = db.batch()
+        b.set(ref, r.copy(joined = listOf(r.creatorId), pending = emptyList(), invited = emptyList(), lastInvited = "", leaderId = r.creatorId,
+            sweeperId = "", status = "planned", startedAt = null, endedAt = null, inviteCode = code))
+        b.set(col("rodada_codes").document(code), mapOf("rodadaId" to ref.id, "creatorId" to r.creatorId, "name" to r.name.take(80),
+            "whenLabel" to r.whenLabel.take(40), "meet" to r.meet.take(160)))
+        b.commit().await()
         return ref.id
+    }
+
+    /** Rodadas viejas sin código: el creador le crea uno la primera vez que la comparte. */
+    suspend fun ensureInviteCode(r: Rodada): String {
+        if (r.inviteCode.isNotBlank()) return r.inviteCode
+        val code = newInviteCode()
+        val b = db.batch()
+        b.update(col("rodadas").document(r.id), mapOf("inviteCode" to code))
+        b.set(col("rodada_codes").document(code), mapOf("rodadaId" to r.id, "creatorId" to r.creatorId, "name" to r.name.take(80),
+            "whenLabel" to r.whenLabel.take(40), "meet" to r.meet.take(160)))
+        b.commit().await()
+        return code
+    }
+
+    /** Invitación por código: lo básico de la rodada, o null si el código no existe. */
+    suspend fun inviteByCode(code: String): RodadaCode? {
+        val c = code.trim().uppercase().filter { it.isLetterOrDigit() }
+        if (c.length != 8) return null
+        return col("rodada_codes").document(c).get().await().toObject(RodadaCode::class.java)
+    }
+
+    /** Unirse con el código: la prueba (link_joins) y la entrada a la rodada van en el mismo lote. */
+    suspend fun joinByCode(c: RodadaCode, uid: String) {
+        val b = db.batch()
+        b.set(col("link_joins").document("${c.rodadaId}_$uid"), mapOf("uid" to uid, "rodadaId" to c.rodadaId, "code" to c.id))
+        b.update(col("rodadas").document(c.rodadaId), mapOf("joined" to FieldValue.arrayUnion(uid), "pending" to FieldValue.arrayRemove(uid),
+            "invited" to FieldValue.arrayRemove(uid)))
+        b.commit().await()
+    }
+
+    private fun newInviteCode(): String {
+        val abc = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"   // sin 0/O ni 1/I, para dictarlo sin confusiones
+        val rnd = java.security.SecureRandom()
+        return (1..8).map { abc[rnd.nextInt(abc.length)] }.joinToString("")
     }
 
     private suspend fun rod(id: String, m: Map<String, Any>) { col("rodadas").document(id).update(m).await() }
@@ -547,7 +590,30 @@ class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth, private val consen
         live.take(450).forEach { b.delete(it.reference) }
         b.commit().await()
     }
-    suspend fun deleteRodada(r: Rodada) { col("rodadas").document(r.id).delete().await() }
+    suspend fun deleteRodada(r: Rodada) {
+        val b = db.batch()
+        b.delete(col("rodadas").document(r.id))
+        if (r.inviteCode.isNotBlank()) b.delete(col("rodada_codes").document(r.inviteCode))
+        b.commit().await()
+    }
+
+    // ───────── Estadísticas del rider (perfil y medallas) ─────────
+    fun riderStats(uid: String) = col("rider_stats").document(uid).liveDoc<RiderStats>()
+
+    /**
+     * Suma una ruta completada con el guiado. La primera vez crea las estadísticas con la fecha en que se creó la cuenta.
+     * Las reglas solo dejan sumar de a una y una cada 20 minutos; si no se puede, no pasa nada.
+     */
+    suspend fun addCompletedRoute(uid: String) {
+        val ref = col("rider_stats").document(uid)
+        val snap = ref.get().await()
+        if (!snap.exists()) {
+            val since = auth.currentUser?.metadata?.creationTimestamp?.takeIf { it > 1_700_000_000_000L } ?: System.currentTimeMillis()
+            ref.set(mapOf("since" to since, "routes" to 1, "lastAt" to FieldValue.serverTimestamp())).await()
+        } else {
+            ref.update(mapOf("routes" to FieldValue.increment(1), "lastAt" to FieldValue.serverTimestamp())).await()
+        }
+    }
 
     // Mapa del grupo
     fun livePositions(rodadaId: String) = col("rodadas").document(rodadaId).collection("live").live<LivePos>()

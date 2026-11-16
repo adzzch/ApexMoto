@@ -246,6 +246,7 @@ fun MainScaffold(vm: AppViewModel, u: AppUser) {
             composable("legal") { LegalCenterScreen(vm, u) }
             composable("navigate") { NavigationScreen(vm, nav) }
             composable("rodada/{id}") { b -> RodadaScreen(vm, nav, u, b.arguments?.getString("id").orEmpty()) }
+            composable("rider/{id}") { b -> RiderPublicScreen(vm, nav, u, b.arguments?.getString("id").orEmpty()) }
             composable("menu/{id}") { b -> MenuScreen(vm, nav, u, b.arguments?.getString("id").orEmpty()) }
             composable("bike/{id}") { b -> BikeDetailScreen(vm, nav, u, b.arguments?.getString("id").orEmpty()) }
             composable(
@@ -322,6 +323,7 @@ private fun titleFor(route: String?) = when {
     route.startsWith("menu") -> "Menú"
     route.startsWith("bike") -> "Moto"
     route.startsWith("rodada") -> "Rodada"
+    route.startsWith("rider/") -> "Perfil de rider"
     route.startsWith("chat") -> "Chat"
     route == "navigate" -> "Guiado"
     route == "profile" -> "Mi perfil"

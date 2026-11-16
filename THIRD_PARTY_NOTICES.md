@@ -46,6 +46,7 @@ La OFL 1.1 permite incluirlas en una aplicación; no pueden venderse por separad
 | Servicio | Atribución obligatoria | Condiciones |
 |---|---|---|
 | OpenStreetMap (teselas y datos) | © colaboradores de OpenStreetMap | ODbL; <https://www.openstreetmap.org/copyright> y política de uso de teselas |
+| OpenStreetMap (catálogo de lugares en `app/src/main/assets/places/colombia.json`) | © colaboradores de OpenStreetMap; se muestra en Rutas → Explorar | ODbL. El catálogo es una base de datos derivada (lugares de OSM + lista curada de ApexMoto): esa base de datos, no el código de la app, queda bajo ODbL y debe poder entregarse a quien la pida. Se genera con `tools/places/` |
 | OpenTopoMap | © OpenTopoMap (CC-BY-SA), datos OSM y SRTM | <https://opentopomap.org> |
 | OpenRouteService | © openrouteservice.org by HeiGIT, datos OSM | Plan gratuito; límites diarios y términos de uso |
 | Firebase (Authentication, Firestore) | — | Plan Spark; términos de Google |
