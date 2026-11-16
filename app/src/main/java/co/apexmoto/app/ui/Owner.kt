@@ -109,6 +109,10 @@ fun OwnerFleetScreen(vm: AppViewModel, u: AppUser) {
                     Field("Tope por daños (COP)", cap, { cap = it.filter(Char::isDigit).take(9) }, Modifier.weight(1f), KeyboardType.Number)
                 }
                 Lbl("El depósito se devuelve al recibir la moto sin daños nuevos. El tope es lo máximo que el rider paga por daños (vacío: sin tope, responde según la ley). Es un acuerdo entre ustedes, no un seguro.")
+                Missing(buildList {
+                    if (name.isBlank()) add("el modelo"); if ((price.toLongOrNull() ?: 0) <= 0) add("el precio por día")
+                    if (soat.isBlank()) add("la fecha del SOAT"); if (rtm.isBlank()) add("la fecha de la revisión")
+                })
             } },
             confirmButton = { Btn("Guardar", enabled = name.isNotBlank() && (price.toLongOrNull() ?: 0) > 0 && soat.isNotBlank() && rtm.isNotBlank()) {
                 edit = null

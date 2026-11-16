@@ -50,11 +50,16 @@ android {
             applicationId = "co.apexmoto.dev"   // así quedó registrada en el proyecto de pruebas (ApexMoto-dev)
             versionNameSuffix = "-pruebas"
             buildConfigField("boolean", "PRUEBAS", "true")
+            // Enlaces de invitación (Firebase Hosting del proyecto de pruebas). Ver hosting/ y docs/desarrollo.md §2.5.
+            buildConfigField("String", "INVITE_HOST", "\"apexmotoxz.web.app\"")
+            manifestPlaceholders["inviteHost"] = "apexmotoxz.web.app"
         }
         create("prod") {
             dimension = "ambiente"
             applicationId = "co.apexmoto.prd"   // así quedó registrada en el proyecto productivo (ApexMoto-prd)
             buildConfigField("boolean", "PRUEBAS", "false")
+            buildConfigField("String", "INVITE_HOST", "\"apexmoto-prd.web.app\"")
+            manifestPlaceholders["inviteHost"] = "apexmoto-prd.web.app"
         }
     }
     buildFeatures { compose = true; buildConfig = true }

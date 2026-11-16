@@ -78,6 +78,10 @@ fun RiderProfileSheet(vm: AppViewModel, u: AppUser, current: RiderProfile?, onDi
         Sub("A quién avisar si te pasa algo con la moto. Pídele permiso antes de ponerlo. El dueño lo ve en tu solicitud y se borra de ella cuando la renta termina o se cancela.")
         Field("Nombre", eName, { eName = it.take(60) })
         Field("Celular", ePhone, { ePhone = it.filter { c -> c.isDigit() || c == '+' || c == ' ' }.take(20) }, kb = KeyboardType.Phone)
+        Missing(buildList {
+            if (until.isBlank()) add("la fecha de vencimiento de tu licencia") else if (until < today()) add("una licencia vigente")
+            if (!sinceOk) add("desde qué año manejas")
+        })
         Btn("Guardar", Modifier.fillMaxWidth(), Icons.Filled.Check, enabled = valid) {
             vm.act("Perfil de conductor guardado") {
                 vm.repo.saveRiderProfile(u.id, RiderProfile(licenseCat = cat, licenseUntil = until, since = sinceN ?: 0,
@@ -278,6 +282,12 @@ fun ActaSheet(vm: AppViewModel, r: ServiceRequest, kind: String, onDismiss: () -
             if (overCap) Lbl("No puede pasar del tope pactado (${cop(r.damageCap)}).", Red)
             if (amt > 0 && damages.isBlank()) Lbl("Describe los daños que vas a cobrar.", Red)
         }
+        Missing(buildList {
+            if (entrega && !license) add("confirmar que viste la licencia")
+            if (km.isBlank()) add("el kilometraje")
+            if (amt > 0 && damages.isBlank()) add("describir los daños")
+            if (overCap) add("un valor dentro del tope")
+        })
         Btn("Enviar para que ${r.fromName} la confirme", Modifier.fillMaxWidth(), Icons.AutoMirrored.Filled.Send, enabled = valid) {
             vm.act("Acta enviada. Falta que ${r.fromName} la confirme.") {
                 vm.repo.createActa(Acta(reqId = r.id, kind = kind, ownerId = r.toId, riderId = r.fromId, bikeId = r.itemId, bikeName = r.itemName,

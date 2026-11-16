@@ -171,6 +171,7 @@ fun WorkshopSosScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
                                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     listOf(15, 30, 45, 60, 90).forEach { m -> Chip(if (m < 60) "$m min" else "${m / 60} h${if (m % 60 > 0) " ${m % 60}" else ""}", eta == m, accent = Cyan) { eta = m } }
                                 }
+                                if (active.isNotEmpty()) Lbl("Termina o libera el S.O.S. que estás atendiendo para aceptar otro.", Muted)
                                 Btn("Aceptar · llego en $eta min", Modifier.fillMaxWidth(), Icons.Filled.Check, enabled = active.isEmpty()) {
                                     vm.act("S.O.S. aceptado. El rider ya sabe que vas en camino") { vm.repo.acceptSos(s.id, u.id, v.name, eta, v.id) }
                                     tab = "act"
@@ -295,6 +296,7 @@ fun WorkshopServicesScreen(vm: AppViewModel, u: AppUser) {
             Field("Servicio", name, { name = it }, hint = "Ej: Cambio de aceite")
             Field("Detalle o duración (opcional)", desc, { desc = it }, hint = "Ej: 30 min, incluye filtro")
             Field("Precio (COP)", price, { price = it.filter(Char::isDigit) }, kb = KeyboardType.Number, hint = "45000")
+            Missing(buildList { if (name.isBlank()) add("el nombre del servicio"); if ((price.toLongOrNull() ?: 0) <= 0) add("el precio") })
             Btn("Guardar", Modifier.fillMaxWidth(), Icons.Filled.Check, enabled = name.isNotBlank() && (price.toLongOrNull() ?: 0) > 0) {
                 val nm = m.copy(name = name, desc = desc, price = price.toLong(), cat = "Servicios")
                 val list = if (shop.menu.any { it.id == m.id }) shop.menu.map { if (it.id == m.id) nm else it } else shop.menu + nm

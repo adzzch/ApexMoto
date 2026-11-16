@@ -77,6 +77,25 @@ El modelo está en `core/Constants.kt` (`C.GEMINI_MODEL`, hoy `gemini-3.5-flash`
 **App Check:** mientras se prueba con APK instalados a mano, App Check **no** debe estar "Aplicado" para Firebase AI Logic (consola → App Check → APIs), o Gemini responde "App Check token is invalid". Para que funcione solo con abrir la app y con App Check obligatorio, hay que distribuir por Google Play (prueba interna o cerrada) con Play Integrity: ver `docs/seguridad.md`. Si la IA no responde (sin activar, sin conexión o sin cupo), la app arma la ruta con el planificador local y lo avisa.
 Cuando se active App Check con aplicación obligatoria (ver `docs/seguridad.md`), actívalo también para AI Logic.
 
+### 2.5 Enlaces de invitación a rodadas (Firebase Hosting, gratis)
+
+Al compartir una rodada se envía un enlace `https://<proyecto>.web.app/r/<CÓDIGO>`. Con un toque abre la invitación en la app; si la app no está, muestra una página con el código. La página y el archivo que verifica los enlaces están en `hosting/public/` (`r.html`, `index.html`, `.well-known/assetlinks.json`); la configuración, en `firebase.json`.
+
+Una sola vez, en el computador (necesita Node.js):
+
+```bash
+npm install -g firebase-tools
+firebase login                                    # abre el navegador con tu cuenta de Google
+firebase deploy --only hosting --project apexmotoxz      # pruebas → https://apexmotoxz.web.app
+firebase deploy --only hosting --project apexmoto-prd    # real   → https://apexmoto-prd.web.app
+```
+
+Si la consola pide activar Hosting, entra a Firebase → **Hosting → Comenzar** en ese proyecto y repite el `deploy`.
+
+- `assetlinks.json` tiene la huella SHA-256 del certificado de depuración de este PC: los APK compilados aquí abren el enlace directo en la app. **Al firmar para Google Play**, agrega la huella de la firma de Play (Play Console → Integridad de la app → Firma de apps) y vuelve a publicar.
+- Sin publicar la página, el enlace igual abre la app si está instalada (Android pregunta con qué abrirlo); lo que no habrá es la página para quien no la tiene.
+- Comprobar: `adb shell pm get-app-links co.apexmoto.dev` debe decir `verified` para `apexmotoxz.web.app`.
+
 ### 2.4 Datos del responsable (solo para la versión real)
 
 Copia `legal.properties.example` a `legal.properties` en la raíz y llena cada valor (fecha, responsable, documento, dirección, correos y teléfono). Ese archivo **no se sube** al repositorio: los datos personales del responsable solo viven en tu computador y en la app compilada. Sin él la variante `prod` no compila (ver el punto 6).

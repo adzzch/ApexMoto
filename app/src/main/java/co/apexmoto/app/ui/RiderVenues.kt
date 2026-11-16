@@ -276,7 +276,10 @@ fun MenuScreen(vm: AppViewModel, nav: NavController, u: AppUser, venueId: String
             }
         }
         BottomBar {
-            Column(Modifier.weight(1f)) { Lbl("${lines.sumOf { it.qty }} producto(s)"); Num(cop(animatedMoney(total)), Ink, 20) }
+            Column(Modifier.weight(1f)) {
+                Lbl("${lines.sumOf { it.qty }} producto(s)"); Num(cop(animatedMoney(total)), Ink, 20)
+                if (lines.isEmpty()) Text("Falta: agregar al menos un producto.", color = Muted, fontSize = 11.sp, lineHeight = 14.sp)
+            }
             Btn("Enviar pedido", icon = Icons.AutoMirrored.Filled.Send, enabled = lines.isNotEmpty()) {
                 val t = readyAt.coerceAtLeast(System.currentTimeMillis() + 5 * 60_000L)
                 vm.act("¡Pedido enviado para las ${hhmm(t)}!") { vm.repo.placeOrder(v, u, lines, hhmm(t), t, note) }

@@ -56,6 +56,17 @@ fun rememberRefPoint(vm: AppViewModel): LatLng {
     return p
 }
 
+/**
+ * Calcula en segundo plano (no en el hilo que dibuja la pantalla) y conserva el resultado anterior mientras tanto.
+ * Con [debounceMs] espera a que la persona deje de escribir. Para búsquedas y distancias sobre miles de lugares.
+ */
+@Composable
+fun <T> rememberInBackground(vararg keys: Any?, initial: T, debounceMs: Long = 0, block: () -> T): T =
+    produceState(initial, *keys) {
+        if (debounceMs > 0) kotlinx.coroutines.delay(debounceMs)
+        value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { block() }
+    }.value
+
 @Composable
 fun rememberCatalog(vm: AppViewModel): PlacesCatalog? =
     produceState<PlacesCatalog?>(null) { value = runCatching { vm.container.places.get() }.getOrNull() }.value
@@ -93,7 +104,9 @@ private fun MeetSheet(vm: AppViewModel, onDismiss: () -> Unit, onPick: (MeetChoi
     var q by remember { mutableStateOf("") }
     val fr = remember { FocusRequester() }
     LaunchedEffect(Unit) { runCatching { fr.requestFocus() } }
-    val list = remember(cat, q, ref) { cat?.meetSuggestions(q, ref.latitude, ref.longitude).orEmpty() }
+    val list = rememberInBackground(cat, q, ref, initial = emptyList<Near<MeetPoint>>(), debounceMs = 150) {
+        cat?.meetSuggestions(q, ref.latitude, ref.longitude).orEmpty()
+    }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         containerColor = Color.White, shape = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp),
         dragHandle = { BottomSheetDefaults.DragHandle(color = Surf4) }) {
@@ -145,12 +158,12 @@ fun StopPickerSheet(vm: AppViewModel, initial: List<PickedStop>, title: String =
     // browse: null = ver las elegidas; "place" = buscando parada; "food" = buscando restaurante
     var browse by remember { mutableStateOf<String?>(if (initial.isEmpty()) "place" else null) }
     var q by remember { mutableStateOf("") }
-    val places = remember(cat, q, ref, browse) {
+    val places = rememberInBackground(cat, q, ref, browse, initial = emptyList<PickedStop>(), debounceMs = 150) {
         if (browse != "place" || cat == null) emptyList()
         else (if (q.trim().length >= 2) cat.search(q, ref.latitude, ref.longitude, 60) else cat.placesNear(ref.latitude, ref.longitude, 150).take(60))
             .map { PickedStop(it.item.id, it.item.name, it.item.lat, it.item.lng, false, subtitle = listOf(placeKindLabel(it.item.kind), it.item.town, fmtKmShort(it.km)).filter { s -> s.isNotBlank() }.joinToString(" · ")) }
     }
-    val foods = remember(venues, q, ref, browse) {
+    val foods = rememberInBackground(venues, q, ref, browse, initial = emptyList<PickedStop>(), debounceMs = 150) {
         if (browse != "food") emptyList()
         else venues.filter { v -> v.open && v.lat != 0.0 && v.types.any { it == "food" || it == "cafe" } && (q.isBlank() || norm(v.name + " " + v.cuisines.joinToString(" ")).contains(norm(q.trim()))) }
             .map { v -> val d = distanceKm(ref.latitude, ref.longitude, v.lat, v.lng); Triple(v, d, PickedStop("v_" + v.id, v.name, v.lat, v.lng, true, v.id, listOf(v.kind, fmtKmShort(d)).filter { it.isNotBlank() }.joinToString(" · "))) }

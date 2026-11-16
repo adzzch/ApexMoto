@@ -208,6 +208,11 @@ fun MainScaffold(vm: AppViewModel, u: AppUser) {
             } catch (e: SecurityException) { vm.stopSharing(u.id) }
         }
     }
+    // Invitación que llegó por enlace: solo los riders entran a rodadas.
+    vm.pendingInvite?.let { code ->
+        if (u.role == Role.RIDER) JoinByCodeSheet(vm, nav, u, initial = code) { vm.pendingInvite = null }
+        else LaunchedEffect(code) { vm.toast("Las rodadas son para cuentas de rider."); vm.pendingInvite = null }
+    }
     val tabs = tabsFor(u.role)
     val start = tabs.first().route
     val route = nav.currentBackStackEntryAsState().value?.destination?.route

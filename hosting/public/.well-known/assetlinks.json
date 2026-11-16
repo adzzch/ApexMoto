@@ -1,0 +1,26 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "co.apexmoto.dev",
+      "sha256_cert_fingerprints": [
+        "9A:0C:CB:D4:E3:C3:64:EB:BA:2D:F8:12:2F:87:99:F5:33:5D:BA:4C:97:ED:92:C7:1B:10:0E:49:08:54:6F:D2"
+      ]
+    }
+  },
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "co.apexmoto.prd",
+      "sha256_cert_fingerprints": [
+        "9A:0C:CB:D4:E3:C3:64:EB:BA:2D:F8:12:2F:87:99:F5:33:5D:BA:4C:97:ED:92:C7:1B:10:0E:49:08:54:6F:D2"
+      ]
+    }
+  }
+]
