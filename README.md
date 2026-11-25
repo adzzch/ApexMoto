@@ -78,6 +78,7 @@ ApexMoto/
 | [docs/desarrollo.md](docs/desarrollo.md) | Configuración, ejecución, pruebas, versiones y publicación |
 | [docs/arquitectura.md](docs/arquitectura.md) | Capas, módulos, flujo de datos, mapa del prototipo al código |
 | [docs/seguridad.md](docs/seguridad.md) | Modelo de seguridad, reglas por rol, claves, antifraude |
+| [docs/accesibilidad.md](docs/accesibilidad.md) | Baja visión, daltonismo y sordera: ajustes, criterios WCAG y cómo probarlo |
 | [docs/legal/](docs/legal/README.md) | Cumplimiento (Ley 1581, Ley 1480…), datos personales, Google Play |
 | [docs/hoja-de-ruta.md](docs/hoja-de-ruta.md) | Fases de trabajo y qué falta antes de abrir al público |
 | [docs/plan-de-pruebas.md](docs/plan-de-pruebas.md) | Recorridos para probar todos los roles con personas reales |

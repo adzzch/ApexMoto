@@ -20,6 +20,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
@@ -34,6 +38,81 @@ import co.apexmoto.app.ui.theme.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.flowOf
 import java.util.Date
+
+/** Señal rápida de la rodada: clave (la que guardan las reglas), texto del botón, cómo se anuncia al grupo e ícono. */
+data class RideSignal(val key: String, val button: String, val notice: String, val icon: ImageVector)
+
+/** Las cinco señales: pensadas para avisar sin hablar (personas sordas, casco con viento o intercom apagado). */
+val RIDE_SIGNALS = listOf(
+    RideSignal("stop", "Paremos", "pide parar", Icons.Filled.PanTool),
+    RideSignal("fuel", "Gasolina", "necesita gasolina", Icons.Filled.LocalGasStation),
+    RideSignal("lost", "Me quedé", "se quedó atrás", Icons.Filled.PersonPinCircle),
+    RideSignal("danger", "Peligro", "avisa peligro en la vía", Icons.Filled.Warning),
+    RideSignal("ok", "Todo bien", "dice que todo va bien", Icons.Filled.ThumbUp),
+)
+
+/** Botones de señales rápidas (solo con la ubicación compartida: la señal viaja en el mismo documento). */
+@Composable
+private fun RideSignalsCard(vm: AppViewModel, rodadaId: String, uid: String, sharing: Boolean) {
+    Card2 {
+        H("Señales rápidas", Icons.Filled.Campaign)
+        Sub("Le llegan a todo el grupo en pantalla y con vibración: sirven aunque nadie oiga el intercom.")
+        if (!sharing) IconLine(Icons.Filled.Info, "Activa «Compartir mi ubicación» (abajo) para mandarlas.", Muted, bold = false)
+        RIDE_SIGNALS.chunked(2).forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                row.forEach { s ->
+                    // Más altos que los normales: se tocan con guantes y en movimiento.
+                    Btn(s.button, Modifier.weight(1f).heightIn(min = TouchMin + 8.dp), s.icon,
+                        kind = if (s.key == "stop" || s.key == "danger") BK.Primary else BK.Ghost, enabled = sharing) {
+                        vm.act("Señal enviada: ${s.button}") { vm.repo.sendSignal(rodadaId, uid, s.key) }
+                    }
+                }
+                if (row.size == 1) Spacer(Modifier.weight(1f))
+            }
+        }
+    }
+}
+
+/**
+ * Aviso grande cuando un compañero manda una señal: vibra (tres toques), TalkBack lo lee solo y queda 60 s en pantalla
+ * o hasta tocar "Entendido". Una emergencia nueva (S.O.S.) de un compañero también vibra.
+ */
+@Composable
+private fun RideSignalBanner(livePs: List<LivePos>, myId: String) {
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val seen = remember { mutableStateMapOf<String, Long>() }
+    var shown by remember { mutableStateOf<Pair<LivePos, RideSignal>?>(null) }
+    LaunchedEffect(livePs) {
+        val now = System.currentTimeMillis()
+        livePs.filter { it.id != myId && it.signal.isNotBlank() }.forEach { p ->
+            val at = p.signalAt?.time ?: return@forEach
+            if (seen[p.id] == at) return@forEach
+            seen[p.id] = at
+            val s = RIDE_SIGNALS.firstOrNull { it.key == p.signal } ?: return@forEach
+            if (now - at < 3 * 60_000) { shown = p to s; Haptics.alert(ctx) }
+        }
+    }
+    val sosIds = livePs.filter { it.sos && it.id != myId }.map { it.id }.toSet()
+    var lastSos by remember { mutableStateOf(emptySet<String>()) }
+    LaunchedEffect(sosIds) { if ((sosIds - lastSos).isNotEmpty()) Haptics.alert(ctx); lastSos = sosIds }
+
+    val cur = shown ?: return
+    LaunchedEffect(cur) { delay(60_000); if (shown == cur) shown = null }
+    val (p, s) = cur
+    val urgent = s.key == "stop" || s.key == "danger"
+    Card2(Modifier.semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Assertive },
+        tone = if (urgent) OrangeSoft else CyanTint, border = if (urgent) OrangeDark else CyanDeep) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(s.icon, null, Modifier.size(36.dp), tint = if (urgent) OrangeDark else CyanDeep)
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text("${p.name} ${s.notice}", fontFamily = Chivo, fontWeight = FontWeight.ExtraBold, fontSize = 20.sp, color = Ink)
+                Lbl("Señal de la rodada · ${agoText(p.signalAt)}")
+            }
+        }
+        Btn("Entendido", Modifier.fillMaxWidth(), Icons.Filled.Check, kind = BK.Ghost, small = true) { shown = null }
+    }
+}
 
 /** "hace 12 s", "hace 3 min"… a partir de la hora del servidor. */
 fun agoText(d: Date?): String {
@@ -196,8 +275,8 @@ fun CreateRodadaSheet(vm: AppViewModel, nav: NavController, u: AppUser, onDismis
         if (stops.isEmpty()) Sub("Elige el destino y las paradas (miradores, pueblos, restaurantes aliados…). Todos las verán en el mapa.")
         stops.forEachIndexed { i, s ->
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(24.dp).clip(CircleShape).background(if (s.food) Orange else CyanDeep), contentAlignment = Alignment.Center) {
-                    Text(if (s.food) "R" else "${i + 1}", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                Box(Modifier.sizeIn(minWidth = 26.dp, minHeight = 26.dp).clip(CircleShape).background(if (s.food) Orange else CyanDeep), contentAlignment = Alignment.Center) {
+                    Text(if (s.food) "R" else "${i + 1}", Modifier.padding(horizontal = 4.dp), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
                 Spacer(Modifier.width(10.dp)); Text(s.name, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
@@ -273,7 +352,7 @@ fun RodadaScreen(vm: AppViewModel, nav: NavController, u: AppUser, id: String) {
                 val ring = when { p.sos -> "#FFFFFF"; p.id == ro.leaderId -> "#D94600"; p.id == ro.sweeperId -> "#0E7490"; else -> null }
                 val role = when (p.id) { ro.leaderId -> " · líder"; ro.sweeperId -> " · cierra"; else -> "" }
                 add(MapMarker("live_${p.id}", LatLng(p.lat, p.lng), p.name + role + if (p.sos) " · EMERGENCIA" else "", agoText(p.updatedAt),
-                    color = if (p.sos) "#D13B3B" else Avatars.hex(p.color), ring = ring, sizePx = if (p.sos) 72 else 54))
+                    color = if (p.sos) "#BA2C2C" else Avatars.hex(p.color), ring = ring, sizePx = if (p.sos) 72 else 54))
             }
         }
         if (markers.isNotEmpty()) {
@@ -296,6 +375,9 @@ fun RodadaScreen(vm: AppViewModel, nav: NavController, u: AppUser, id: String) {
                 IconLine(Icons.Filled.Sos, "${livePs.filter { it.sos }.joinToString { it.name }} tiene una emergencia. Revisa el mapa y llámale.", Red)
             }
         }
+        // Señales rápidas: avisos que llegan a todo el grupo en pantalla y con vibración (no dependen de oír el intercom).
+        RideSignalBanner(livePs, u.id)
+        if (active && member) RideSignalsCard(vm, id, u.id, sharing)
 
         Card2 {
             Row(verticalAlignment = Alignment.Top) {
@@ -309,8 +391,8 @@ fun RodadaScreen(vm: AppViewModel, nav: NavController, u: AppUser, id: String) {
             if (ro.stops.isNotEmpty()) Column(Modifier.padding(start = 4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 (listOf(ro.meet) + ro.stops.map { it.name }).forEachIndexed { i, n ->
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.size(20.dp).clip(CircleShape).background(if (i == 0) CyanDeep else Orange), contentAlignment = Alignment.Center) {
-                            Text(if (i == 0) "E" else "$i", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                        Box(Modifier.sizeIn(minWidth = 24.dp, minHeight = 24.dp).clip(CircleShape).background(if (i == 0) CyanDeep else Orange), contentAlignment = Alignment.Center) {
+                            Text(if (i == 0) "E" else "$i", Modifier.padding(horizontal = 4.dp), color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                         }
                         Spacer(Modifier.width(8.dp))
                         Text(n, fontSize = 13.sp, color = if (i == 0) Muted else Ink, maxLines = 1, overflow = TextOverflow.Ellipsis)

@@ -6,6 +6,7 @@
 | Configurar y ejecutar el proyecto, correr pruebas, publicar | [desarrollo.md](desarrollo.md) |
 | Entender cómo está organizado el código | [arquitectura.md](arquitectura.md) |
 | Revisar seguridad, reglas de Firestore, claves y antifraude | [seguridad.md](seguridad.md) |
+| Ver qué se hizo en accesibilidad (baja visión, daltonismo, sordera) y cómo probarlo | [accesibilidad.md](accesibilidad.md) |
 | Saber qué normas se cumplen y cómo versionar textos legales | [legal/README.md](legal/README.md) |
 | Atender a titulares de datos, plazos y RNBD | [legal/operacion-datos.md](legal/operacion-datos.md) |
 | Publicar en Google Play | [legal/google-play.md](legal/google-play.md) |

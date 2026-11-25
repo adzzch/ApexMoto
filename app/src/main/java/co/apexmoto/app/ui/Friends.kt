@@ -27,6 +27,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import co.apexmoto.app.data.*
 import co.apexmoto.app.ui.theme.*
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import java.text.Normalizer
 
 /** Avatares sin fotos: silueta de moto y color de la paleta. Las claves son las mismas que validan las reglas de Firestore. */
@@ -111,9 +114,11 @@ fun ProfileEditor(vm: AppViewModel, u: AppUser, current: Profile?, onDone: () ->
         Lbl("Color")
         FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Avatars.COLORS.forEach { (k, label, c) ->
-                Box(Modifier.size(44.dp).clip(CircleShape).background(c).border(3.dp, if (color == k) Ink else Color.Transparent, CircleShape)
-                    .clickable(onClickLabel = label) { color = k }, contentAlignment = Alignment.Center) {
-                    if (color == k) Icon(Icons.Filled.Check, label, Modifier.size(20.dp), tint = Color.White)
+                // Cada color con su nombre para TalkBack (y para quien no distingue colores); el elegido lleva ✓ y borde.
+                Box(Modifier.size(TouchMin).clip(CircleShape).background(c).border(3.dp, if (color == k) Ink else Color.Transparent, CircleShape)
+                    .semantics { contentDescription = "Color $label" }
+                    .selectable(color == k, role = androidx.compose.ui.semantics.Role.RadioButton) { color = k }, contentAlignment = Alignment.Center) {
+                    if (color == k) Icon(Icons.Filled.Check, null, Modifier.size(22.dp), tint = Color.White)
                 }
             }
         }

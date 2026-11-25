@@ -619,9 +619,27 @@ class Repo(val db: FirebaseFirestore, val auth: FirebaseAuth, private val consen
     fun livePositions(rodadaId: String) = col("rodadas").document(rodadaId).collection("live").live<LivePos>()
 
     suspend fun shareLive(rodadaId: String, uid: String, lat: Double, lng: Double, heading: Double, p: Profile?, fallbackName: String, sos: Boolean) {
+        // merge: la última señal rápida (signal, signalAt) se conserva al actualizar la posición.
         col("rodadas").document(rodadaId).collection("live").document(uid).set(mapOf(
             "lat" to lat, "lng" to lng, "heading" to heading, "name" to (p?.name ?: fallbackName).take(60).ifBlank { "Rider" },
-            "moto" to (p?.moto ?: "naked"), "color" to (p?.color ?: "orange"), "sos" to sos, "updatedAt" to FieldValue.serverTimestamp())).await()
+            "moto" to (p?.moto ?: "naked"), "color" to (p?.color ?: "orange"), "sos" to sos, "updatedAt" to FieldValue.serverTimestamp()),
+            SetOptions.merge()).await()
+    }
+
+    /**
+     * Señal rápida al grupo ("stop", "fuel", "lost", "danger", "ok"): va en el documento de la posición en vivo, así que
+     * solo se puede mandar compartiendo la ubicación. Accesibilidad: el grupo la recibe en pantalla y con vibración, sin
+     * depender del intercom de voz. Las reglas permiten una escritura cada 8 s: si choca con la de la posición, se
+     * reintenta una vez.
+     */
+    suspend fun sendSignal(rodadaId: String, uid: String, kind: String) {
+        val ref = col("rodadas").document(rodadaId).collection("live").document(uid)
+        val data = mapOf("signal" to kind, "signalAt" to FieldValue.serverTimestamp(), "updatedAt" to FieldValue.serverTimestamp())
+        try { ref.update(data).await() } catch (e: com.google.firebase.firestore.FirebaseFirestoreException) {
+            if (e.code != com.google.firebase.firestore.FirebaseFirestoreException.Code.PERMISSION_DENIED) throw e
+            kotlinx.coroutines.delay(8_500)
+            ref.update(data).await()
+        }
     }
     suspend fun stopLive(rodadaId: String, uid: String) { runCatching { col("rodadas").document(rodadaId).collection("live").document(uid).delete().await() } }
 

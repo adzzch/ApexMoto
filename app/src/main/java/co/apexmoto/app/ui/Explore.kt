@@ -94,7 +94,7 @@ fun CityBar(vm: AppViewModel, c: PlacesCatalog, p: HomePlace, title: String? = n
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
                 Lbl(title ?: if (p.gps) "Estás cerca de" else "Estás en")
-                Text(p.label, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(p.label, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
             TextButton({ pick = true }, contentPadding = EdgeLink) { Text("Cambiar", color = CyanDeep, fontWeight = FontWeight.Bold) }
         }
@@ -159,7 +159,7 @@ fun ColumnScope.ExploreSection(vm: AppViewModel, nav: NavController, u: AppUser)
     Row(verticalAlignment = Alignment.Top) {
         Icon(Icons.Filled.Info, null, Modifier.size(15.dp).padding(top = 2.dp), tint = Muted); Spacer(Modifier.width(6.dp))
         Text("Antes de rodar revisa el estado de la vía (#767 desde el celular) y el orden público. Distancias en línea recta. ${c.attribution}",
-            color = Muted, fontSize = 11.sp, lineHeight = 15.sp)
+            color = Muted, fontSize = 12.sp, lineHeight = 16.sp)
     }
 
     // ── Hojas ──
@@ -192,7 +192,7 @@ fun RideRow(n: Near<FamousRide>, index: Int, onClick: () -> Unit) {
             }
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                Text(r.name, fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(r.name, fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Lbl(listOf("${r.km} km", fmtHours(r.hours), ROAD[r.road].orEmpty(), if (n.km < 15) "sale desde aquí" else "sale a ${fmtKm(n.km)}")
                     .filter { it.isNotBlank() }.joinToString(" · "))
             }
@@ -230,7 +230,7 @@ private fun PlaceRow(n: Near<Place>, index: Int, onClick: () -> Unit) {
             }
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(p.name, fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(p.name, fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Lbl(listOf(k.one, p.town.takeIf { it.isNotBlank() && it != p.name }?.let { "cerca de $it" }).filterNotNull().joinToString(" · "))
             }
             Spacer(Modifier.width(8.dp))
@@ -274,8 +274,8 @@ private fun RideSheet(r: FamousRide, fromMe: Double, onDismiss: () -> Unit, onGu
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             r.pts.forEachIndexed { i, p ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(22.dp).clip(CircleShape).background(if (i == 0) Orange else Surf3), contentAlignment = Alignment.Center) {
-                        Text("${i + 1}", color = if (i == 0) Color.White else Ink, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    Box(Modifier.sizeIn(minWidth = 24.dp, minHeight = 24.dp).clip(CircleShape).background(if (i == 0) Orange else Surf3), contentAlignment = Alignment.Center) {
+                        Text("${i + 1}", Modifier.padding(horizontal = 4.dp), color = if (i == 0) Color.White else Ink, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                     }
                     Spacer(Modifier.width(10.dp)); Text(p.name, fontSize = 14.sp)
                 }

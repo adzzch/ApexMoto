@@ -50,7 +50,18 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -81,26 +92,31 @@ val SOS_ST = mapOf("new" to "Buscando taller", "ok" to "Taller asignado", "go" t
 /** Curva de salida exponencial: arranca rápido y se asienta suave. */
 val EaseOutExpo = CubicBezierEasing(0.16f, 1f, 0.3f, 1f)
 
-/** true si el sistema tiene las animaciones desactivadas (Opciones de desarrollador o accesibilidad). */
+/**
+ * true si hay que evitar animaciones decorativas: el celular las tiene desactivadas (Accesibilidad → Quitar animaciones)
+ * o la persona eligió "Reducir animaciones" en la pantalla de Accesibilidad de la app.
+ */
 @Composable
 fun reducedMotion(): Boolean {
     val ctx = LocalContext.current
-    return remember { Settings.Global.getFloat(ctx.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f }
+    val system = remember { Settings.Global.getFloat(ctx.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f }
+    return system || A11y.reduceMotion
 }
 
 /** Entrada escalonada de las tarjetas de una lista: suben 16 dp y terminan de aparecer. Parte visible, nunca de cero. */
 fun Modifier.reveal(index: Int): Modifier = composed {
     val reduce = reducedMotion()
-    val a = remember { Animatable(if (reduce) 1f else 0f) }
+    val a = remember(reduce) { Animatable(if (reduce) 1f else 0f) }
     LaunchedEffect(Unit) { if (!reduce) { delay(index.coerceAtMost(8) * 45L); a.animateTo(1f, tween(420, easing = EaseOutExpo)) } }
     val shift = with(LocalDensity.current) { 16.dp.toPx() }
     graphicsLayer { alpha = 0.35f + 0.65f * a.value; translationY = (1f - a.value) * shift }
 }
 
-/** Al presionar, el elemento se hunde un poco (2 %). */
+/** Al presionar, el elemento se hunde un poco (2 %). Sin efecto con "Reducir animaciones". */
 fun Modifier.pressScale(source: MutableInteractionSource, to: Float = 0.97f): Modifier = composed {
     val pressed by source.collectIsPressedAsState()
-    val s by animateFloatAsState(if (pressed) to else 1f, spring(stiffness = Spring.StiffnessMediumLow), label = "press")
+    val target = if (pressed && !reducedMotion()) to else 1f
+    val s by animateFloatAsState(target, spring(stiffness = Spring.StiffnessMediumLow), label = "press")
     graphicsLayer { scaleX = s; scaleY = s }
 }
 
@@ -149,7 +165,9 @@ fun Card2(
     if (index >= 0) m = m.reveal(index)
     if (onClick != null) m = m.pressScale(src, 0.985f)
     m = m.then(if (tone == Color.White) Modifier.cardShadow(shape) else Modifier).clip(shape).background(tone)
-    if (border != null) m = m.border(BorderStroke(1.5.dp, border), shape)
+    // Alto contraste: toda tarjeta lleva borde (con fondo blanco, la sombra sola no separa la tarjeta del fondo).
+    val edge = border ?: if (A11y.highContrast) Outline else null
+    if (edge != null) m = m.border(BorderStroke(1.5.dp, edge), shape)
     if (onClick != null) m = m.clickable(src, OrangeRipple, onClick = onClick)
     Column(m.padding(padding), verticalArrangement = Arrangement.spacedBy(Gap.inside), content = content)
 }
@@ -160,9 +178,10 @@ private val OrangeRipple = ripple(color = Orange)
 @Composable fun Lbl(text: String, color: Color = Muted, modifier: Modifier = Modifier) =
     Text(text, modifier, color = color, style = MaterialTheme.typography.labelSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
 
+/** Título de sección. Marcado como encabezado: con TalkBack se puede saltar de título en título. */
 @Composable
 fun H(text: String, icon: ImageVector? = null) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.semantics(mergeDescendants = true) { heading() }, verticalAlignment = Alignment.CenterVertically) {
         if (icon != null) { Icon(icon, null, Modifier.size(20.dp), tint = OrangeDark); Spacer(Modifier.width(8.dp)) }
         Text(text, style = MaterialTheme.typography.titleMedium.copy(fontSize = 17.sp, fontWeight = FontWeight.ExtraBold))
     }
@@ -183,20 +202,25 @@ fun Num(text: String, color: Color = Ink, size: Int = 15, modifier: Modifier = M
 @Composable
 fun Pill(text: String, bg: Color = Surf3, fg: Color = Muted, icon: ImageVector? = null) {
     Row(Modifier.clip(RoundedCornerShape(6.dp)).background(bg).padding(horizontal = 7.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-        if (icon != null) { Icon(icon, null, Modifier.size(12.dp), tint = fg); Spacer(Modifier.width(4.dp)) }
-        Text(text, color = fg, fontFamily = JetBrainsMono, fontWeight = FontWeight.ExtraBold, fontSize = 10.5.sp, letterSpacing = 0.02.em, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        if (icon != null) { Icon(icon, null, Modifier.size(14.dp), tint = fg); Spacer(Modifier.width(4.dp)) }
+        // 12 sp como mínimo (antes 10,5): las pastillas llevan estados que hay que poder leer.
+        Text(text, color = fg, fontFamily = JetBrainsMono, fontWeight = FontWeight.ExtraBold, fontSize = 12.sp, letterSpacing = 0.02.em, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
+/**
+ * Estado de un pedido, renta o asistencia. Lleva ícono y palabra, no solo color: con daltonismo el verde y el rojo
+ * (o el naranja y el ámbar) se confunden, pero ✓, ✕ y el reloj se distinguen siempre (WCAG 1.4.1).
+ */
 @Composable
 fun StatusPill(text: String, key: String) {
-    val (bg, fg) = when (key) {
-        "p", "new" -> AmberSoft to Amber
-        "ok", "fin", "ready", "done" -> GreenSoft to Green
-        "no", "can" -> RedSoft to Red
-        else -> CyanSoft to CyanDeep
+    val (bg, fg, icon) = when (key) {
+        "p", "new" -> Triple(AmberSoft, Amber, Icons.Filled.Schedule)
+        "ok", "fin", "ready", "done" -> Triple(GreenSoft, Green, Icons.Filled.CheckCircle)
+        "no", "can" -> Triple(RedSoft, Red, Icons.Filled.Cancel)
+        else -> Triple(CyanSoft, CyanDeep, Icons.Filled.Autorenew)
     }
-    Pill(text, bg, fg)
+    Pill(text, bg, fg, icon)
 }
 
 /** Punto verde que late: algo está en vivo. */
@@ -208,10 +232,10 @@ fun Ping(on: Boolean = true) {
     Box(Modifier.size(10.dp).graphicsLayer { alpha = if (on && !reduce) a else 1f }.clip(CircleShape).background(if (on) Green else Surf4))
 }
 
-/** Barra de progreso por pasos (estado de un S.O.S., de una renta…). */
+/** Barra de progreso por pasos (estado de un S.O.S., de una renta…). TalkBack la lee como "paso 2 de 4". */
 @Composable
 fun Steps(total: Int, done: Int) {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+    Row(Modifier.fillMaxWidth().semantics { contentDescription = "Paso $done de $total" }, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
         repeat(total) { i ->
             val c by animateColorAsState(if (i < done) Green else Surf4, tween(500), label = "step")
             Box(Modifier.weight(1f).height(5.dp).clip(CircleShape).background(c))
@@ -236,8 +260,9 @@ fun Btn(
         BK.Danger -> RedSoft to Red
     }
     val solid = kind == BK.Primary || kind == BK.Sos
+    // Alto: 48 dp (40 los pequeños, que igual tocan en 48 por Material); con "Botones grandes", 56 y 48.
     Button(
-        { if (!loading) onClick() }, modifier.heightIn(min = if (small) 40.dp else 48.dp).glow(bg, shape, on = solid && enabled, elevation = 8.dp).pressScale(src),
+        { if (!loading) onClick() }, modifier.heightIn(min = if (small) TouchSmall else TouchMin).glow(bg, shape, on = solid && enabled, elevation = 8.dp).pressScale(src),
         enabled = enabled, shape = shape, interactionSource = src,
         colors = ButtonDefaults.buttonColors(containerColor = bg, contentColor = fg, disabledContainerColor = bg.copy(alpha = 0.4f), disabledContentColor = fg.copy(alpha = 0.7f)),
         contentPadding = PaddingValues(horizontal = if (small) 14.dp else 18.dp, vertical = 0.dp),
@@ -254,8 +279,8 @@ fun Btn(
 fun IconBtn(icon: ImageVector, desc: String, enabled: Boolean = true, tint: Color = CyanDeep, bg: Color = Surf3, onClick: () -> Unit) {
     val src = remember { MutableInteractionSource() }
     Box(
-        Modifier.size(48.dp).pressScale(src, 0.92f).clip(RoundedCornerShape(12.dp)).background(if (enabled) bg else bg.copy(alpha = 0.5f))
-            .clickable(src, OrangeRipple, enabled = enabled, onClickLabel = desc, onClick = onClick),
+        Modifier.size(TouchMin).pressScale(src, 0.92f).clip(RoundedCornerShape(12.dp)).background(if (enabled) bg else bg.copy(alpha = 0.5f))
+            .clickable(src, OrangeRipple, enabled = enabled, onClickLabel = desc, role = Role.Button, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) { Icon(icon, desc, tint = if (enabled) tint else tint.copy(alpha = 0.4f)) }
 }
@@ -308,13 +333,17 @@ fun Chip(label: String, selected: Boolean, icon: ImageVector? = null, accent: Co
     val src = remember { MutableInteractionSource() }
     val bg by animateColorAsState(if (selected) accent else Surf3, tween(220), label = "chipBg")
     val fg by animateColorAsState(if (selected) Color.White else Muted, tween(220), label = "chipFg")
+    // 48 dp de alto (antes 40) y, para TalkBack, "seleccionado" o no. Elegido = relleno de color + ícono ✓ (no solo color).
     Row(
-        Modifier.heightIn(min = 40.dp).pressScale(src, 0.95f).glow(accent, shape, on = selected, elevation = 6.dp).clip(shape).background(bg)
-            .clickable(src, OrangeRipple, onClick = onClick).padding(horizontal = 13.dp, vertical = 9.dp),
+        Modifier.heightIn(min = TouchMin).pressScale(src, 0.95f).glow(accent, shape, on = selected, elevation = 6.dp).clip(shape).background(bg)
+            .then(if (A11y.highContrast && !selected) Modifier.border(1.5.dp, Outline, shape) else Modifier)
+            .selectable(selected, interactionSource = src, indication = OrangeRipple, role = Role.Tab, onClick = onClick)
+            .padding(horizontal = 13.dp, vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (icon != null) { Icon(icon, null, Modifier.size(16.dp), tint = fg); Spacer(Modifier.width(6.dp)) }
-        Text(label, color = fg, fontFamily = JetBrainsMono, fontWeight = FontWeight.Bold, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        val ic = if (selected && icon == null) Icons.Filled.Check else icon
+        if (ic != null) { Icon(ic, null, Modifier.size(16.dp), tint = fg); Spacer(Modifier.width(6.dp)) }
+        Text(label, color = fg, fontFamily = JetBrainsMono, fontWeight = FontWeight.Bold, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -322,21 +351,29 @@ fun Chip(label: String, selected: Boolean, icon: ImageVector? = null, accent: Co
 @Composable
 fun Segmented(options: List<Triple<String, String, ImageVector?>>, selected: String, onSelect: (String) -> Unit) {
     val idx = options.indexOfFirst { it.first == selected }.coerceAtLeast(0)
-    BoxWithConstraints(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Surf0).padding(4.dp)) {
+    val hc = A11y.highContrast
+    BoxWithConstraints(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Surf0)
+        .then(if (hc) Modifier.border(1.5.dp, Outline, RoundedCornerShape(14.dp)) else Modifier).padding(4.dp).selectableGroup()) {
         val w = maxWidth / options.size
         val showIcons = w >= 165.dp
-        val x by animateDpAsState(w * idx, spring(dampingRatio = 0.78f, stiffness = Spring.StiffnessMediumLow), label = "seg")
-        Box(Modifier.offset(x = x).width(w).height(44.dp).glow(Orange, RoundedCornerShape(11.dp), elevation = 8.dp).clip(RoundedCornerShape(11.dp)).background(Orange))
-        Row(Modifier.fillMaxWidth()) {
+        val h = TouchMin
+        val reduce = reducedMotion()
+        val x by animateDpAsState(w * idx, if (reduce) snap<Dp>() else spring<Dp>(dampingRatio = 0.78f, stiffness = Spring.StiffnessMediumLow), label = "seg")
+        // Con letra grande una opción puede ocupar dos renglones: el indicador toma el alto real de la fila.
+        val density = LocalDensity.current
+        var rowH by remember { mutableStateOf(h) }
+        Box(Modifier.offset(x = x).width(w).height(maxOf(rowH, h)).glow(Orange, RoundedCornerShape(11.dp), elevation = 8.dp).clip(RoundedCornerShape(11.dp)).background(Orange))
+        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min).onSizeChanged { rowH = with(density) { it.height.toDp() } }) {
             options.forEachIndexed { i, (k, t, ic) ->
                 val fg by animateColorAsState(if (i == idx) Color.White else Muted, tween(200), label = "segFg")
                 Row(
-                    Modifier.weight(1f).height(44.dp).clip(RoundedCornerShape(11.dp)).clickable { onSelect(k) },
+                    Modifier.weight(1f).fillMaxHeight().heightIn(min = h).clip(RoundedCornerShape(11.dp))
+                        .selectable(i == idx, role = Role.Tab) { onSelect(k) }.padding(horizontal = 4.dp),
                     horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
                 ) {
                     if (ic != null && showIcons) { Icon(ic, null, Modifier.size(17.dp), tint = fg); Spacer(Modifier.width(6.dp)) }
-                    Text(t, color = fg, fontFamily = JetBrainsMono, fontWeight = FontWeight.Bold, fontSize = if (options.size > 2) 11.5.sp else 12.5.sp,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(t, color = fg, fontFamily = JetBrainsMono, fontWeight = FontWeight.Bold, fontSize = if (options.size > 2) 12.sp else 13.sp,
+                        maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center, lineHeight = 1.15.em)
                 }
             }
         }
@@ -358,6 +395,7 @@ fun Field(label: String, value: String, onChange: (String) -> Unit, modifier: Mo
     var focused by remember { mutableStateOf(false) }
     var touched by rememberSaveable { mutableStateOf(false) }
     val showError = touched && !focused && error != null
+    val hc = A11y.highContrast
     Column(modifier, verticalArrangement = Arrangement.spacedBy(5.dp)) {
         if (label.isNotBlank()) Lbl(label)
         OutlinedTextField(
@@ -377,12 +415,18 @@ fun Field(label: String, value: String, onChange: (String) -> Unit, modifier: Mo
             visualTransformation = if (password) PasswordVisualTransformation() else VisualTransformation.None,
             colors = OutlinedTextFieldDefaults.colors(
                 focusedContainerColor = Surf0, unfocusedContainerColor = Surf0, disabledContainerColor = Surf0, errorContainerColor = Surf0,
-                focusedBorderColor = CyanDeep, unfocusedBorderColor = Color.Transparent, errorBorderColor = Red, cursorColor = Orange,
+                // Alto contraste: el campo se ve aun sin tocarlo (borde gris oscuro en vez de transparente).
+                focusedBorderColor = CyanDeep, unfocusedBorderColor = if (hc) Outline else Color.Transparent, errorBorderColor = Red, cursorColor = Orange,
                 focusedLeadingIconColor = CyanDeep, errorLeadingIconColor = Red, errorTrailingIconColor = Muted,
             ),
         )
+        // Error con ícono + texto que dice cómo corregirlo (no solo el borde rojo). TalkBack lo anuncia al aparecer.
         AnimatedVisibility(showError, enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
-            Text(error.orEmpty(), color = Red, fontSize = 12.sp, lineHeight = 16.sp, modifier = Modifier.padding(start = 4.dp))
+            Row(Modifier.padding(start = 4.dp).semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite }, verticalAlignment = Alignment.Top) {
+                Icon(Icons.Filled.Error, null, Modifier.padding(top = 1.dp).size(15.dp), tint = Red)
+                Spacer(Modifier.width(5.dp))
+                Text(error.orEmpty(), color = Red, fontSize = 13.sp, lineHeight = 17.sp, fontWeight = FontWeight.Medium)
+            }
         }
     }
 }
@@ -414,7 +458,9 @@ fun joinEs(items: List<String>): String =
 private fun FilledBox(text: String, leading: ImageVector?, open: Boolean, onClick: () -> Unit, trailing: Boolean = true) {
     val rot by animateFloatAsState(if (open) 180f else 0f, tween(220), label = "chev")
     Row(
-        Modifier.fillMaxWidth().heightIn(min = 52.dp).clip(FieldShape).background(Surf0).clickable(onClick = onClick).padding(horizontal = 14.dp),
+        Modifier.fillMaxWidth().heightIn(min = 52.dp).clip(FieldShape).background(Surf0)
+            .then(if (A11y.highContrast) Modifier.border(1.dp, Outline, FieldShape) else Modifier)
+            .clickable(role = Role.DropdownList, onClick = onClick).padding(horizontal = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (leading != null) { Icon(leading, null, Modifier.size(18.dp), tint = CyanDeep); Spacer(Modifier.width(10.dp)) }
@@ -472,24 +518,45 @@ fun ApexSwitch(checked: Boolean, onChange: (Boolean) -> Unit) = Switch(
     ),
 )
 
+/**
+ * Fila con interruptor. Toda la fila es un solo control para TalkBack ("Guía por voz, activado, interruptor")
+ * y se puede tocar en cualquier parte, no solo en el interruptor.
+ */
 @Composable
 fun SwitchRow(title: String, sub: String = "", checked: Boolean, onChange: (Boolean) -> Unit) {
-    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { onChange(!checked) }.padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(1f)) { Text(title, style = MaterialTheme.typography.titleSmall.copy(fontSize = 15.sp)); if (sub.isNotBlank()) Lbl(sub) }
+    Row(
+        Modifier.fillMaxWidth().heightIn(min = TouchMin).clip(RoundedCornerShape(10.dp))
+            .toggleable(checked, role = Role.Switch, onValueChange = onChange).padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.titleSmall.copy(fontSize = 15.sp))
+            if (sub.isNotBlank()) Text(sub, color = Muted, style = MaterialTheme.typography.bodySmall)
+        }
         Spacer(Modifier.width(12.dp))
-        ApexSwitch(checked, onChange)
+        Switch(
+            checked, null,
+            // Activado: pista naranja con ✓ en la perilla (no solo el color).
+            thumbContent = if (checked) ({ Icon(Icons.Filled.Check, null, Modifier.size(SwitchDefaults.IconSize), tint = Orange) }) else null,
+            colors = SwitchDefaults.colors(
+                checkedTrackColor = Orange, checkedThumbColor = Color.White, checkedBorderColor = Color.Transparent,
+                uncheckedTrackColor = Surf4, uncheckedThumbColor = Color.White, uncheckedBorderColor = if (A11y.highContrast) Outline else Color.Transparent,
+            ),
+        )
     }
 }
 
-/** Opción seleccionable en forma de tarjeta (plan de protección, rol…). */
+/** Opción seleccionable en forma de tarjeta (plan de protección, rol…). TalkBack la anuncia como opción "seleccionada". */
 @Composable
 fun OptionTile(selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
     val shape = RoundedCornerShape(12.dp)
-    val border by animateColorAsState(if (selected) CyanDeep else Color.Transparent, tween(200), label = "optB")
+    val idle = if (A11y.highContrast) Outline else Color.Transparent
+    val border by animateColorAsState(if (selected) CyanDeep else idle, tween(200), label = "optB")
     val bg by animateColorAsState(if (selected) CyanSoft.copy(alpha = 0.12f) else Surf0, tween(200), label = "optBg")
     val src = remember { MutableInteractionSource() }
     Column(
-        modifier.pressScale(src, 0.98f).clip(shape).background(bg).border(2.dp, border, shape).clickable(src, OrangeRipple, onClick = onClick).padding(12.dp),
+        modifier.pressScale(src, 0.98f).clip(shape).background(bg).border(2.dp, border, shape)
+            .selectable(selected, interactionSource = src, indication = OrangeRipple, role = Role.RadioButton, onClick = onClick).padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(3.dp), content = content,
     )
 }
@@ -520,7 +587,7 @@ fun StatCard(value: String, label: String, modifier: Modifier = Modifier, color:
 }
 
 @Composable
-fun Stars(r: Double) = Row(verticalAlignment = Alignment.CenterVertically) {
+fun Stars(r: Double) = Row(Modifier.clearAndSetSemantics { contentDescription = "Calificación %.1f de 5".format(r) }, verticalAlignment = Alignment.CenterVertically) {
     Icon(Icons.Filled.Star, null, Modifier.size(15.dp), tint = OrangeDark); Spacer(Modifier.width(3.dp))
     Text("%.1f".format(r), color = OrangeDark, fontFamily = JetBrainsMono, fontWeight = FontWeight.Bold, fontSize = 13.sp)
 }
@@ -578,7 +645,7 @@ fun ApexSlider(value: Float, onChange: (Float) -> Unit, range: ClosedFloatingPoi
 /** Contador − n + con el número que sube o baja al cambiar. */
 @Composable
 fun Stepper(q: Int, onMinus: () -> Unit, onPlus: () -> Unit) {
-    Row(Modifier.clip(CircleShape).background(Surf3).padding(4.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.clip(CircleShape).background(Surf3).padding(2.dp), verticalAlignment = Alignment.CenterVertically) {
         StepBtn(Icons.Filled.Remove, "Quitar", q > 0, Surf4, Ink, onMinus)
         AnimatedContent(q, label = "qty", transitionSpec = {
             val up = targetState > initialState
@@ -592,10 +659,10 @@ fun Stepper(q: Int, onMinus: () -> Unit, onPlus: () -> Unit) {
 private fun StepBtn(icon: ImageVector, desc: String, enabled: Boolean, bg: Color, fg: Color, onClick: () -> Unit) {
     val src = remember { MutableInteractionSource() }
     Box(
-        Modifier.size(40.dp).pressScale(src, 0.88f).clip(CircleShape).background(if (enabled) bg else bg.copy(alpha = 0.5f))
-            .clickable(src, OrangeRipple, enabled = enabled, onClickLabel = desc, onClick = onClick),
+        Modifier.size(TouchMin).pressScale(src, 0.88f).clip(CircleShape).background(if (enabled) bg else bg.copy(alpha = 0.5f))
+            .clickable(src, OrangeRipple, enabled = enabled, onClickLabel = desc, role = Role.Button, onClick = onClick),
         contentAlignment = Alignment.Center,
-    ) { Icon(icon, desc, Modifier.size(20.dp), tint = if (enabled) fg else fg.copy(alpha = 0.4f)) }
+    ) { Icon(icon, desc, Modifier.size(22.dp), tint = if (enabled) fg else fg.copy(alpha = 0.4f)) }
 }
 
 /** Círculo con las iniciales de una persona. */

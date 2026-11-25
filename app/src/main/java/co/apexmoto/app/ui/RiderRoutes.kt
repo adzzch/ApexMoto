@@ -165,7 +165,7 @@ private fun ColumnScope.RouteAI(vm: AppViewModel, nav: NavController, u: AppUser
                         }
                     }
                     Text("Usa Gemini de Google: lo que escribas y la ciudad aproximada se envían para armar la ruta. No escribas datos personales.",
-                        color = Muted, fontSize = 11.sp, lineHeight = 15.sp)
+                        color = Muted, fontSize = 12.sp, lineHeight = 16.sp)
                 } else {
                     Lbl("¿A dónde quieres ir?")
                     // Destinos elegidos: lugares (miradores, pueblos…) y, aparte, restaurantes aliados.

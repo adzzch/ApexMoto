@@ -17,6 +17,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -127,8 +130,12 @@ fun NavigationScreen(vm: AppViewModel, nav: androidx.navigation.NavController) {
     }
 
     val steps = plan?.steps.orEmpty()
+    // Cada indicación nueva llega por tres canales: texto grande arriba, voz (si está activa) y vibración (dos toques).
+    // Así quien no oye bien, o va con casco y viento, no depende de la voz.
     LaunchedEffect(idx, guiding) {
-        if (guiding && vm.voice) steps.getOrNull(idx)?.let { tts?.speak(it.text, TextToSpeech.QUEUE_FLUSH, null, "step$idx") }
+        if (!guiding) return@LaunchedEffect
+        steps.getOrNull(idx)?.let { if (vm.voice) tts?.speak(it.text, TextToSpeech.QUEUE_FLUSH, null, "step$idx") }
+        Haptics.turn(ctx)
     }
     LaunchedEffect(guiding) {
         if (!guiding) return@LaunchedEffect
@@ -139,6 +146,7 @@ fun NavigationScreen(vm: AppViewModel, nav: androidx.navigation.NavController) {
             if (haversine(here.latitude, here.longitude, dest.latitude, dest.longitude) < 40) {
                 arrived = true; guiding = false
                 if (vm.voice) tts?.speak("Llegaste a tu destino", TextToSpeech.QUEUE_FLUSH, null, "arrived")
+                Haptics.arrive(ctx)
                 // Cuenta para las medallas del perfil solo si la ruta tenía al menos 2 km.
                 if (p.distanceM >= 2000) vm.routeCompleted()
                 return@collect
@@ -160,16 +168,23 @@ fun NavigationScreen(vm: AppViewModel, nav: androidx.navigation.NavController) {
             Modifier.fillMaxSize(), state = mapState, center = stops.last(), zoom = 10.0, mapType = vm.mapType,
             markers = session.stops.mapIndexed { i, s -> MapMarker("stop$i", LatLng(s.lat, s.lng), "${i + 1}. ${s.name}") },
             route = plan?.points.orEmpty(), myPos = if (hasPerm) pos else null,
+            description = "Mapa de la ruta ${session.title}: " + session.stops.joinToString(", ") { it.name } +
+                (plan?.let { ". ${fmtDist(it.distanceM.toDouble())}, ${fmtDur(it.durationS)}" } ?: ""),
         )
 
-        // Instrucción actual
+        // Instrucción actual: letra grande (se lee de un vistazo en el manubrio) y región "en vivo" para TalkBack,
+        // que la lee sola cada vez que cambia.
         if (guiding || arrived) {
             val next = steps.getOrNull(idx + 1)?.start ?: stops.last()
             val dNext = pos?.let { haversine(it.latitude, it.longitude, next.latitude, next.longitude) }
-            Card(Modifier.align(Alignment.TopCenter).padding(12.dp).fillMaxWidth(), shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = Ink), elevation = CardDefaults.cardElevation(8.dp)) {
-                Column(Modifier.padding(Gap.card)) {
-                    Text(if (arrived) "¡Llegaste a tu destino!" else steps.getOrNull(idx)?.text ?: "Sigue la ruta", color = androidx.compose.ui.graphics.Color.White, style = MaterialTheme.typography.titleLarge)
-                    if (!arrived && dNext != null) Text("en ${fmtDist(dNext)}", color = NavAccent, fontFamily = JetBrainsMono, fontWeight = FontWeight.Bold)
+            Card(Modifier.align(Alignment.TopCenter).padding(12.dp).fillMaxWidth().semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite },
+                shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = Ink), elevation = CardDefaults.cardElevation(8.dp)) {
+                Column(Modifier.padding(Gap.card), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(if (arrived) "¡Llegaste a tu destino!" else steps.getOrNull(idx)?.text ?: "Sigue la ruta", color = androidx.compose.ui.graphics.Color.White,
+                        style = MaterialTheme.typography.headlineSmall)
+                    if (!arrived && dNext != null) Text("en ${fmtDist(dNext)}", color = NavAccent, fontFamily = JetBrainsMono, fontWeight = FontWeight.ExtraBold, fontSize = 20.sp)
+                    if (!vm.voice && !arrived) Text("Voz apagada: te avisamos con texto y vibración.", color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.85f),
+                        style = MaterialTheme.typography.bodySmall)
                 }
             }
         }
@@ -209,11 +224,13 @@ fun NavigationScreen(vm: AppViewModel, nav: androidx.navigation.NavController) {
                     Sub("Sin tu ubicación la ruta se calcula desde el centro de Cali y no hay guiado en vivo.")
                     Btn("Usar mi ubicación", Modifier.fillMaxWidth(), Icons.Filled.MyLocation, kind = BK.Ghost) { askLocation() }
                 }
+                // Botones del guiado más altos que los normales (56 dp; 64 con "Botones grandes"): se tocan con guantes.
+                val big = Modifier.heightIn(min = TouchMin + 8.dp)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    if (!guiding) Btn(if (arrived) "Repetir" else "Iniciar guiado", Modifier.weight(1f), Icons.Filled.Navigation, enabled = plan != null && canLocate && originNote == null) {
+                    if (!guiding) Btn(if (arrived) "Repetir" else "Iniciar guiado", Modifier.weight(1f).then(big), Icons.Filled.Navigation, enabled = plan != null && canLocate && originNote == null) {
                         arrived = false; reached = 0; idx = 0; guiding = true
-                    } else Btn("Detener", Modifier.weight(1f), Icons.Filled.Stop, kind = BK.Danger) { guiding = false }
-                    Btn("Recalcular", Modifier.weight(1f), Icons.Filled.Refresh, kind = BK.Ghost, enabled = !loading) {
+                    } else Btn("Detener", Modifier.weight(1f).then(big), Icons.Filled.Stop, kind = BK.Danger) { guiding = false }
+                    Btn("Recalcular", Modifier.weight(1f).then(big), Icons.Filled.Refresh, kind = BK.Ghost, enabled = !loading) {
                         reroute(pos ?: LatLng(C.CALI_LAT, C.CALI_LNG))
                     }
                 }

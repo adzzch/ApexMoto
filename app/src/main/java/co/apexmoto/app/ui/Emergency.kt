@@ -81,12 +81,13 @@ private fun helpText(lat: Double, lng: Double, near: String?) = buildString {
 @Composable
 fun SosHeaderButton(onClick: () -> Unit) {
     Row(
-        Modifier.height(36.dp).clip(RoundedCornerShape(18.dp)).background(Red).clickable(onClickLabel = "Emergencia", onClick = onClick).padding(horizontal = 12.dp),
+        Modifier.height(TouchMin).clip(RoundedCornerShape(TouchMin / 2)).background(Red)
+            .clickable(onClickLabel = "Abrir emergencia", role = androidx.compose.ui.semantics.Role.Button, onClick = onClick).padding(horizontal = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(Icons.Filled.Call, null, Modifier.size(16.dp), tint = Color.White)
+        Icon(Icons.Filled.Call, null, Modifier.size(18.dp), tint = Color.White)
         Spacer(Modifier.width(5.dp))
-        Text("SOS", color = Color.White, fontFamily = Chivo, fontWeight = FontWeight.ExtraBold, fontSize = 14.sp)
+        Text("SOS", color = Color.White, fontFamily = Chivo, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
     }
 }
 

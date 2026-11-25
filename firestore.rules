@@ -442,12 +442,16 @@ service cloud.firestore {
 
     // Mapa del grupo: posición en vivo de cada miembro mientras la rodada está activa (y como mucho 12 h desde que empezó).
     // La leen solo los miembros. Hora del servidor y como mucho una escritura cada 8 s. El creador borra todas al terminar.
+    // Señales rápidas (accesibilidad: avisos en pantalla y con vibración, sin depender de la voz): signal es una de cinco
+    // claves fijas y signalAt nunca es del futuro.
     function liveRodada(rid) { return get(path('rodadas', rid)).data; }
     match /rodadas/{rid}/live/{member} {
       allow read: if signedIn() && uid() in liveRodada(rid).joined && liveRodada(rid).status == 'active';
       allow create, update: if signedIn() && uid() == member && uid() in liveRodada(rid).joined && liveRodada(rid).status == 'active'
         && request.time < liveRodada(rid).startedAt + duration.value(12, 'h')
-        && request.resource.data.keys().hasOnly(['lat', 'lng', 'heading', 'name', 'moto', 'color', 'sos', 'updatedAt'])
+        && request.resource.data.keys().hasOnly(['lat', 'lng', 'heading', 'name', 'moto', 'color', 'sos', 'signal', 'signalAt', 'updatedAt'])
+        && (!('signal' in request.resource.data) || request.resource.data.signal in ['stop', 'fuel', 'lost', 'danger', 'ok'])
+        && (!('signalAt' in request.resource.data) || (request.resource.data.signalAt is timestamp && request.resource.data.signalAt <= request.time))
         && coords(request.resource.data) && request.resource.data.heading is number && request.resource.data.sos is bool
         && text(request.resource.data, 'name', 60) && str(request.resource.data, 'moto', 20) && str(request.resource.data, 'color', 20)
         && request.resource.data.updatedAt == request.time
