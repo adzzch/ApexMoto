@@ -63,6 +63,19 @@ class OsmMapState {
     fun resetRotation() { view?.mapOrientation = 0f }
 }
 
+/** "Mapa con 3 puntos: Cristo Rey, Km 18 y Dapa. Con la ruta dibujada." (para TalkBack). */
+internal fun mapDescription(markers: List<MapMarker>, hasRoute: Boolean): String = buildString {
+    val names = markers.map { it.title }.filter { it.isNotBlank() }
+    append("Mapa")
+    when {
+        names.isEmpty() -> append(" sin puntos marcados")
+        names.size <= 6 -> append(" con ${names.size} ${if (names.size == 1) "punto" else "puntos"}: ").append(names.joinToString(", "))
+        else -> append(" con ${names.size} puntos, entre ellos ").append(names.take(5).joinToString(", "))
+    }
+    append(".")
+    if (hasRoute) append(" Con la ruta dibujada.")
+}
+
 /** Mapa OpenStreetMap (osmdroid). mapType: 1 = estándar, 3 = topográfico. */
 @Composable
 fun OsmMap(
@@ -76,6 +89,8 @@ fun OsmMap(
     myPos: LatLng? = null,
     onMarkerClick: ((String) -> Unit)? = null,
     onTap: ((LatLng) -> Unit)? = null,
+    /** Lo que TalkBack dice del mapa. Si no se da, se arma con los nombres de los puntos (un mapa no se puede "ver" con el oído). */
+    description: String? = null,
 ) {
     val ctx = LocalContext.current
     val owner = LocalLifecycleOwner.current
@@ -106,6 +121,7 @@ fun OsmMap(
         onDispose { owner.lifecycle.removeObserver(obs); mapView.onPause(); mapView.onDetach(); state.view = null }
     }
     AndroidView(modifier = modifier, factory = { mapView }, update = { v ->
+        v.contentDescription = description ?: mapDescription(markers, route.isNotEmpty())
         val ts = if (mapType == 3) TileSourceFactory.OpenTopo else TileSourceFactory.MAPNIK
         if (v.tileProvider.tileSource.name() != ts.name()) v.setTileSource(ts)
         val snapshot = listOf(markers, route, myPos, onTap != null)

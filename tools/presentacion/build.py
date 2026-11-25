@@ -19,7 +19,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 SRC = os.path.join(ROOT, 'tools', 'presentacion')
 PUB = os.path.join(ROOT, 'hosting', 'public')
 FONTS = os.path.join(PUB, 'assets', 'fonts')
-VERSION = 'v1'   # súbela cuando cambien las páginas: así los celulares descartan la copia guardada sin internet
+VERSION = 'v2'   # súbela cuando cambien las páginas: así los celulares descartan la copia guardada sin internet
 
 FONTS_CSS = """/* Letras de ApexMoto servidas desde el mismo sitio (Chivo, Space Grotesk y JetBrains Mono: SIL OFL; Material Symbols: Apache 2.0). */
 @font-face { font-family: Chivo; font-weight: 700; font-display: swap; src: url(/assets/fonts/chivo_bold.ttf) format("truetype"); }

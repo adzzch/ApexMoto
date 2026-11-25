@@ -100,8 +100,8 @@ private fun MedalBadge(m: Medal, earned: Boolean, modifier: Modifier = Modifier)
             Icon(if (earned) m.icon else Icons.Filled.Lock, m.name + if (earned) "" else " (bloqueada)", Modifier.size(22.dp), tint = if (earned) Color.White else Muted)
         }
         // Siempre dos renglones de alto: así "50 rutas" queda a la misma altura en todas las medallas.
-        Text(m.short, fontSize = 10.sp, lineHeight = 12.sp, textAlign = TextAlign.Center, color = if (earned) Ink else Muted, minLines = 2, maxLines = 2)
-        Text("${m.routes} rutas", fontSize = 9.sp, color = Muted)
+        Text(m.short, fontSize = 12.sp, lineHeight = 14.sp, textAlign = TextAlign.Center, color = if (earned) Ink else Muted, minLines = 2, maxLines = 2)
+        Text("${m.routes} rutas", fontSize = 12.sp, color = Muted, maxLines = 1)
     }
 }
 

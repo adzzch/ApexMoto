@@ -155,14 +155,14 @@ fun IntercomBar(vm: AppViewModel, onOpen: (String) -> Unit) {
                 st.status != Intercom.Status.ON -> if (st.status == Intercom.Status.RECONNECTING) "Reconectando…" else "Conectando…"
                 talking > 0 -> "Alguien está hablando"
                 else -> "${st.peers.size + 1} en la llamada"
-            }, color = Color.White.copy(alpha = 0.85f), fontSize = 11.sp)
+            }, color = Color.White.copy(alpha = 0.9f), fontSize = 12.sp)
         }
         if (st.pushToTalk) TalkButton(vm, 40)
         else IconButton({ ic.setMuted(!st.muted) }) {
             Icon(if (st.muted) Icons.Filled.MicOff else Icons.Filled.Mic, if (st.muted) "Activar micrófono" else "Silenciar", tint = Color.White)
         }
         Spacer(Modifier.width(6.dp))
-        Box(Modifier.size(36.dp).clip(CircleShape).background(Red).clickable(onClickLabel = "Salir de la llamada") { ic.leave() }, contentAlignment = Alignment.Center) {
+        Box(Modifier.size(TouchMin).clip(CircleShape).background(Red).clickable(onClickLabel = "Salir de la llamada") { ic.leave() }, contentAlignment = Alignment.Center) {
             Icon(Icons.Filled.CallEnd, null, Modifier.size(18.dp), tint = Color.White)
         }
     }

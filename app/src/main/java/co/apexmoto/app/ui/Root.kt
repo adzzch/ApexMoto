@@ -27,7 +27,9 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.semantics.Role as SemRole
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
@@ -265,7 +267,8 @@ fun MainScaffold(vm: AppViewModel, u: AppUser) {
             composable("oing") { EarningsScreen(vm) }
             // Comunes
             composable("profile") { ProfileScreen(vm, nav, u) }
-            composable("settings") { SettingsScreen(vm) }
+            composable("settings") { SettingsScreen(vm, nav) }
+            composable("a11y") { AccessibilityScreen(vm) }
             composable("legal") { LegalCenterScreen(vm, u) }
             composable("navigate") { NavigationScreen(vm, nav) }
             composable("rodada/{id}") { b -> RodadaScreen(vm, nav, u, b.arguments?.getString("id").orEmpty()) }
@@ -291,25 +294,26 @@ private fun ApexHeader(isTab: Boolean, section: String, greeting: Pair<String, S
     Surface(color = Color.White) {
         Column(Modifier.statusBarsPadding()) {
             // Mismo margen que el contenido (16 dp): el saludo y el botón de perfil quedan alineados con las tarjetas.
-            Row(Modifier.fillMaxWidth().height(if (greeting != null) 76.dp else 60.dp)
+            // Alto mínimo (no fijo): con letra grande el saludo puede necesitar más espacio.
+            Row(Modifier.fillMaxWidth().heightIn(min = if (greeting != null) 76.dp else 60.dp)
                 .padding(start = if (isTab) Gap.screen else 4.dp, end = Gap.screen), verticalAlignment = Alignment.CenterVertically) {
                 if (isTab) {
-                    AnimatedContent(greeting to section, Modifier.weight(1f), label = "sec", transitionSpec = {
+                    AnimatedContent(greeting to section, Modifier.weight(1f).semantics { heading() }, label = "sec", transitionSpec = {
                         (fadeIn(tween(220)) + slideInVertically(tween(260)) { it / 3 }) togetherWith fadeOut(tween(120))
                     }) { (g, sec) ->
-                        if (g != null) Column {
-                            Text(g.first, fontFamily = Chivo, fontWeight = FontWeight.Black, fontSize = 24.sp, lineHeight = 28.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text(g.second, color = Muted, fontSize = 13.sp, lineHeight = 16.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        if (g != null) Column(Modifier.padding(vertical = 6.dp)) {
+                            Text(g.first, fontFamily = Chivo, fontWeight = FontWeight.Black, fontSize = 24.sp, lineHeight = 28.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            Text(g.second, color = Muted, fontSize = 13.sp, lineHeight = 16.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
                         } else Text(sec, fontFamily = Chivo, fontWeight = FontWeight.ExtraBold, fontSize = 22.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     if (onAssist != null) { AssistHeaderButton(assistActive, onAssist); Spacer(Modifier.width(8.dp)) }
                     if (onSos != null) { SosHeaderButton(onSos); Spacer(Modifier.width(8.dp)) }
-                    Box(Modifier.size(40.dp).clip(CircleShape).background(Surf4).clickable(onClickLabel = "Perfil", onClick = onProfile), contentAlignment = Alignment.Center) {
-                        Icon(Icons.Filled.Person, "Perfil", tint = CyanDeep)
+                    Box(Modifier.size(TouchMin).clip(CircleShape).background(Surf4).clickable(onClickLabel = "Abrir", role = SemRole.Button, onClick = onProfile), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Filled.Person, "Mi perfil", tint = CyanDeep)
                     }
                 } else {
-                    IconButton(onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Volver", tint = Ink) }
-                    Text(section, Modifier.weight(1f), style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    IconButton(onBack, Modifier.size(TouchMin)) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Volver", tint = Ink) }
+                    Text(section, Modifier.weight(1f).semantics { heading() }, style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     if (onAssist != null) { AssistHeaderButton(assistActive, onAssist); Spacer(Modifier.width(8.dp)) }
                     if (onSos != null) SosHeaderButton(onSos)
                 }
@@ -323,8 +327,8 @@ private fun ApexHeader(isTab: Boolean, section: String, greeting: Pair<String, S
 @Composable
 private fun AssistHeaderButton(active: Boolean, onClick: () -> Unit) {
     Box {
-        Box(Modifier.size(36.dp).clip(CircleShape).background(OrangeSoft).clickable(onClickLabel = "Asistencia técnica", onClick = onClick), contentAlignment = Alignment.Center) {
-            Icon(Icons.Filled.Handyman, "Asistencia técnica", Modifier.size(19.dp), tint = OrangeDark)
+        Box(Modifier.size(TouchMin).clip(CircleShape).background(OrangeSoft).clickable(onClickLabel = "Abrir", role = SemRole.Button, onClick = onClick), contentAlignment = Alignment.Center) {
+            Icon(Icons.Filled.Handyman, if (active) "Asistencia técnica, tienes una abierta" else "Asistencia técnica", Modifier.size(22.dp), tint = OrangeDark)
         }
         if (active) Box(Modifier.align(Alignment.TopEnd).size(10.dp).clip(CircleShape).background(Color.White).padding(2.dp).clip(CircleShape).background(Orange))
     }
@@ -334,8 +338,12 @@ private fun AssistHeaderButton(active: Boolean, onClick: () -> Unit) {
 @Composable
 private fun ApexNavBar(tabs: List<NavTab>, current: String, onGo: (String) -> Unit) {
     val perTab = LocalConfiguration.current.screenWidthDp / tabs.size
-    val labelSize = when { perTab >= 84 -> 11.sp; perTab >= 66 -> 10.sp; else -> 9.5.sp }
-    fun fits(t: String) = perTab * 1.0 >= 14 + t.length * 6.4
+    // 12 sp en celulares normales (antes 11). La barra de Material mide 80 dp fijos: con letra muy grande los nombres
+    // crecen hasta 1,3x y no más (no se cortan); los íconos los acompañan y TalkBack lee el nombre completo.
+    val fs = LocalDensity.current.fontScale
+    val base = when { perTab >= 84 -> 12f; perTab >= 66 -> 11f; else -> 10.5f }
+    val labelSize = (if (fs > 1.3f) base * 1.3f / fs else base).sp
+    fun fits(t: String) = perTab * 1.0 >= 14 + t.length * base * 0.58 * fs.coerceAtMost(1.3f)
     // Pantallas angostas: nombres cortos equivalentes; si aun así no caben, solo la pestaña activa muestra su nombre.
     val short = mapOf("Comunidad" to "Rodadas", "Comercios" to "Aliados", "Asistencias" to "Asist.", "Asistencia" to "Taller", "Solicitudes" to "Pedidos", "Mi taller" to "Taller", "Mi flota" to "Flota")
     fun nameOf(t: NavTab) = if (fits(t.label)) t.label else short[t.label] ?: t.label
@@ -348,7 +356,8 @@ private fun ApexNavBar(tabs: List<NavTab>, current: String, onGo: (String) -> Un
                 val scale by animateFloatAsState(if (sel) 1.12f else 1f, spring(dampingRatio = 0.5f, stiffness = Spring.StiffnessMediumLow), label = "nav")
                 NavigationBarItem(
                     selected = sel, onClick = { onGo(t.route) }, alwaysShowLabel = allLabels,
-                    icon = { Icon(t.icon, null, Modifier.size(25.dp).graphicsLayer { scaleX = scale; scaleY = scale }) },
+                    // Si el nombre no se muestra (pantalla angosta), el ícono lo lleva para TalkBack.
+                    icon = { Icon(t.icon, if (allLabels || sel) null else t.label, Modifier.size(25.dp).graphicsLayer { scaleX = scale; scaleY = scale }) },
                     label = { Text(nameOf(t), maxLines = 1, overflow = TextOverflow.Ellipsis, softWrap = false, fontWeight = FontWeight.SemiBold, fontSize = labelSize, letterSpacing = (-0.2).sp) },
                     colors = NavigationBarItemDefaults.colors(
                         selectedIconColor = Orange, selectedTextColor = Orange, indicatorColor = OrangeSoft,
@@ -371,6 +380,7 @@ private fun titleFor(route: String?) = when {
     route == "navigate" -> "Guiado"
     route == "profile" -> "Mi perfil"
     route == "settings" -> "Configuración"
+    route == "a11y" -> "Accesibilidad"
     route == "legal" -> "Legal y privacidad"
     else -> ""
 }
@@ -446,6 +456,9 @@ fun AuthScreen(vm: AppViewModel) {
         if (step == AuthStep.Partner && role !in PartnerRoles) role = Role.SHOP
     }
     BackHandler(step != AuthStep.Login) { step = when (step) { AuthStep.Code -> AuthStep.Phone; AuthStep.Partner -> AuthStep.Register; else -> AuthStep.Login } }
+    // Accesibilidad antes de ingresar: quien necesita letra grande o alto contraste lo activa desde el primer momento.
+    var a11y by rememberSaveable { mutableStateOf(false) }
+    if (a11y) Sheet({ a11y = false }) { H("Accesibilidad", Icons.Filled.Accessibility); AccessibilityContent(vm) }
 
     Box(Modifier.fillMaxSize().background(Brush.radialGradient(listOf(Color(0xFFFFE6D6), Bg), center = Offset(540f, 0f), radius = 1400f))) {
         Column(
@@ -488,8 +501,8 @@ fun AuthScreen(vm: AppViewModel) {
                                     leading = Icons.Outlined.Lock, ime = ImeAction.Done, onIme = { if (emailOk && pw.length >= 6) login() },
                                     trailing = { PwToggle(showPw) { showPw = !showPw } })
                                 Text("¿Olvidaste tu contraseña?", Modifier.align(Alignment.End).clip(RoundedCornerShape(8.dp))
-                                    .clickable { if (emailOk) vm.resetPassword(email) else vm.toast("Escribe tu correo arriba y te enviamos un enlace para cambiarla.") }
-                                    .padding(horizontal = 6.dp, vertical = 4.dp), color = CyanDeep, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                                    .clickable(role = SemRole.Button) { if (emailOk) vm.resetPassword(email) else vm.toast("Escribe tu correo arriba y te enviamos un enlace para cambiarla.") }
+                                    .heightIn(min = TouchMin).wrapContentHeight().padding(horizontal = 6.dp), color = CyanDeep, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
                                 Missing(if (email.isEmpty() && pw.isEmpty()) emptyList() else buildList { if (!emailOk) add("tu correo"); if (pw.length < 6) add("tu contraseña") })
                                 Btn("Entrar", Modifier.fillMaxWidth(), enabled = emailOk && pw.length >= 6, loading = busy) { login() }
                             }
@@ -552,8 +565,8 @@ fun AuthScreen(vm: AppViewModel) {
                                 OtpField(code) { c -> code = c; if (c.length == 6 && !busy) verify(c) }
                                 Btn("Verificar y entrar", Modifier.fillMaxWidth(), Icons.Filled.Check, enabled = code.length == 6, loading = busy) { verify(code) }
                                 Text("¿No te llegó? Reenviar código", Modifier.align(Alignment.CenterHorizontally).clip(RoundedCornerShape(8.dp))
-                                    .clickable(enabled = !busy) { sendSms() }.padding(horizontal = 8.dp, vertical = 4.dp),
-                                    color = CyanDeep, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                                    .clickable(enabled = !busy, role = SemRole.Button) { sendSms() }.heightIn(min = TouchMin).wrapContentHeight().padding(horizontal = 8.dp),
+                                    color = CyanDeep, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
                             }
                         }
                     }
@@ -583,6 +596,11 @@ fun AuthScreen(vm: AppViewModel) {
                 // Los documentos legales se pueden leer antes de crear la cuenta.
                 LegalLinks()
             }
+        }
+        // Encima de la columna (si no, el desplazamiento se quedaría con los toques).
+        Box(Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(8.dp).size(TouchMin).clip(CircleShape).background(Color.White)
+            .clickable(onClickLabel = "Abrir", role = SemRole.Button) { a11y = true }, contentAlignment = Alignment.Center) {
+            Icon(Icons.Filled.Accessibility, "Accesibilidad: letra, contraste y avisos", tint = CyanDeep)
         }
     }
 
@@ -648,7 +666,8 @@ private fun LinkText(prefix: String, link: String, color: Color, size: Int, onCl
         withStyle(SpanStyle(color = Muted)) { append(prefix) }
         withStyle(SpanStyle(color = color, fontWeight = FontWeight.Bold)) { append(link) }
     }
-    Text(text, Modifier.clip(RoundedCornerShape(10.dp)).clickable(onClickLabel = link, onClick = onClick).padding(horizontal = 10.dp, vertical = 8.dp),
+    Text(text, Modifier.clip(RoundedCornerShape(10.dp)).clickable(onClickLabel = link, role = SemRole.Button, onClick = onClick)
+        .heightIn(min = TouchMin).wrapContentHeight().padding(horizontal = 10.dp, vertical = 6.dp),
         fontSize = size.sp, lineHeight = (size + 6).sp, textAlign = TextAlign.Center)
 }
 
@@ -656,13 +675,13 @@ private fun LinkText(prefix: String, link: String, color: Color, size: Int, onCl
 private fun StepTitle(title: String, sub: String, onBack: (() -> Unit)? = null) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         if (onBack != null) {
-            Box(Modifier.size(40.dp).clip(CircleShape).background(Surf3).clickable(onClickLabel = "Volver", onClick = onBack), contentAlignment = Alignment.Center) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, "Volver", Modifier.size(20.dp), tint = Ink)
+            Box(Modifier.size(TouchMin).clip(CircleShape).background(Surf3).clickable(onClickLabel = "Volver", role = SemRole.Button, onClick = onBack), contentAlignment = Alignment.Center) {
+                Icon(Icons.AutoMirrored.Filled.ArrowBack, "Volver", Modifier.size(22.dp), tint = Ink)
             }
             Spacer(Modifier.width(12.dp))
         }
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(title, fontFamily = Chivo, fontWeight = FontWeight.ExtraBold, fontSize = 22.sp)
+            Text(title, Modifier.semantics { heading() }, fontFamily = Chivo, fontWeight = FontWeight.ExtraBold, fontSize = 22.sp)
             Text(sub, color = Muted, style = MaterialTheme.typography.bodySmall)
         }
     }

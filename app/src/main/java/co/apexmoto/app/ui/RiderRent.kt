@@ -122,7 +122,7 @@ private fun ColumnScope.BikesList(vm: AppViewModel, nav: NavController) {
                 if (b.instant) Box(Modifier.align(Alignment.TopStart).padding(Gap.card)) { Pill("Instantánea", Color.White, OrangeDark, Icons.Filled.Bolt) }
                 Row(Modifier.align(Alignment.BottomEnd).padding(Gap.card).glow(Orange, RoundedCornerShape(9.dp), elevation = 6.dp).clip(RoundedCornerShape(9.dp)).background(Orange).padding(horizontal = 10.dp, vertical = 5.dp),
                     verticalAlignment = Alignment.Bottom) {
-                    Num(cop(b.pricePerDay), Color.White, 16); Text(" /día", color = Color.White.copy(alpha = 0.9f), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                    Num(cop(b.pricePerDay), Color.White, 16); Text(" /día", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
             Column(Modifier.padding(start = Gap.card, end = Gap.card, bottom = Gap.card), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -262,7 +262,7 @@ fun BikeDetailScreen(vm: AppViewModel, nav: NavController, u: AppUser, id: Strin
             }
             Column(Modifier.weight(1f)) {
                 Lbl("Total"); Num(cop(animatedMoney(total)), OrangeDark, 22)
-                if (faltan.isNotEmpty()) Text("Falta: ${joinEs(faltan)}.", color = Muted, fontSize = 11.sp, lineHeight = 14.sp, maxLines = 2)
+                if (faltan.isNotEmpty()) Text("Falta: ${joinEs(faltan)}.", color = Muted, fontSize = 12.sp, lineHeight = 15.sp, maxLines = 2)
             }
             Btn(if (instant) "Reservar" else "Solicitar", icon = Icons.Filled.Check, enabled = !busy && docsOk && p != null && profileOk && license && agree) {
                 val pr = p ?: return@Btn

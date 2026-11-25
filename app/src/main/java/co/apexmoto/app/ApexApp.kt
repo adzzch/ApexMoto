@@ -65,6 +65,8 @@ class ApexApp : Application() {
         }
         // App Check (antifraude): solo se activa si APP_CHECK_ENABLED=true en local.properties. Ver docs/seguridad.md.
         if (BuildConfig.APP_CHECK_ENABLED) AppCheckInstaller.install()
+        // Ajustes de accesibilidad (letra, contraste, botones, vibración): antes de dibujar la primera pantalla.
+        co.apexmoto.app.ui.theme.A11y.init(this)
         container = AppContainer(this)
     }
 }

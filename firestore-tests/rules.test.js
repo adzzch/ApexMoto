@@ -445,6 +445,16 @@ test('mapa del grupo: solo miembros de una rodada activa, con la hora del servid
   await assertFails(getDoc(doc(db(S), 'rodadas/r5/live', R)));
   await assertSucceeds(deleteDoc(doc(db(O), 'rodadas/r5/live', R)));                              // el creador limpia al terminar
 });
+test('señales rápidas de la rodada (accesibilidad): solo las cinco claves y nunca con hora del futuro', async () => {
+  await seedRodada('r7', { joined: [O, R, S, X], status: 'active', startedAt: past(60) });
+  await assertSucceeds(setDoc(doc(db(R), 'rodadas/r7/live', R), live({ signal: 'stop', signalAt: serverTimestamp() })));
+  await assertFails(setDoc(doc(db(O), 'rodadas/r7/live', O), live({ signal: 'gritar', signalAt: serverTimestamp() })));    // clave inventada
+  await assertFails(setDoc(doc(db(S), 'rodadas/r7/live', S), live({ signal: 'fuel', signalAt: Timestamp.fromMillis(Date.now() + 3600e3) })));  // del futuro
+  await assertFails(setDoc(doc(db(X), 'rodadas/r7/live', X), live({ signal: 'ok', signalAt: 'ya' })));                  // no es una fecha
+  // La señal se conserva al actualizar la posición (merge) y la lee el resto del grupo.
+  await assertSucceeds(setDoc(doc(db(O), 'rodadas/r7/live', O), live({ signal: 'danger', signalAt: past(30) })));
+  await assertSucceeds(getDoc(doc(db(S), 'rodadas/r7/live', R)));
+});
 test('rodadas: código de invitación (enlace) para unirse, también a las privadas', async () => {
   // Se crea la rodada privada con su código en un lote, como la app.
   const d = db(O); const b = writeBatch(d);

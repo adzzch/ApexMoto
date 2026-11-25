@@ -51,7 +51,8 @@ Lo que ApexMoto puede decir y una app de mapas o un grupo de chat no puede decir
 ## Brand Commitments
 
 - **Nombre:** ApexMoto.
-- **Paleta (compromiso, del prototipo `apexmoto.html`):** naranja `#D94600` (primario) y `#C2410C`, cian `#0E7490` y `#0E6A82`, verde `#1B8A3A`, rojo `#D13B3B`, tinta `#1C2230`, gris `#566074`, fondos `#F3F4F8` / `#E9EBF2` / `#D5D9E4`. Vive en `ui/theme/Theme.kt`; las pantallas no definen colores propios.
+- **Paleta (compromiso, del prototipo `apexmoto.html`, ajustada a WCAG AA):** naranja `#C84100` (primario; antes `#D94600`, con letra blanca no llegaba a 4,5:1) y `#BA3E0B`, cian `#0E7490` y `#0E6A82`, verde `#177431`, rojo `#BA2C2C`, tinta `#1C2230`, gris `#555F73`, fondos `#F3F4F8` / `#E9EBF2` / `#D5D9E4`. Mismo tono, solo más oscuros donde el contraste no alcanzaba. Con "Alto contraste" todo sube a 7:1 (ver `docs/accesibilidad.md`). Vive en `ui/theme/Theme.kt`; las pantallas no definen colores propios.
+- **Accesibilidad (compromiso):** texto con contraste ≥ 4,5:1, estados con ícono y palabra (nunca solo color), lo que se toca ≥ 48 dp, letra hasta 2x y avisos que no dependen de oír (vibración y pantalla). Pantalla de Accesibilidad en Mi perfil, igual en la app y en el prototipo.
 - **Fuentes (compromiso, del prototipo):** Chivo para títulos (los de sección van en mayúsculas), Space Grotesk para el texto, JetBrains Mono para cifras, precios y etiquetas. Van empaquetadas en `app/src/main/res/font/`.
 
 ## Evidence on Hand

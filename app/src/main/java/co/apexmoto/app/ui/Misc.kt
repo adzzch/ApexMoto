@@ -88,6 +88,9 @@ fun ProfileScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
                 RiderStats(stats, vm.repo.auth.currentUser?.metadata?.creationTimestamp, own = true)
             }
         }
+        // Accesibilidad a la vista (no escondida en Configuración): letra, contraste, botones grandes y avisos sin sonido.
+        Btn(if (A11y.customized) "Accesibilidad · ajustes activos" else "Accesibilidad: letra, contraste y avisos", Modifier.fillMaxWidth(),
+            Icons.Filled.Accessibility, kind = BK.Ghost) { nav.navigate("a11y") }
         if (u.role == Role.RIDER) Card2 {
             val p = profile
             if (p == null) {
@@ -135,7 +138,7 @@ fun ProfileScreen(vm: AppViewModel, nav: NavController, u: AppUser) {
 }
 
 @Composable
-fun SettingsScreen(vm: AppViewModel) {
+fun SettingsScreen(vm: AppViewModel, nav: NavController) {
     val key = BuildConfig.ORS_API_KEY
     Screen {
         // Diagnóstico de la clave: solo en la versión de pruebas. En la app real no se muestra nada de la clave.
@@ -157,6 +160,7 @@ fun SettingsScreen(vm: AppViewModel) {
             }
             SwitchRow("Guía por voz", "Lee en voz alta cada instrucción mientras manejas", vm.voice) { vm.updateVoice(it) }
         }
+        Btn("Accesibilidad: letra, contraste y avisos", Modifier.fillMaxWidth(), Icons.Filled.Accessibility, kind = BK.Ghost) { nav.navigate("a11y") }
         Sub("ApexMoto ${BuildConfig.VERSION_NAME}")
     }
 }
@@ -178,7 +182,7 @@ fun ChatScreen(vm: AppViewModel, u: AppUser, thread: String, to: String) {
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = if (mine) Arrangement.End else Arrangement.Start) {
                     val shape = if (mine) RoundedCornerShape(16.dp, 16.dp, 4.dp, 16.dp) else RoundedCornerShape(16.dp, 16.dp, 16.dp, 4.dp)
                     Column(Modifier.reveal(0).widthIn(max = 290.dp).clip(shape).background(if (mine) Orange else Color.White).padding(horizontal = 12.dp, vertical = 9.dp)) {
-                        if (!mine) Text(m.fromName, color = CyanDeep, fontFamily = Mono, fontWeight = FontWeight.SemiBold, fontSize = 10.sp)
+                        if (!mine) Text(m.fromName, color = CyanDeep, fontFamily = Mono, fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
                         Text(m.text, color = if (mine) Color.White else Ink, style = MaterialTheme.typography.bodyMedium)
                     }
                 }
@@ -188,8 +192,8 @@ fun ChatScreen(vm: AppViewModel, u: AppUser, thread: String, to: String) {
             OutlinedTextField(text, { text = it.take(1000) }, Modifier.weight(1f), placeholder = { Text("Escribe un mensaje", color = Muted) }, maxLines = 3,
                 shape = RoundedCornerShape(24.dp), colors = OutlinedTextFieldDefaults.colors(
                     focusedContainerColor = Surf0, unfocusedContainerColor = Surf0, focusedBorderColor = CyanDeep, unfocusedBorderColor = Color.Transparent, cursorColor = Orange))
-            Box(Modifier.size(48.dp).glow(Orange, CircleShape, on = text.isNotBlank(), elevation = 8.dp).clip(CircleShape).background(if (text.isNotBlank()) Orange else Surf4)
-                .clickable(onClickLabel = "Enviar") { val t = text; if (t.isNotBlank()) { text = ""; vm.act { vm.repo.send(thread, u, to, t) } } }, contentAlignment = Alignment.Center) {
+            Box(Modifier.size(TouchMin).glow(Orange, CircleShape, on = text.isNotBlank(), elevation = 8.dp).clip(CircleShape).background(if (text.isNotBlank()) Orange else Surf4)
+                .clickable(enabled = text.isNotBlank(), onClickLabel = "Enviar") { val t = text; if (t.isNotBlank()) { text = ""; vm.act { vm.repo.send(thread, u, to, t) } } }, contentAlignment = Alignment.Center) {
                 Icon(Icons.AutoMirrored.Filled.Send, "Enviar", tint = Color.White)
             }
         }

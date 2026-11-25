@@ -4,6 +4,17 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/) y 
 
 ## [Sin publicar]
 
+### Accesibilidad
+- **Pantalla de Accesibilidad** (Mi perfil, Configuración y el botón de accesibilidad al ingresar): tamaño de letra (Normal, Grande, Muy grande), alto contraste "modo sol", botones grandes (56 dp), vibración en giros y alertas, guía por voz y reducir animaciones. Se aplica al instante en toda la app y se guarda en el teléfono. La misma pantalla está en el prototipo HTML.
+- **Colores con contraste AA:** naranja `#D94600` → `#C84100` (la letra blanca de los botones pasa de 4,35 a 4,99:1), verde `#177431`, rojo `#BA2C2C`, naranja oscuro `#BA3E0B`; todas las etiquetas de estado pasan 4,5:1. Alto contraste llega a 7:1.
+- **Letra:** la app ya no frena la letra grande del celular en 1,15x (llega a 2x, con escala no lineal). Etiquetas de 12 sp como mínimo (antes 9–11).
+- **Estados con ícono y palabra** (✓ Listo, ✕ Cancelado, reloj Pendiente), chip elegido con ✓ e interruptor activado con ✓: no se depende del color (daltonismo).
+- **Lo que se toca mide 48 dp** (Perfil, Asistencia, SOS, Volver, Enviar, Salir de la llamada, chips, selector y contador). En el guiado y las señales, 56 dp.
+- **TalkBack:** títulos marcados, interruptores como una sola fila con "activado/desactivado", chips y opciones con "seleccionado", errores con ícono anunciados, mapas descritos con palabras, barra inferior con el nombre de cada pestaña aunque no se vea.
+- **Guiado sin depender de la voz:** indicación en letra grande que TalkBack lee sola, vibración (dos toques en cada giro, uno largo al llegar) y aviso "Voz apagada: te avisamos con texto y vibración".
+- **Señales rápidas en la rodada:** Paremos, Gasolina, Me quedé, Peligro y Todo bien. Le llegan a todo el grupo como aviso grande con vibración, sin depender del intercom de voz. Reglas: `signal` (cinco claves) y `signalAt` en `rodadas/{id}/live/{uid}`, con prueba.
+- **Prototipo HTML:** misma pantalla de Accesibilidad, letra escalable, íconos ocultos al lector de pantalla, lo que se toca accesible por teclado, foco visible, `lang="es-CO"`, guiado con voz y vibración, señales rápidas; ya no se desplaza la página de afuera en el celular. Detalle en `docs/accesibilidad.md`.
+
 ### Cambiado
 - **Inicio más simple (antes "Rutas"):** el encabezado ya no dice "ApexMoto": en la pestaña principal de cada rol (rider, comercio, dueño y taller) saluda "¡Hola, Nombre!" con una línea según la hora; en las demás muestra el nombre de la sección. La portada del rider tiene, en orden: dónde estás (con "Cambiar" ciudad o usar la ubicación), "¿A dónde vamos?" con solo dos opciones grandes (Ruta con IA y Explorar) y tres rutas recomendadas que salen cerca. Explorar y Ruta IA se abren aparte con "← Inicio"; Presupuesto pasa a un enlace dentro de Ruta IA. Configuración se abre desde Mi perfil.
 - **"¿A dónde vamos?" se escribe:** en Inicio ya no hay dos tarjetas; es un campo donde la persona escribe lo que quiere y la IA responde ahí mismo con la ruta (mismos controles de Ruta IA: solo temas de rutas, tope diario y respaldo local). Explorar queda debajo como opción aparte y abre su vista. La lógica de la IA se movió a `requestAiRoute` y la tarjeta del resultado a `AiRouteCard`, que comparten Inicio y Ruta IA.

@@ -1,18 +1,40 @@
-<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<!doctype html><html lang="es-CO"><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:calc(14px*var(--fs)) -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <title>ApexMoto prototipo</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Chivo:wght@700;900&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@600;800&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,500,1,0&display=block" rel="stylesheet">
 <style>
+  /* Paleta de la app (ui/theme/Theme.kt) ajustada a WCAG 2.2 AA: todo texto pasa 4,5:1. El naranja (#D94600 → #C84100),
+     el naranja oscuro, el verde y el rojo quedaron un poco más oscuros, con el mismo tono. --fs y --fsh: tamaño de letra
+     (Accesibilidad → Tamaño de letra); los títulos (--fsh) crecen menos que el texto, como la escala no lineal de Android. */
   :root {
-    --orange: #D94600; --orange-dark: #C2410C; --orange-soft: #FFE3D3; --cyan: #0E7490; --cyan-deep: #0E6A82; --cyan-tint: #D3ECF2;
-    --green: #1B8A3A; --green-tint: #D5EEDC; --red: #D13B3B; --red-soft: #FBE1E1; --amber: #8A5A00;
-    --ink: #1C2230; --muted: #566074; --bg: #F3F4F8; --surf0: #ECEEF4; --surf3: #E9EBF2; --surf4: #D5D9E4; --card: #FFFFFF; --page: #DCE0EA;
+    --orange: #C84100; --orange-dark: #BA3E0B; --orange-soft: #FFE3D3; --cyan: #0E7490; --cyan-deep: #0E6A82; --cyan-tint: #D3ECF2;
+    --green: #177431; --green-tint: #D5EEDC; --red: #BA2C2C; --red-soft: #FBE1E1; --amber: #8A5A00;
+    --ink: #1C2230; --muted: #555F73; --bg: #F3F4F8; --surf0: #ECEEF4; --surf3: #E9EBF2; --surf4: #D5D9E4; --card: #FFFFFF; --page: #DCE0EA;
+    --edge: transparent; --touch: 48px; --fs: 1; --fsh: 1;
   }
+  /* Alto contraste ("modo sol"): colores hasta 7:1 (AAA), fondo blanco, todo con borde y texto más grueso. */
+  .phone.hc {
+    --orange: #A03300; --orange-dark: #882E08; --green: #115524; --red: #8B2121; --cyan: #0C6078; --cyan-deep: #0B5163; --amber: #704900;
+    --ink: #0F141F; --muted: #444B5B; --bg: #FFFFFF; --surf0: #EEF0F4; --surf3: #E4E7EE; --surf4: #AEB5C3; --edge: #4F586B;
+  }
+  .phone.hc .card, .phone.hc .chip:not(.on), .phone.hc .seg, .phone.hc input, .phone.hc textarea, .phone.hc select, .phone.hc .eline, .phone.hc .ask { border: 1.5px solid var(--edge) !important; box-shadow: none; }
+  .phone.hc .ask input { border: 0 !important; }
+  .phone.hc .scroll, .phone.hc .sheet { font-weight: 500; }
+  .phone.hc .top, .phone.hc .nav { border-color: var(--edge); }
+  /* Botones grandes (guantes o motricidad fina): lo que se toca pasa de 48 a 56 px. */
+  .phone.bigt { --touch: 56px; }
+  /* Reducir animaciones: la opción de la app o la del sistema. */
+  .phone.rm *:not(.spin), .phone.rm *::before, .phone.rm *::after { transition: none !important; animation: none !important; }
+  @media (prefers-reduced-motion: reduce) { .phone *:not(.spin) { transition: none !important; animation: none !important; } }
+  /* Foco visible para teclado y para quien navega con un lector de pantalla. */
+  :focus-visible { outline: 3px solid var(--cyan); outline-offset: 2px; border-radius: 10px; }
+  /* Texto solo para lectores de pantalla. */
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   [hidden] { display: none !important; }
   html, body { margin: 0; }
-  body { background: var(--page); color: var(--ink); font: 15px/1.45 "Space Grotesk", system-ui, sans-serif; }
+  body { background: var(--page); color: var(--ink); font: calc(15px*var(--fs))/1.45 "Space Grotesk", system-ui, sans-serif; }
   .ms { font-family: "Material Symbols Rounded"; font-weight: normal; font-style: normal; font-size: 22px; line-height: 1; display: inline-block; vertical-align: middle; font-feature-settings: "liga"; -webkit-font-smoothing: antialiased; }
   button { font: inherit; color: inherit; border: 0; background: none; cursor: pointer; padding: 0; }
   input, textarea, select { font: inherit; color: var(--ink); width: 100%; background: var(--surf0); border: 1.5px solid transparent; border-radius: 12px; padding: 12px; }
@@ -23,26 +45,30 @@
   /* Teléfono */
   .stage { min-height: 100vh; display: flex; justify-content: center; align-items: flex-start; padding: 24px 16px; gap: 28px; }
   .side { max-width: 280px; padding-top: 40px; }
-  .side h1 { font-size: 28px; font-weight: 900; }
+  .side h1 { font-size: calc(28px*var(--fsh)); font-weight: 900; }
   .side p { color: var(--muted); }
-  .side .tip { background: var(--card); border-radius: 14px; padding: 12px 14px; margin-top: 12px; font-size: 14px; }
+  .side .tip { background: var(--card); border-radius: 14px; padding: 12px 14px; margin-top: 12px; font-size: calc(14px*var(--fs)); }
   .phone { width: 400px; max-width: 100%; height: min(860px, calc(100vh - 48px)); background: var(--bg); border-radius: 34px; box-shadow: 0 20px 60px rgba(28,34,48,.25), 0 0 0 10px #1C2230; overflow: hidden; display: flex; flex-direction: column; position: relative; }
   @media (max-width: 760px) {
     .stage { padding: 0; } .side { display: none; }
     .phone { width: 100%; height: 100vh; height: 100dvh; border-radius: 0; box-shadow: none; }
+    /* En el celular la demo ocupa la pantalla y no se desplaza la página de afuera (si no, el encabezado se iba hacia arriba). */
+    .stage { min-height: 0; }
+    html, body { height: 100%; overflow: hidden; }
   }
-  .strip { background: var(--cyan-deep); color: #fff; text-align: center; font: 800 10.5px "JetBrains Mono", monospace; letter-spacing: .1em; padding: 7px; }
+  .scroll, .sheet .body { overscroll-behavior: contain; }
+  .strip { background: var(--cyan-deep); color: #fff; text-align: center; font: 800 calc(10.5px*var(--fs)) "JetBrains Mono", monospace; letter-spacing: .1em; padding: 7px; }
   .top { display: flex; align-items: center; gap: 10px; padding: 12px 14px; background: var(--card); border-bottom: 1px solid var(--surf3); }
   .top .logo { width: 40px; height: 40px; border-radius: 12px; background: var(--orange); color: #fff; display: grid; place-items: center; }
-  .top .t1 { font-family: Chivo; font-weight: 900; font-size: 19px; line-height: 1.1; }
-  .top .t2 { font: 600 12px "JetBrains Mono", monospace; color: var(--orange); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .top .t1 { font-family: Chivo; font-weight: 900; font-size: calc(19px*var(--fsh)); line-height: 1.1; }
+  .top .t2 { font: 600 calc(12px*var(--fs)) "JetBrains Mono", monospace; color: var(--orange); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .top .grow { flex: 1; min-width: 0; }
-  .round { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; color: var(--ink); }
+  .round { width: var(--touch); height: var(--touch); border-radius: 50%; display: grid; place-items: center; color: var(--ink); }
   .round.fill { background: var(--surf4); }
   .scroll { flex: 1; overflow-y: auto; overflow-x: hidden; }
   .pad { padding: 14px; display: flex; flex-direction: column; gap: 12px; }
   .nav { display: grid; grid-template-columns: repeat(5, 1fr); background: var(--card); border-top: 1px solid var(--surf3); padding: 6px 4px 10px; }
-  .nav button { display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 11.5px; font-weight: 600; color: var(--muted); padding: 4px 0; }
+  .nav button { display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: calc(12px*min(var(--fs),1.3)); font-weight: 600; color: var(--muted); padding: 4px 0; min-height: var(--touch); }
   .nav button .pill { width: 56px; height: 30px; border-radius: 15px; display: grid; place-items: center; transition: background .2s; }
   .nav button.on { color: var(--orange); }
   .nav button.on .pill { background: var(--orange-soft); }
@@ -53,37 +79,37 @@
   .card.soft { background: var(--orange-soft); box-shadow: none; }
   .row { display: flex; align-items: center; gap: 10px; }
   .grow { flex: 1; min-width: 0; }
-  .lbl { font-size: 13px; color: var(--muted); }
+  .lbl { font-size: calc(13px*var(--fs)); color: var(--muted); }
   .b { font-weight: 700; }
-  .h { font-family: Chivo; font-weight: 900; font-size: 17px; display: flex; align-items: center; gap: 8px; }
+  .h { font-family: Chivo; font-weight: 900; font-size: calc(17px*var(--fs)); display: flex; align-items: center; gap: 8px; }
   .h .ms { color: var(--orange); font-size: 20px; }
   .ellip { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .chips { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; margin: 0 -14px; padding: 0 14px; }
   .chips::-webkit-scrollbar { display: none; }
-  .chip { flex: none; display: inline-flex; align-items: center; gap: 6px; background: var(--surf3); border-radius: 12px; padding: 9px 13px; font-weight: 600; font-size: 14px; white-space: nowrap; }
+  .chip { min-height: var(--touch); flex: none; display: inline-flex; align-items: center; gap: 6px; background: var(--surf3); border-radius: 12px; padding: 9px 13px; font-weight: 600; font-size: calc(14px*var(--fs)); white-space: nowrap; }
   .chip .ms { font-size: 18px; }
   .chip.on { background: var(--orange); color: #fff; }
   .chip.on.cy { background: var(--cyan); }
   .chip.on.ink { background: var(--ink); }
   .seg { display: grid; grid-template-columns: repeat(3, 1fr); background: var(--surf3); border-radius: 14px; padding: 4px; }
-  .seg button { padding: 9px 4px; border-radius: 11px; font-weight: 700; font-size: 14px; color: var(--muted); display: flex; align-items: center; justify-content: center; gap: 5px; }
+  .seg button { min-height: var(--touch); padding: 9px 4px; border-radius: 11px; font-weight: 700; font-size: calc(14px*var(--fs)); color: var(--muted); display: flex; align-items: center; justify-content: center; gap: 5px; }
   .seg button .ms { font-size: 18px; }
   .seg button.on { background: var(--card); color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.1); }
-  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: var(--orange); color: #fff; font-weight: 700; border-radius: 14px; padding: 13px 16px; min-height: 48px; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: var(--orange); color: #fff; font-weight: 700; border-radius: 14px; padding: 13px 16px; min-height: var(--touch); }
   .btn.full { width: 100%; }
   .btn.ghost { background: var(--surf3); color: var(--cyan-deep); }
   .btn.cy { background: var(--cyan); }
   .btn.red { background: var(--red); }
   .btn[disabled] { opacity: .45; cursor: not-allowed; }
-  .ib { width: 44px; height: 44px; border-radius: 12px; background: var(--surf3); color: var(--cyan-deep); display: grid; place-items: center; flex: none; }
-  .pl { display: inline-flex; align-items: center; gap: 4px; font: 700 11.5px "JetBrains Mono", monospace; padding: 4px 8px; border-radius: 999px; background: var(--surf3); color: var(--muted); white-space: nowrap; }
+  .ib { width: var(--touch); height: var(--touch); border-radius: 12px; background: var(--surf3); color: var(--cyan-deep); display: grid; place-items: center; flex: none; }
+  .pl { display: inline-flex; align-items: center; gap: 4px; font: 700 calc(12px*var(--fs)) "JetBrains Mono", monospace; padding: 4px 8px; border-radius: 999px; background: var(--surf3); color: var(--muted); white-space: nowrap; }
   .pl.or { background: var(--orange); color: #fff; } .pl.cy { background: var(--cyan-tint); color: var(--cyan-deep); }
   .pl.gr { background: var(--green-tint); color: var(--green); } .pl.rd { background: var(--red-soft); color: var(--red); }
-  .media { height: 104px; border-radius: 12px; margin: -14px -14px 0; border-radius: 16px 16px 0 0; position: relative; display: flex; align-items: flex-end; padding: 10px 14px; }
+  .media { min-height: 104px; border-radius: 12px; margin: -14px -14px 0; border-radius: 16px 16px 0 0; position: relative; display: flex; align-items: flex-end; padding: 10px 14px; }
   .media .big { position: absolute; right: 16px; top: 14px; font-size: 54px; opacity: .25; }
-  .num { font: 800 22px "JetBrains Mono", monospace; color: var(--orange-dark); font-variant-numeric: tabular-nums; }
-  .missing { font-size: 13px; color: var(--muted); }
-  .line { display: flex; align-items: center; gap: 6px; font-size: 13.5px; font-weight: 600; }
+  .num { font: 800 calc(22px*var(--fsh)) "JetBrains Mono", monospace; color: var(--orange-dark); font-variant-numeric: tabular-nums; }
+  .missing { font-size: calc(13px*var(--fs)); color: var(--muted); }
+  .line { display: flex; align-items: center; gap: 6px; font-size: calc(13.5px*var(--fs)); font-weight: 600; }
   .line .ms { font-size: 17px; }
   .avatar { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; color: #fff; flex: none; }
   .avatar .ms { font-size: 22px; }
@@ -105,11 +131,11 @@
   .pin { position: absolute; transform: translate(-50%, -100%); color: var(--green); filter: drop-shadow(0 2px 2px rgba(0,0,0,.3)); cursor: pointer; }
   .pin .ms { font-size: 34px; }
   .pin.or { color: var(--orange); } .pin.cy { color: var(--cyan); } .pin.rd { color: var(--red); }
-  .pin b { position: absolute; top: 6px; left: 50%; transform: translateX(-50%); color: #fff; font: 800 11px "JetBrains Mono"; }
+  .pin b { position: absolute; top: 6px; left: 50%; transform: translateX(-50%); color: #fff; font: 800 calc(11px*var(--fs)) "JetBrains Mono"; }
   .me { position: absolute; width: 16px; height: 16px; border-radius: 50%; background: var(--cyan); border: 3px solid #fff; box-shadow: 0 0 0 6px rgba(14,116,144,.2); transform: translate(-50%, -50%); }
   .route { position: absolute; inset: 0; }
-  .osm { position: absolute; left: 8px; bottom: 6px; font-size: 10.5px; color: var(--muted); }
-  .float { position: absolute; top: 10px; background: #fff; border-radius: 999px; padding: 8px 12px; font: 700 12px "JetBrains Mono"; box-shadow: 0 2px 6px rgba(0,0,0,.15); display: flex; align-items: center; gap: 4px; }
+  .osm { position: absolute; left: 8px; bottom: 6px; font-size: calc(11.5px*var(--fs)); color: var(--muted); }
+  .float { position: absolute; top: 10px; background: #fff; border-radius: 999px; padding: 8px 12px; font: 700 calc(12px*var(--fs)) "JetBrains Mono"; box-shadow: 0 2px 6px rgba(0,0,0,.15); display: flex; align-items: center; gap: 4px; }
 
   /* Hoja inferior */
   .scrim { position: absolute; inset: 0; background: rgba(28,34,48,.45); opacity: 0; pointer-events: none; transition: opacity .2s; z-index: 30; }
@@ -120,9 +146,9 @@
   .sheet .body { overflow-y: auto; padding: 8px 18px 18px; display: flex; flex-direction: column; gap: 12px; }
   .sheet .body > * { flex-shrink: 0; }
   .sheet .foot { padding: 12px 18px 18px; border-top: 1px solid var(--surf3); display: flex; flex-direction: column; gap: 6px; }
-  .sheet h2 { font-size: 22px; font-weight: 900; line-height: 1.15; }
-  .field label { display: block; font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 5px; }
-  .opt { display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 12px; cursor: pointer; }
+  .sheet h2 { font-size: calc(22px*var(--fsh)); font-weight: 900; line-height: 1.15; }
+  .field label { display: block; font-size: calc(13px*var(--fs)); font-weight: 600; color: var(--muted); margin-bottom: 5px; }
+  .opt { min-height: var(--touch); display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 12px; cursor: pointer; }
   .opt:hover { background: var(--surf0); }
   .opt .ic { width: 36px; height: 36px; border-radius: 10px; display: grid; place-items: center; background: var(--surf3); color: var(--cyan-deep); flex: none; }
   .two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
@@ -131,86 +157,110 @@
   .toggle button.on { border-color: var(--orange); background: var(--orange-soft); }
   .toggle b { display: block; }
   .qty { display: flex; align-items: center; gap: 8px; }
-  .qty button { width: 32px; height: 32px; border-radius: 10px; background: var(--surf3); font-weight: 800; font-size: 18px; color: var(--cyan-deep); }
+  .qty button { width: var(--touch); height: var(--touch); border-radius: 10px; background: var(--surf3); font-weight: 800; font-size: calc(18px*var(--fs)); color: var(--cyan-deep); }
   .menu { position: absolute; background: #fff; border-radius: 12px; box-shadow: 0 6px 24px rgba(0,0,0,.18); z-index: 40; min-width: 210px; padding: 6px; }
-  .menu button { display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px; border-radius: 8px; text-align: left; font-size: 14px; }
+  .menu button { min-height: var(--touch); display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px; border-radius: 8px; text-align: left; font-size: calc(14px*var(--fs)); }
   .menu button:hover { background: var(--surf0); }
   .menu .rd { color: var(--red); }
 
-  .toast { position: absolute; left: 16px; right: 16px; bottom: 96px; background: var(--ink); color: #fff; border-radius: 14px; padding: 12px 14px; font-size: 14px; z-index: 50; opacity: 0; transform: translateY(10px); transition: all .2s; pointer-events: none; }
+  .toast { position: absolute; left: 16px; right: 16px; bottom: 96px; background: var(--ink); color: #fff; border-radius: 14px; padding: 12px 14px; font-size: calc(14px*var(--fs)); z-index: 50; opacity: 0; transform: translateY(10px); transition: all .2s; pointer-events: none; }
   .toast.on { opacity: 1; transform: none; }
   .spin { width: 18px; height: 18px; border: 2.5px solid rgba(255,255,255,.4); border-top-color: #fff; border-radius: 50%; animation: sp .8s linear infinite; }
   @keyframes sp { to { transform: rotate(360deg); } }
-  .sosb { display: inline-flex; align-items: center; gap: 4px; background: var(--red); color: #fff; border-radius: 999px; padding: 8px 12px; font: 900 14px Chivo, sans-serif; flex: none; }
+  .sosb { min-height: var(--touch); display: inline-flex; align-items: center; gap: 4px; background: var(--red); color: #fff; border-radius: 999px; padding: 8px 12px; font: 900 calc(14px*var(--fs)) Chivo, sans-serif; flex: none; }
   .sosb .ms { font-size: 18px; }
-  .rbar { display: flex; align-items: center; gap: 8px; padding: 8px 14px; color: #fff; font-size: 13px; }
+  .rbar { display: flex; align-items: center; gap: 8px; padding: 8px 14px; color: #fff; font-size: calc(13px*var(--fs)); }
   .rbar .ms { font-size: 18px; }
-  .rbar .rb { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; flex: none; }
+  .rbar .rb { width: var(--touch); height: var(--touch); border-radius: 50%; display: grid; place-items: center; flex: none; }
   .eline { display: flex; align-items: center; gap: 10px; background: #fff; border: 1px solid var(--surf3); border-radius: 14px; padding: 10px 12px; text-align: left; width: 100%; }
   .eline .ei { width: 38px; height: 38px; border-radius: 50%; background: var(--red-soft); color: var(--red); display: grid; place-items: center; flex: none; }
-  .eline .en { font: 800 17px "JetBrains Mono", monospace; color: var(--red); }
+  .eline .en { font: 800 calc(17px*var(--fs)) "JetBrains Mono", monospace; color: var(--red); }
   .dot { width: 10px; height: 10px; border-radius: 50%; background: #9AA1B2; flex: none; transition: background .2s, box-shadow .2s; }
   .dot.on { background: var(--green); box-shadow: 0 0 0 4px rgba(27,138,58,.2); }
   .ptt { width: 116px; height: 116px; border-radius: 50%; background: var(--orange); color: #fff; display: grid; place-items: center; align-self: center; touch-action: none; user-select: none; -webkit-user-select: none; transition: background .15s, transform .15s; }
   .ptt.on { background: var(--green); transform: scale(1.06); }
   .ptt .ms { font-size: 36px; display: block; margin: 0 auto; }
-  .ptt small { display: block; font-size: 12px; font-weight: 700; line-height: 1.15; text-align: center; }
+  .ptt small { display: block; font-size: calc(12px*var(--fs)); font-weight: 700; line-height: 1.15; text-align: center; }
   .medal { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: 1; min-width: 0; text-align: center; }
   .medal .c { width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; color: #fff; }
   .medal.off .c { background: var(--surf3) !important; color: var(--muted); }
-  .medal small { font-size: 11px; color: var(--muted); line-height: 1.2; }
+  .medal small { font-size: calc(12px*var(--fs)); color: var(--muted); line-height: 1.2; }
 
   /* Inicio nuevo: saludo, ciudad y "¿A dónde vamos?" */
   .top { min-height: 72px; }
-  .top .hi { font-family: Chivo; font-weight: 900; font-size: 24px; line-height: 1.1; }
-  .top .hi2 { font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .top .ttl { font-family: Chivo; font-weight: 900; font-size: 22px; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .asb { width: 38px; height: 38px; border-radius: 50%; background: var(--orange-soft); color: var(--orange-dark); display: grid; place-items: center; flex: none; position: relative; }
+  .top .hi { font-family: Chivo; font-weight: 900; font-size: calc(24px*var(--fsh)); line-height: 1.1; }
+  .top .hi2 { font-size: calc(13px*var(--fs)); color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .top .ttl { font-family: Chivo; font-weight: 900; font-size: calc(22px*var(--fsh)); line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .asb { width: var(--touch); height: var(--touch); border-radius: 50%; background: var(--orange-soft); color: var(--orange-dark); display: grid; place-items: center; flex: none; position: relative; }
   .asb .ms { font-size: 20px; }
   .asb.dot::after { content: ""; position: absolute; top: 0; right: 0; width: 10px; height: 10px; border-radius: 50%; background: var(--orange); border: 2px solid #fff; }
   .city { display: flex; align-items: center; gap: 10px; }
   .city .ci { width: 42px; height: 42px; border-radius: 50%; background: var(--orange-soft); color: var(--orange-dark); display: grid; place-items: center; flex: none; }
-  .city .chg { color: var(--cyan-deep); font-weight: 700; padding: 8px 4px; }
+  .city .chg { color: var(--cyan-deep); font-weight: 700; padding: 8px 4px; min-height: var(--touch); }
   .where { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px; }
   .wt { border-radius: 18px; padding: 14px; min-height: 136px; display: flex; flex-direction: column; gap: 4px; text-align: left; transition: transform .15s; }
   .wt:active { transform: scale(.97); }
   .wt .wi { width: 42px; height: 42px; border-radius: 50%; display: grid; place-items: center; margin-bottom: auto; }
-  .wt b { font-family: Chivo; font-weight: 900; font-size: 17px; }
-  .wt small { font-size: 12.5px; line-height: 1.25; }
+  .wt b { font-family: Chivo; font-weight: 900; font-size: calc(17px*var(--fs)); }
+  .wt small { font-size: calc(12.5px*var(--fs)); line-height: 1.25; }
   .wt.ia { background: linear-gradient(135deg, var(--orange), var(--orange-dark)); color: #fff; }
   .wt.ia .wi { background: rgba(255,255,255,.22); }
   .wt.ia small { color: rgba(255,255,255,.9); }
   .wt.ex { background: var(--surf0); border: 1.5px solid var(--surf3); }
   .wt.ex .wi { background: var(--cyan-tint); color: var(--cyan-deep); }
   .wt.ex small { color: var(--muted); }
-  .backpill { display: inline-flex; align-items: center; gap: 6px; background: #fff; border-radius: 999px; padding: 8px 14px 8px 8px; font-weight: 700; flex: none; box-shadow: 0 1px 3px rgba(28,34,48,.08); }
+  .backpill { min-height: var(--touch); display: inline-flex; align-items: center; gap: 6px; background: #fff; border-radius: 999px; padding: 8px 14px 8px 8px; font-weight: 700; flex: none; box-shadow: 0 1px 3px rgba(28,34,48,.08); }
   .seg.two2 { grid-template-columns: 1fr 1fr; }
-  .linkbtn { display: flex; align-items: center; gap: 8px; color: var(--cyan-deep); font-weight: 600; font-size: 14px; padding: 6px 2px; }
+  .linkbtn { min-height: var(--touch); display: flex; align-items: center; gap: 8px; color: var(--cyan-deep); font-weight: 600; font-size: calc(14px*var(--fs)); padding: 6px 2px; }
   .ask { display: flex; align-items: center; gap: 8px; background: var(--surf0); border-radius: 28px; padding: 4px 4px 4px 16px; }
-  .ask input { background: none; border: 0; padding: 12px 0; font-size: 16px; }
+  .ask input { background: none; border: 0; padding: 12px 0; font-size: calc(16px*var(--fs)); }
   .ask input:focus { border: 0; }
   .ask:focus-within { box-shadow: 0 0 0 2px var(--cyan); }
-  .ask button { width: 46px; height: 46px; border-radius: 50%; background: var(--surf4); color: #fff; display: grid; place-items: center; flex: none; transition: background .2s; }
+  .ask button { width: var(--touch); height: var(--touch); border-radius: 50%; background: var(--surf4); color: #fff; display: grid; place-items: center; flex: none; transition: background .2s; }
   .ask button.on, .ask button[disabled] { background: var(--orange); }
+
+  /* Accesibilidad */
+  /* Tamaño base dentro del teléfono: lo que no tiene tamaño propio (negritas, botones) también crece con "Tamaño de letra". */
+  .phone { font-size: calc(15px*var(--fs)); }
+  /* Con letra grande, nombres y saludo en dos renglones en vez de cortarse en uno. */
+  .phone .b.ellip, .top .hi2 { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .seg.or button.on { background: var(--orange); color: #fff; }
+  .pl.am { background: #FFF1CC; color: var(--amber); }
+  .swrow { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; min-height: var(--touch); padding: 4px 0; }
+  .swrow b { display: block; font-size: calc(15px*var(--fs)); }
+  .sw { width: 52px; height: 32px; border-radius: 16px; background: var(--surf4); position: relative; flex: none; transition: background .2s; }
+  .sw i { position: absolute; top: 4px; left: 4px; width: 24px; height: 24px; border-radius: 50%; background: #fff; display: grid; place-items: center; transition: left .2s; }
+  .sw.on { background: var(--orange); }
+  .sw.on i { left: 24px; }
+  .sw i .ms { font-size: 16px; color: var(--orange); }
+  .phone.hc .sw:not(.on) { outline: 1.5px solid var(--edge); }
+  .ralert { position: absolute; left: 12px; right: 12px; top: 84px; z-index: 45; display: flex; align-items: center; gap: 12px; background: var(--cyan-tint); border: 2px solid var(--cyan-deep); border-radius: 18px; padding: 12px 14px; box-shadow: 0 8px 24px rgba(0,0,0,.22); }
+  .ralert.urg { background: var(--orange-soft); border-color: var(--orange-dark); }
+  .ralert > .ms { font-size: 36px; color: var(--cyan-deep); }
+  .ralert.urg > .ms { color: var(--orange-dark); }
+  .ralert .t { font: 900 calc(18px*var(--fs))/1.2 Chivo, sans-serif; color: var(--ink); }
+  .ralert { flex-wrap: wrap; }
+  .ralert .btn { flex: 1 1 100%; }
 </style>
 <div class="stage">
   <aside class="side">
     <h1>ApexMoto</h1>
     <p>Así funciona hoy la app. Toca cualquier botón para recorrerla.</p>
-    <div class="tip"><b>Recorrido sugerido:</b><br>• Inicio: la app te saluda. Toca <b>Cambiar</b> y elige Medellín: cambian las rutas recomendadas y también Comercios.<br>• Escribe en <b>"¿A dónde vamos?"</b>, por ejemplo "mirador y almuerzo, terminar en el lago": la ruta aparece ahí mismo. <b>Explorar</b> abre lugares y rodadas famosas.<br>• Comercios: solo negocios de tu ciudad, más gasolineras.<br>• Comunidad → Crear rodada.<br>• Guía una ruta recomendada: arriba aparecen <b>Asistencia</b> (naranja) y el <b>SOS</b> rojo.<br>• Comunidad → Domingo al Lago Calima → Iniciar rodada → <b>Intercom</b>.<br>• Rentar: viene con tu ciudad.<br>• Perfil (arriba a la derecha): perfil y trayectoria en una tarjeta, y el SOS fuera de ruta.</div>
+    <div class="tip"><b>Recorrido sugerido:</b><br>• Inicio: la app te saluda. Toca <b>Cambiar</b> y elige Medellín: cambian las rutas recomendadas y también Comercios.<br>• Escribe en <b>"¿A dónde vamos?"</b>, por ejemplo "mirador y almuerzo, terminar en el lago": la ruta aparece ahí mismo. <b>Explorar</b> abre lugares y rodadas famosas.<br>• Comercios: solo negocios de tu ciudad, más gasolineras.<br>• Comunidad → Crear rodada.<br>• Guía una ruta recomendada: arriba aparecen <b>Asistencia</b> (naranja) y el <b>SOS</b> rojo.<br>• Comunidad → Domingo al Lago Calima → Iniciar rodada → <b>Intercom</b>.<br>• Rentar: viene con tu ciudad.<br>• Perfil (arriba a la derecha): perfil y trayectoria en una tarjeta, y el SOS fuera de ruta.<br>• <b>Perfil → Accesibilidad</b>: letra grande, alto contraste, botones grandes y avisos con vibración. Toda la app cambia al instante.<br>• Rodada en curso → <b>Señales rápidas</b>: avisos al grupo sin hablar.</div>
+    <button class="btn full" style="margin-top:12px" onclick="go('perfil');go('a11y')"><span class="ms" aria-hidden="true">accessibility_new</span>Abrir Accesibilidad</button>
   </aside>
 
   <div class="phone" id="phone">
     <div class="top">
       <div class="grow" id="topL"></div>
-      <button class="asb" id="asTop" hidden onclick="go('tal')" aria-label="Asistencia técnica"><span class="ms">handyman</span></button>
-      <button class="sosb" id="sosTop" hidden onclick="emergencySheet()" aria-label="Emergencia"><span class="ms">call</span>SOS</button>
-      <button class="round fill" aria-label="Perfil" onclick="go('perfil')"><span class="ms">person</span></button>
+      <button class="asb" id="asTop" hidden onclick="go('tal')" aria-label="Asistencia técnica"><span class="ms" aria-hidden="true">handyman</span></button>
+      <button class="sosb" id="sosTop" hidden onclick="emergencySheet()" aria-label="Emergencia"><span class="ms" aria-hidden="true">call</span>SOS</button>
+      <button class="round fill" aria-label="Perfil" onclick="go('perfil')"><span class="ms" aria-hidden="true">person</span></button>
     </div>
     <div id="bars"></div>
     <div class="scroll" id="scr"><div class="pad" id="view"></div></div>
     <nav class="nav" id="nav"></nav>
-    <div class="scrim" id="scrim" onclick="closeSheet()"></div>
+    <div class="scrim" id="scrim" aria-hidden="true" onclick="closeSheet()"></div>
     <div class="sheet" id="sheet" role="dialog" aria-modal="true"><div class="grab"></div><div class="body" id="sb"></div><div class="foot" id="sf" hidden></div></div>
     <div class="toast" id="toast" role="status"></div>
   </div>
@@ -223,7 +273,33 @@ const cop = n => '$' + Math.round(n).toLocaleString('es-CO');
 const km = n => n < 1 ? Math.round(n * 1000) + ' m' : n < 10 ? n.toFixed(1).replace('.', ',') + ' km' : Math.round(n) + ' km';
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const joinEs = a => a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' y ' + a[a.length - 1];
-const missing = a => a.length ? `<div class="missing">Falta: ${joinEs(a)}.</div>` : '';
+const missing = a => a.length ? `<div class="missing" role="status">Falta: ${joinEs(a)}.</div>` : '';
+/* Estado de un pedido, renta o asistencia: ícono + palabra, nunca solo color (con daltonismo el verde y el rojo se confunden). */
+const ST = { new:['Enviado','schedule','am'], prep:['Preparando','autorenew','cy'], ready:['¡Listo!','check_circle','gr'], can:['Cancelado','cancel','rd'] };
+const stPill = (k, t) => `<span class="pl ${ST[k][2]}"><span class="ms" aria-hidden="true" style="font-size:15px">${ST[k][1]}</span>${t || ST[k][0]}</span>`;
+
+/* ───────── ACCESIBILIDAD (igual que Mi perfil → Accesibilidad en la app) ───────── */
+/* Tamaño de letra: [nombre, escala del texto, escala de los títulos]. Los títulos crecen menos, como en Android. */
+const A11Y_TEXT = { n:['Normal', 1, 1], g:['Grande', 1.3, 1.12], mg:['Muy grande', 1.6, 1.22] };
+const A = Object.assign({text:'n', hc:false, big:false, vib:true, voice:true, rm:false}, (() => { try { return JSON.parse(localStorage.getItem('apex.a11y') || '{}'); } catch (e) { return {}; } })());
+function applyA11y() {
+  const ph = $('#phone'), t = A11Y_TEXT[A.text] || A11Y_TEXT.n;
+  ph.style.setProperty('--fs', t[1]); ph.style.setProperty('--fsh', t[2]);
+  ph.classList.toggle('hc', A.hc); ph.classList.toggle('bigt', A.big); ph.classList.toggle('rm', A.rm);
+  try { localStorage.setItem('apex.a11y', JSON.stringify(A)); } catch (e) {}
+}
+function setA(k, v) { A[k] = v; applyA11y(); render(); }
+const a11yCustom = () => A.text !== 'n' || A.hc || A.big || !A.vib || A.rm;
+/* Avisos que no dependen de oír: vibración con un patrón para cada aviso (Android; el iPhone no deja vibrar desde el navegador). */
+const VIB = { turn:[120, 90, 120], arrive:[450], alert:[220, 110, 220, 110, 220] };
+function vibrate(kind, force) { if (!force && !A.vib) return false; try { return !!(navigator.vibrate && navigator.vibrate(VIB[kind])); } catch (e) { return false; } }
+function speak(t) { if (!A.voice || !window.speechSynthesis) return; try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(t); u.lang = 'es-CO'; speechSynthesis.speak(u); } catch (e) {} }
+/* Estado "elegido" de chips, pestañas y opciones para el lector de pantalla (además del color y el ✓). */
+function markStates(root) {
+  root.querySelectorAll('.chip, .seg button:not([role=radio]), .toggle button').forEach(b => b.setAttribute('aria-pressed', b.classList.contains('on')));
+  // Chip elegido sin ícono propio: lleva ✓ (no solo el color), oculto al lector, que ya dice "presionado".
+  root.querySelectorAll('.chip.on').forEach(b => { if (!b.querySelector('.ms')) b.insertAdjacentHTML('afterbegin', '<span class="ms" aria-hidden="true">check</span>'); });
+}
 
 /* Ciudades de ejemplo (en la app se elige entre 4.132 ciudades y pueblos del catálogo). La ciudad elegida la usan Inicio,
    Explorar y Comercios; Rentar arranca con ella. */
@@ -306,7 +382,7 @@ const S = { route:null, call:null, ec:false, tab:'rut', rs:'home', back:null, ci
 const TABS = { rider:[['rut','home','Inicio'],['com','storefront','Comercios'],['grp','groups','Comunidad'],['rent','two_wheeler','Rentar']],
   shop:[['cpan','dashboard','Resumen'],['cped','receipt_long','Pedidos'],['cmenu','restaurant_menu','Menú'],['cneg','store','Negocio'],['ccan','qr_code_scanner','Canjes']] };
 /* Pantallas internas: llevan Volver y su título, sin la barra de abajo. */
-const INNER = { perfil:'Mi perfil', tal:'Asistencia técnica' };
+const INNER = { perfil:'Mi perfil', tal:'Asistencia técnica', a11y:'Accesibilidad' };
 const cityOf = n => CITIES.find(c => c[0] === n) || CITIES[0];
 function hiLine(role) {
   const h = new Date().getHours(), p = h >= 5 && h < 12 ? 0 : h < 18 ? 1 : 2;
@@ -314,26 +390,47 @@ function hiLine(role) {
     : ['Buenos días. ¿Para dónde salimos hoy?', 'Buenas tardes. La vía te espera.', 'Buenas noches. Planea la rodada de mañana.'])[p];
 }
 
-function go(t) { if (INNER[t] && !INNER[S.tab]) S.back = S.tab; S.tab = t; closeSheet(); render(); $('#scr').scrollTop = 0; }
-function goBack() { go(S.back || TABS[S.role][0][0]); }
+/* Pantallas internas apiladas (Mi perfil → Accesibilidad): Volver regresa a la anterior. */
+function go(t) {
+  if (INNER[t] && S.tab !== t) S.stack = INNER[S.tab] ? [...(S.stack || []), S.tab] : [S.tab];
+  if (!INNER[t]) S.stack = [];
+  S.tab = t; closeSheet(); render(); $('#scr').scrollTop = 0;
+}
+function goBack() { const st = S.stack || []; S.tab = st.pop() || TABS[S.role][0][0]; S.stack = st; closeSheet(); render(); $('#scr').scrollTop = 0; }
 function toast(m) { const t = $('#toast'); t.innerHTML = m; t.classList.add('on'); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove('on'), 2800); }
-function sheet(body, foot) { $('#sb').innerHTML = body; const f = $('#sf'); if (foot) { f.innerHTML = foot; f.hidden = false; } else f.hidden = true; $('#scrim').classList.add('on'); $('#sheet').classList.add('on'); $('#sb').scrollTop = 0; }
-function closeSheet() { $('#scrim').classList.remove('on'); $('#sheet').classList.remove('on'); closeMenu(); }
+/* Hoja inferior. Al abrirse, el foco entra en ella y lo de atrás queda inerte (teclado y lector de pantalla no se pierden
+   detrás); al cerrarse, el foco vuelve a donde estaba. */
+function sheet(body, foot) {
+  const wasOpen = $('#sheet').classList.contains('on');
+  if (!wasOpen) S.lastFocus = document.activeElement;
+  $('#sb').innerHTML = body; const f = $('#sf'); if (foot) { f.innerHTML = foot; f.hidden = false; } else f.hidden = true;
+  $('#scrim').classList.add('on'); $('#sheet').classList.add('on'); $('#sb').scrollTop = 0;
+  ['.top', '#bars', '#scr', '#nav'].forEach(s => $(s).inert = true);
+  markStates($('#sheet'));
+  if (!wasOpen) { $('#sb').tabIndex = -1; $('#sb').focus({preventScroll: true}); }
+}
+function closeSheet() {
+  const was = $('#sheet').classList.contains('on');
+  $('#scrim').classList.remove('on'); $('#sheet').classList.remove('on'); closeMenu();
+  ['.top', '#bars', '#scr', '#nav'].forEach(s => $(s).inert = false);
+  if (was && S.lastFocus && document.contains(S.lastFocus)) S.lastFocus.focus({preventScroll: true});
+}
 const onRoute = () => !!S.route || RODADAS.some(r => r.live && r.members.some(m => m[0] === '@tú'));
 
 function render() {
   const tabs = TABS[S.role];
   if (!tabs.some(t => t[0] === S.tab) && !INNER[S.tab]) S.tab = tabs[0][0];
   $('#nav').style.gridTemplateColumns = `repeat(${tabs.length}, 1fr)`;
-  $('#nav').innerHTML = tabs.map(([k, i, l]) => `<button class="${S.tab === k ? 'on' : ''}" onclick="go('${k}')" aria-label="${l}"><span class="pill"><span class="ms">${i}</span></span>${l}</button>`).join('');
+  $('#nav').innerHTML = tabs.map(([k, i, l]) => `<button class="${S.tab === k ? 'on' : ''}" ${S.tab === k ? 'aria-current="page"' : ''} onclick="go('${k}')"><span class="pill"><span class="ms" aria-hidden="true">${i}</span></span>${l}</button>`).join('');
   $('#nav').hidden = !!INNER[S.tab];
   // Sin marca arriba: en la pestaña principal saluda por el nombre; en las demás, el nombre de la sección.
   $('#topL').innerHTML = INNER[S.tab]
-    ? `<div class="row"><button class="round" onclick="goBack()" aria-label="Volver"><span class="ms">arrow_back</span></button><div class="ttl">${INNER[S.tab]}</div></div>`
-    : S.tab === tabs[0][0] ? `<div class="hi">¡Hola, ${NAME}!</div><div class="hi2">${hiLine(S.role)}</div>`
-    : `<div class="ttl">${tabs.find(t => t[0] === S.tab)[2]}</div>`;
+    ? `<div class="row"><button class="round" onclick="goBack()" aria-label="Volver"><span class="ms" aria-hidden="true">arrow_back</span></button><div class="ttl" role="heading" aria-level="1">${INNER[S.tab]}</div></div>`
+    : S.tab === tabs[0][0] ? `<div class="hi" role="heading" aria-level="1">¡Hola, ${NAME}!</div><div class="hi2">${hiLine(S.role)}</div>`
+    : `<div class="ttl" role="heading" aria-level="1">${tabs.find(t => t[0] === S.tab)[2]}</div>`;
   drawBars();
-  $('#view').innerHTML = ({rut:viewRutas, com:viewCom, grp:viewGrp, rent:viewRent, tal:viewTal, perfil:viewPerfil, cpan:viewShop, cped:viewShopOrders, cmenu:viewShopMenu, cneg:viewShopBiz, ccan:viewShopRedeem}[S.tab])();
+  $('#view').innerHTML = ({rut:viewRutas, com:viewCom, grp:viewGrp, rent:viewRent, tal:viewTal, perfil:viewPerfil, a11y:viewA11y, cpan:viewShop, cped:viewShopOrders, cmenu:viewShopMenu, cneg:viewShopBiz, ccan:viewShopRedeem}[S.tab])();
+  markStates($('#phone'));
 }
 
 /* ───────── INICIO (antes "Rutas") ───────── */
@@ -341,19 +438,19 @@ const lvlc = l => l === 'Alta' ? 'rd' : l === 'Media' ? 'or' : 'gr';
 /* Dónde estás: la ciudad elegida, con el botón para cambiarla. La comparten Inicio, Explorar y Comercios. */
 function cityCard(title) {
   const c = cityOf(S.city);
-  return `<div class="card"><div class="city"><span class="ci"><span class="ms">location_on</span></span>
-    <div class="grow"><div class="lbl">${title || 'Estás en'}</div><div class="b ellip" style="font-size:16px">${c[0]}, ${c[1]}</div></div>
+  return `<div class="card"><div class="city"><span class="ci"><span class="ms" aria-hidden="true">location_on</span></span>
+    <div class="grow"><div class="lbl">${title || 'Estás en'}</div><div class="b ellip" style="font-size:calc(16px*var(--fs))">${c[0]}, ${c[1]}</div></div>
     <button class="chg" onclick="citySheet()">Cambiar</button></div></div>`;
 }
 function citySheet() {
   sheet(`<h2>¿En qué ciudad estás?</h2>
-    <button class="btn full ghost" onclick="S.city='Cali';closeSheet();render();toast('Estás cerca de Cali. La ciudad se calcula en tu teléfono: tu ubicación no sale de él.')"><span class="ms">my_location</span>Usar mi ubicación</button>
-    ${CITIES.map(c => `<div class="opt" onclick="S.city='${c[0]}';closeSheet();render();toast('Ahora ves ${c[0]} en Inicio, Explorar y Comercios.')"><span class="ic"><span class="ms">location_city</span></span><div class="grow"><div class="b">${c[0]}</div><div class="lbl">${c[1]}</div></div>${S.city === c[0] ? '<span class="ms" style="color:var(--orange)">check</span>' : ''}</div>`).join('')}
+    <button class="btn full ghost" onclick="S.city='Cali';closeSheet();render();toast('Estás cerca de Cali. La ciudad se calcula en tu teléfono: tu ubicación no sale de él.')"><span class="ms" aria-hidden="true">my_location</span>Usar mi ubicación</button>
+    ${CITIES.map(c => `<div class="opt" role="button" tabindex="0" onclick="S.city='${c[0]}';closeSheet();render();toast('Ahora ves ${c[0]} en Inicio, Explorar y Comercios.')"><span class="ic"><span class="ms" aria-hidden="true">location_city</span></span><div class="grow"><div class="b">${c[0]}</div><div class="lbl">${c[1]}</div></div>${S.city === c[0] ? '<span class="ms" aria-hidden="true" style="color:var(--orange)">check</span><span class="sr">(elegida)</span>' : ''}</div>`).join('')}
     <div class="lbl">En la app buscas entre 4.132 ciudades y pueblos de los 33 departamentos.</div>`);
 }
 function rideRow(r) {
-  return `<div class="card click" onclick="rideSheet(${RIDES.indexOf(r)})"><div class="row">
-    <div class="ib" style="background:var(--orange-soft);color:var(--orange-dark)"><span class="ms">route</span></div>
+  return `<div class="card click" role="button" tabindex="0" onclick="rideSheet(${RIDES.indexOf(r)})"><div class="row">
+    <div class="ib" style="background:var(--orange-soft);color:var(--orange-dark)"><span class="ms" aria-hidden="true">route</span></div>
     <div class="grow"><div class="b ellip">${r.n}</div><div class="lbl">${r.km} km · ${r.h} · ${r.road}</div></div>
     <span class="pl ${lvlc(r.lvl)}">${r.lvl}</span></div></div>`;
 }
@@ -361,89 +458,109 @@ function viewRutas() {
   if (S.rs === 'home') return viewHome();
   const cur = S.rs === 'bud' ? 'ia' : S.rs;
   const seg = [['exp','explore','Explorar'],['ia','auto_awesome','Ruta IA']]
-    .map(([k, i, l]) => `<button class="${cur === k ? 'on' : ''}" onclick="S.rs='${k}';render()"><span class="ms">${i}</span>${l}</button>`).join('');
-  return `<div class="row"><button class="backpill" onclick="S.rs='home';render()"><span class="ms">arrow_back</span>Inicio</button><div class="seg two2 grow">${seg}</div></div>`
-    + ({exp:viewExplore, ia:() => viewAI() + `<button class="linkbtn" onclick="S.rs='bud';render()"><span class="ms" style="font-size:18px">calculate</span>¿Cuánto cuesta la salida? Calcular presupuesto</button>`, bud:viewBudget}[S.rs])();
+    .map(([k, i, l]) => `<button class="${cur === k ? 'on' : ''}" onclick="S.rs='${k}';render()"><span class="ms" aria-hidden="true">${i}</span>${l}</button>`).join('');
+  return `<div class="row"><button class="backpill" onclick="S.rs='home';render()"><span class="ms" aria-hidden="true">arrow_back</span>Inicio</button><div class="seg two2 grow">${seg}</div></div>`
+    + ({exp:viewExplore, ia:() => viewAI() + `<button class="linkbtn" onclick="S.rs='bud';render()"><span class="ms" aria-hidden="true" style="font-size:18px">calculate</span>¿Cuánto cuesta la salida? Calcular presupuesto</button>`, bud:viewBudget}[S.rs])();
 }
 /* Portada: ciudad → "¿A dónde vamos?" (se escribe ahí mismo y la IA responde debajo; Explorar abre su vista) → unas pocas rutas recomendadas. */
 function viewHome() {
   const recs = RIDES.filter(r => r.city === S.city).slice(0, 3);
   return cityCard() + `
   <div class="card" style="padding:18px;gap:12px">
-    <div class="hd" style="font-size:27px;font-weight:900;line-height:1.1">¿A dónde vamos?</div>
+    <div class="hd" role="heading" aria-level="2" style="font-size:calc(27px*var(--fsh));font-weight:900;line-height:1.1">¿A dónde vamos?</div>
     <form class="ask" onsubmit="event.preventDefault();runAI('home')">
-      <span class="ms" style="color:var(--orange)">auto_awesome</span>
+      <span class="ms" aria-hidden="true" style="color:var(--orange)">auto_awesome</span>
       <input id="aiq" maxlength="300" autocomplete="off" placeholder="Ej: un mirador y almorzar trucha" value="${esc(S.aiq || '')}" oninput="S.aiq=this.value;$('#askb').classList.toggle('on',!!this.value.trim())" aria-label="¿A dónde vamos?">
-      <button id="askb" class="${(S.aiq || '').trim() ? 'on' : ''}" ${S.aiBusy ? 'disabled' : ''} aria-label="Armar ruta">${S.aiBusy ? '<span class="spin"></span>' : '<span class="ms">send</span>'}</button>
+      <button id="askb" class="${(S.aiq || '').trim() ? 'on' : ''}" ${S.aiBusy ? 'disabled' : ''} aria-label="Armar ruta">${S.aiBusy ? '<span class="spin"></span>' : '<span class="ms" aria-hidden="true">send</span>'}</button>
     </form>
     <div class="chips">${AI_EX.map(e => `<button class="chip" onclick="S.aiq='${e}';runAI('home')">${e}</button>`).join('')}</div>
-    <div class="lbl" style="font-size:12px">Escríbelo como se lo dirías a un amigo: la IA te arma la ruta con lugares reales. No escribas datos personales.</div>
+    <div class="lbl" style="font-size:calc(12px*var(--fs))">Escríbelo como se lo dirías a un amigo: la IA te arma la ruta con lugares reales. No escribas datos personales.</div>
     <div style="height:1px;background:var(--surf3)"></div>
-    <button class="row" style="text-align:left" onclick="S.rs='exp';render()"><span class="avatar" style="background:var(--cyan-tint);color:var(--cyan-deep)"><span class="ms">explore</span></span>
-      <span class="grow"><span class="b" style="display:block">Explorar</span><span class="lbl">Lugares y rodadas famosas cerca</span></span><span class="ms" style="color:var(--muted)">chevron_right</span></button>
+    <button class="row" style="text-align:left" onclick="S.rs='exp';render()"><span class="avatar" style="background:var(--cyan-tint);color:var(--cyan-deep)"><span class="ms" aria-hidden="true">explore</span></span>
+      <span class="grow"><span class="b" style="display:block">Explorar</span><span class="lbl">Lugares y rodadas famosas cerca</span></span><span class="ms" aria-hidden="true" style="color:var(--muted)">chevron_right</span></button>
   </div>
   ${S.ai ? aiResult() + `<button class="linkbtn" style="justify-content:center" onclick="S.ai=null;S.aiq='';render()">Armar otra ruta</button>` : ''}
-  <div class="row"><div class="h grow"><span class="ms">thumb_up</span>Rutas recomendadas</div><button style="color:var(--cyan-deep);font-weight:700;font-size:14px" onclick="S.rs='exp';render()">Ver más</button></div>
-  ${recs.map(rideRow).join('') || '<div class="empty"><span class="ms">route</span>Todavía no hay rutas recomendadas para esta ciudad.</div>'}`;
+  <div class="row"><div class="h grow" role="heading" aria-level="2"><span class="ms" aria-hidden="true">thumb_up</span>Rutas recomendadas</div><button style="color:var(--cyan-deep);font-weight:700;font-size:calc(14px*var(--fs))" onclick="S.rs='exp';render()">Ver más</button></div>
+  ${recs.map(rideRow).join('') || '<div class="empty"><span class="ms" aria-hidden="true">route</span>Todavía no hay rutas recomendadas para esta ciudad.</div>'}`;
 }
 function viewExplore() {
   const list = PLACES.filter(p => p.city === S.city && p.km <= S.radius && (S.kind === 'all' || p.k === S.kind));
   const rides = [...RIDES].sort((a, b) => (b.city === S.city) - (a.city === S.city));
   return `
   ${cityCard('Explorando desde')}
-  <div class="h"><span class="ms">two_wheeler</span>Rodadas famosas cerca</div>
+  <div class="h" role="heading" aria-level="2"><span class="ms" aria-hidden="true">two_wheeler</span>Rodadas famosas cerca</div>
   <div class="rides">${rides.map(r => `
-    <div class="card click ride" onclick="rideSheet(${RIDES.indexOf(r)})" style="padding:0;gap:0">
-      <div style="height:78px;background:${r.c};border-radius:16px 16px 0 0;display:grid;place-items:center"><span class="ms" style="font-size:40px;color:var(--ink);opacity:.5">${r.i}</span></div>
+    <div class="card click ride" role="button" tabindex="0" onclick="rideSheet(${RIDES.indexOf(r)})" style="padding:0;gap:0">
+      <div style="height:78px;background:${r.c};border-radius:16px 16px 0 0;display:grid;place-items:center"><span class="ms" aria-hidden="true" style="font-size:40px;color:var(--ink);opacity:.5">${r.i}</span></div>
       <div style="padding:10px 12px 12px"><div class="b ellip">${r.n}</div><div class="lbl">${r.km} km · ${r.h}</div><div style="margin-top:6px"><span class="pl ${lvlc(r.lvl)}">${r.lvl}</span></div></div>
     </div>`).join('')}</div>
-  <div class="h"><span class="ms">place</span>Lugares para visitar</div>
+  <div class="h" role="heading" aria-level="2"><span class="ms" aria-hidden="true">place</span>Lugares para visitar</div>
   <div class="chips">${[25, 50, 100, 250].map(r => `<button class="chip ${S.radius === r ? 'on cy' : ''}" onclick="S.radius=${r};render()">${r} km</button>`).join('')}</div>
-  <div class="chips"><button class="chip ${S.kind === 'all' ? 'on' : ''}" onclick="S.kind='all';render()">Todos</button>${Object.entries(KIND).map(([k, [l, i]]) => `<button class="chip ${S.kind === k ? 'on' : ''}" onclick="S.kind='${k}';render()"><span class="ms">${i}</span>${l}</button>`).join('')}</div>
+  <div class="chips"><button class="chip ${S.kind === 'all' ? 'on' : ''}" onclick="S.kind='all';render()">Todos</button>${Object.entries(KIND).map(([k, [l, i]]) => `<button class="chip ${S.kind === k ? 'on' : ''}" onclick="S.kind='${k}';render()"><span class="ms" aria-hidden="true">${i}</span>${l}</button>`).join('')}</div>
   ${list.length ? list.map((p, i) => `
-    <div class="card click" onclick="placeSheet('${p.n}')"><div class="row">
-      <div class="ib" style="background:var(--cyan-tint)"><span class="ms">${KIND[p.k][1]}</span></div>
+    <div class="card click" role="button" tabindex="0" onclick="placeSheet('${p.n}')"><div class="row">
+      <div class="ib" style="background:var(--cyan-tint)"><span class="ms" aria-hidden="true">${KIND[p.k][1]}</span></div>
       <div class="grow"><div class="b ellip">${p.n}</div><div class="lbl">${KIND[p.k][0]} · ${km(p.km)}</div></div>
-      <span class="ms" style="color:var(--muted)">chevron_right</span></div></div>`).join('')
-    : `<div class="empty"><span class="ms">travel_explore</span>No hay lugares de ese tipo a menos de ${S.radius} km de ${S.city}. Amplía la distancia.</div>`}
+      <span class="ms" aria-hidden="true" style="color:var(--muted)">chevron_right</span></div></div>`).join('')
+    : `<div class="empty"><span class="ms" aria-hidden="true">travel_explore</span>No hay lugares de ese tipo a menos de ${S.radius} km de ${S.city}. Amplía la distancia.</div>`}
   <div class="lbl" style="text-align:center">4.487 lugares de los 33 departamentos · © OpenStreetMap</div>`;
 }
 function rideSheet(i) {
   const r = RIDES[i];
   sheet(`<span class="pl ${lvlc(r.lvl)}" style="align-self:flex-start">Nivel ${r.lvl.toLowerCase()}</span>
     <h2>${r.n}</h2><div class="lbl">${r.road} · ${r.km} km · ${r.h}${r.city === S.city ? ' · sale desde aquí' : ' · sale desde ' + r.city}</div>
-    <div class="card soft"><div class="line"><span class="ms">tips_and_updates</span>Consejo</div><div>${r.tip}</div></div>`,
-    `<button class="btn full" onclick="guide('${r.n}')"><span class="ms">navigation</span>Guiar esta ruta</button>
-     <button class="btn full ghost" onclick="closeSheet();createSheet({dest:'${r.n.split(/→|–/).pop().trim()}', name:'${r.n}'})"><span class="ms">group_add</span>Crear una rodada con esta ruta</button>`);
+    <div class="card soft"><div class="line"><span class="ms" aria-hidden="true">tips_and_updates</span>Consejo</div><div>${r.tip}</div></div>`,
+    `<button class="btn full" onclick="guide('${r.n}')"><span class="ms" aria-hidden="true">navigation</span>Guiar esta ruta</button>
+     <button class="btn full ghost" onclick="closeSheet();createSheet({dest:'${r.n.split(/→|–/).pop().trim()}', name:'${r.n}'})"><span class="ms" aria-hidden="true">group_add</span>Crear una rodada con esta ruta</button>`);
 }
 function placeSheet(n) {
   const p = PLACES.find(x => x.n === n);
   sheet(`<span class="pl cy" style="align-self:flex-start">${KIND[p.k][0]}</span><h2>${p.n}</h2><div class="lbl">A ${km(p.km)} de ${p.city} en línea recta</div><div>${p.d}</div>
-    <div class="card soft"><div class="line"><span class="ms">tips_and_updates</span>Consejo</div><div>${p.t}</div></div>`,
-    `<button class="btn full" onclick="guide('${p.n}')"><span class="ms">navigation</span>Guiar en la app</button>
-     <button class="btn full ghost" onclick="closeSheet();createSheet({dest:'${p.n}', name:'Rodada a ${p.n}'})"><span class="ms">group_add</span>Crear rodada aquí</button>`);
+    <div class="card soft"><div class="line"><span class="ms" aria-hidden="true">tips_and_updates</span>Consejo</div><div>${p.t}</div></div>`,
+    `<button class="btn full" onclick="guide('${p.n}')"><span class="ms" aria-hidden="true">navigation</span>Guiar en la app</button>
+     <button class="btn full ghost" onclick="closeSheet();createSheet({dest:'${p.n}', name:'Rodada a ${p.n}'})"><span class="ms" aria-hidden="true">group_add</span>Crear rodada aquí</button>`);
 }
-function guide(name) {
-  closeSheet(); S.route = name; drawBars();
-  sheet(`<div class="card" style="background:var(--ink);color:#fff"><div class="row"><span class="ms" style="font-size:44px;color:#FFB27A">turn_right</span>
-      <div class="grow"><div style="font:800 26px 'JetBrains Mono';color:#FFB27A">350 m</div><div class="b">Gira a la derecha por la Calle 5</div></div></div></div>
-    <div class="map"><svg class="route" viewBox="0 0 100 100" preserveAspectRatio="none"><path d="M15 85 C 30 70, 40 60, 55 50 S 75 25, 85 15" stroke="#D94600" stroke-width="2.6" fill="none" stroke-linecap="round"/></svg>
-      <div class="me" style="left:15%;top:85%"></div><div class="pin or" style="left:85%;top:15%"><span class="ms">flag</span></div><span class="osm">© OpenStreetMap</span></div>
-    <div class="row"><div class="grow"><div class="lbl">Hacia</div><div class="b">${esc(name)}</div></div><div style="text-align:right"><div class="num" style="font-size:18px">42 min</div><div class="lbl">llegas 9:48 a. m.</div></div></div>
-    <div class="lbl"><span class="ms" style="font-size:16px">volume_up</span> Guiado con voz. Si te sales de la ruta, se recalcula sola.</div>`,
-    `<button class="btn full red" onclick="closeSheet();S.route=null;S.routes++;render();toast('Ruta terminada: cuenta para tus medallas (+1).')"><span class="ms">close</span>Terminar guiado</button>`);
+/* Indicaciones del guiado de ejemplo: [ícono, distancia, texto, lo que dice la voz]. */
+const GSTEPS = [
+  ['turn_right', '350 m', 'Gira a la derecha por la Calle 5', 'En 350 metros, gira a la derecha por la Calle 5'],
+  ['straight', '1,2 km', 'Sigue derecho por la Avenida Roosevelt', 'Sigue derecho por la Avenida Roosevelt durante 1,2 kilómetros'],
+  ['turn_left', '200 m', 'Gira a la izquierda hacia la vía al mar', 'En 200 metros, gira a la izquierda hacia la vía al mar'],
+  ['sports_score', '', '¡Llegaste a tu destino!', 'Llegaste a tu destino'],
+];
+/* Guiado. Cada indicación llega por tres canales: texto grande (que el lector de pantalla anuncia solo), voz y vibración
+   (dos toques; uno largo al llegar). Así quien no oye bien, o va con casco y viento, no depende de la voz. */
+function guide(name, keep) {
+  if (!keep) { closeSheet(); S.route = name; S.gstep = 0; drawBars(); }
+  const st = GSTEPS[S.gstep || 0], last = (S.gstep || 0) === GSTEPS.length - 1;
+  sheet(`<div class="card" role="status" aria-live="polite" style="background:var(--ink);color:#fff"><div class="row"><span class="ms" aria-hidden="true" style="font-size:48px;color:#FFB27A">${st[0]}</span>
+      <div class="grow">${st[1] ? `<div style="font:800 calc(26px*var(--fsh)) 'JetBrains Mono';color:#FFB27A">${st[1]}</div>` : ''}
+        <div style="font:900 calc(21px*var(--fsh))/1.2 Chivo, sans-serif">${st[2]}</div>
+        ${A.voice ? '' : `<div style="font-size:calc(13px*var(--fs));opacity:.9;margin-top:4px">Voz apagada: te avisamos con texto y vibración.</div>`}</div></div></div>
+    <div class="map" role="img" aria-label="Mapa de la ruta hacia ${esc(name)}: tú abajo a la izquierda, la meta arriba a la derecha."><svg class="route" viewBox="0 0 100 100" preserveAspectRatio="none"><path d="M15 85 C 30 70, 40 60, 55 50 S 75 25, 85 15" style="stroke:var(--orange)" stroke-width="2.6" fill="none" stroke-linecap="round"/></svg>
+      <div class="me" style="left:15%;top:85%"></div><div class="pin or" style="left:85%;top:15%"><span class="ms" aria-hidden="true">flag</span></div><span class="osm">© OpenStreetMap</span></div>
+    <div class="row"><div class="grow"><div class="lbl">Hacia</div><div class="b">${esc(name)}</div></div><div style="text-align:right"><div class="num" style="font-size:calc(18px*var(--fs))">42 min</div><div class="lbl">llegas 9:48 a. m.</div></div></div>
+    <div class="two"><button class="btn ghost" onclick="guideNext()" ${last ? 'disabled' : ''}><span class="ms" aria-hidden="true">skip_next</span>Siguiente indicación</button>
+      <button class="btn ghost" onclick="A.voice=!A.voice;applyA11y();guide(S.route,true)"><span class="ms" aria-hidden="true">${A.voice ? 'volume_up' : 'volume_off'}</span>${A.voice ? 'Voz activa' : 'Voz apagada'}</button></div>
+    <div class="lbl">"Siguiente indicación" simula que avanzas: mira el texto, escucha la voz y siente la vibración. Si te sales de la ruta, se recalcula sola.</div>`,
+    `<button class="btn full red" style="min-height:calc(var(--touch) + 8px)" onclick="closeSheet();S.route=null;S.routes++;render();toast('Ruta terminada: cuenta para tus medallas (+1).')"><span class="ms" aria-hidden="true">close</span>Terminar guiado</button>`);
+  if (!keep) { speak(st[3]); vibrate('turn'); }
+}
+function guideNext() {
+  S.gstep = Math.min((S.gstep || 0) + 1, GSTEPS.length - 1);
+  const st = GSTEPS[S.gstep], last = S.gstep === GSTEPS.length - 1;
+  guide(S.route, true); speak(st[3]); vibrate(last ? 'arrive' : 'turn');
 }
 const AI_EX = ['Mirador y almuerzo, terminar en el lago', 'Ruta corta con café de origen', 'Algo tranquilo de medio día'];
 function viewAI() {
   const r = S.ai;
   return `
   <div class="card">
-    <div class="h"><span class="ms">auto_awesome</span>¿Qué quieres hacer?</div>
+    <div class="h" role="heading" aria-level="2"><span class="ms" aria-hidden="true">auto_awesome</span>¿Qué quieres hacer?</div>
     <textarea id="aiq" maxlength="300" placeholder="Ej: salir de Cali, parar en un mirador, almorzar trucha y terminar en el Lago Calima">${esc(S.aiq || '')}</textarea>
     <div class="chips">${AI_EX.map(e => `<button class="chip" onclick="$('#aiq').value='${e}'">${e}</button>`).join('')}</div>
-    <button class="btn full" onclick="runAI()" ${S.aiBusy ? 'disabled' : ''}>${S.aiBusy ? '<span class="spin"></span>Gemini está armando tu ruta…' : '<span class="ms">auto_awesome</span>Armar ruta con Gemini'}</button>
+    <button class="btn full" onclick="runAI()" ${S.aiBusy ? 'disabled' : ''}>${S.aiBusy ? '<span class="spin"></span>Gemini está armando tu ruta…' : '<span class="ms" aria-hidden="true">auto_awesome</span>Armar ruta con Gemini'}</button>
     <div class="lbl">Gemini solo responde sobre rutas y elige entre lugares reales del catálogo y comercios aliados. Máximo 30 consultas al día.</div>
-    <button class="btn full ghost" onclick="stopsSheet()"><span class="ms">add_location_alt</span>Yo elijo destino y paradas</button>
+    <button class="btn full ghost" onclick="stopsSheet()"><span class="ms" aria-hidden="true">add_location_alt</span>Yo elijo destino y paradas</button>
   </div>
   ${r ? aiResult() : ''}`;
 }
@@ -452,11 +569,11 @@ function aiResult() {
   const r = S.ai;
   return `<div class="card" style="border:2px solid var(--orange-soft)">
     <span class="pl or" style="align-self:flex-start">Ruta sugerida por Gemini</span>
-    <div class="hd" style="font-size:20px;font-weight:900">${r.title}</div><div>${r.summary}</div>
-    ${r.stops.map((s, i) => `<div class="row"><div class="avatar" style="background:${i === r.stops.length - 1 ? 'var(--orange)' : 'var(--cyan)'};width:30px;height:30px;font:800 13px 'JetBrains Mono'">${i + 1}</div><div class="grow"><div class="b">${s[0]}</div><div class="lbl">${s[1]}</div></div></div>`).join('')}
+    <div class="hd" role="heading" aria-level="2" style="font-size:calc(20px*var(--fsh));font-weight:900">${r.title}</div><div>${r.summary}</div>
+    ${r.stops.map((s, i) => `<div class="row"><div class="avatar" style="background:${i === r.stops.length - 1 ? 'var(--orange)' : 'var(--cyan)'};width:30px;height:30px;font:800 calc(13px*var(--fs)) 'JetBrains Mono'">${i + 1}</div><div class="grow"><div class="b">${s[0]}</div><div class="lbl">${s[1]}</div></div></div>`).join('')}
     <div class="row"><div class="grow"><div class="lbl">Total</div><div class="num">${r.km} km · ${r.h}</div></div></div>
-    <div class="card soft"><div class="line"><span class="ms">tips_and_updates</span>Consejos</div>${r.tips.map(t => `<div>• ${t}</div>`).join('')}</div>
-    <button class="btn full" onclick="guide('${r.stops[r.stops.length - 1][0]}')"><span class="ms">navigation</span>Iniciar guiado</button>
+    <div class="card soft"><div class="line"><span class="ms" aria-hidden="true">tips_and_updates</span>Consejos</div>${r.tips.map(t => `<div>• ${t}</div>`).join('')}</div>
+    <button class="btn full" onclick="guide('${r.stops[r.stops.length - 1][0]}')"><span class="ms" aria-hidden="true">navigation</span>Iniciar guiado</button>
     <div class="lbl">Ruta sugerida: revisa el estado de la vía y el clima antes de salir.</div>
   </div>`;
 }
@@ -489,15 +606,15 @@ function runAI(src) {
 function stopsSheet() {
   const all = PLACES.slice(0, 5);
   sheet(`<h2>Elige tu destino</h2><input placeholder="Buscar en toda Colombia…" oninput="toast('Busca entre 4.487 lugares y 4.132 poblaciones.')">
-    ${all.map(p => `<div class="opt" onclick="toast('${p.n} agregado como destino. Ahora puedes agregar paradas o un restaurante.')"><span class="ic"><span class="ms">${KIND[p.k][1]}</span></span><div class="grow"><div class="b">${p.n}</div><div class="lbl">${KIND[p.k][0]} · ${km(p.km)}</div></div></div>`).join('')}
-    <div class="two"><button class="btn ghost"><span class="ms">add_location</span>Agregar parada</button><button class="btn ghost"><span class="ms">restaurant</span>Restaurante</button></div>`,
-    `<button class="btn full" onclick="closeSheet();toast('Ruta lista con tus paradas, en el orden que elegiste.')"><span class="ms">check</span>Listo · 1 parada</button>`);
+    ${all.map(p => `<div class="opt" role="button" tabindex="0" onclick="toast('${p.n} agregado como destino. Ahora puedes agregar paradas o un restaurante.')"><span class="ic"><span class="ms" aria-hidden="true">${KIND[p.k][1]}</span></span><div class="grow"><div class="b">${p.n}</div><div class="lbl">${KIND[p.k][0]} · ${km(p.km)}</div></div></div>`).join('')}
+    <div class="two"><button class="btn ghost"><span class="ms" aria-hidden="true">add_location</span>Agregar parada</button><button class="btn ghost"><span class="ms" aria-hidden="true">restaurant</span>Restaurante</button></div>`,
+    `<button class="btn full" onclick="closeSheet();toast('Ruta lista con tus paradas, en el orden que elegiste.')"><span class="ms" aria-hidden="true">check</span>Listo · 1 parada</button>`);
 }
 function viewBudget() {
   const b = S.budget, fuel = b.km / b.kmgal * b.gal, total = fuel + b.food;
   const f = (id, l, v, min, max, step, fmt) => `<div class="field"><label>${l}: <b style="color:var(--ink)">${fmt(v)}</b></label><input type="range" min="${min}" max="${max}" step="${step}" value="${v}" oninput="S.budget.${id}=+this.value;render()" style="padding:0;accent-color:var(--orange)"></div>`;
   return `<div class="card">
-    <div class="h"><span class="ms">calculate</span>¿Cuánto me cuesta la rodada?</div>
+    <div class="h" role="heading" aria-level="2"><span class="ms" aria-hidden="true">calculate</span>¿Cuánto me cuesta la rodada?</div>
     ${f('km','Distancia ida y vuelta',b.km,20,600,10,v => v + ' km')}
     ${f('kmgal','Tu moto rinde',b.kmgal,40,160,5,v => v + ' km por galón')}
     ${f('gal','Precio del galón',b.gal,12000,20000,100,cop)}
@@ -520,56 +637,56 @@ function viewCom() {
   if (S.asMap) {
     const pts = fuel ? fuelHere.slice(0, 6).map((f, i) => [f[0], 20 + (i * 37) % 65, 22 + (i * 23) % 60]) : list.map((v, i) => [v.n, 25 + i * 18, 30 + (i * 29) % 50]);
     body = `<div class="map" style="height:430px"><div class="me" style="left:48%;top:55%"></div>
-      ${pts.map(p => `<div class="pin ${fuel ? '' : 'or'}" style="left:${p[1]}%;top:${p[2]}%" onclick="${fuel ? `fuelSheet('${p[0]}')` : `venueSheet('${VENUES.find(v => v.n === p[0]).id}')`}"><span class="ms">${fuel ? 'local_gas_station' : 'location_on'}</span></div>`).join('')}
-      <button class="float" style="left:10px" onclick="S.asMap=false;render()"><span class="ms" style="font-size:16px">arrow_back</span>Lista</button>
+      ${pts.map(p => `<div class="pin ${fuel ? '' : 'or'}" style="left:${p[1]}%;top:${p[2]}%" role="button" tabindex="0" aria-label="${esc(p[0])}" onclick="${fuel ? `fuelSheet('${p[0]}')` : `venueSheet('${VENUES.find(v => v.n === p[0]).id}')`}"><span class="ms" aria-hidden="true">${fuel ? 'local_gas_station' : 'location_on'}</span></div>`).join('')}
+      <button class="float" style="left:10px" onclick="S.asMap=false;render()"><span class="ms" aria-hidden="true" style="font-size:16px">arrow_back</span>Lista</button>
       <span class="float" style="right:10px">${pts.length} ${fuel ? 'gasolineras' : 'comercios'} · ${S.city}</span><span class="osm">© OpenStreetMap</span></div>`;
   } else if (fuel) {
-    body = `<div class="row"><div class="grow"><div class="h"><span class="ms">local_gas_station</span>Gasolineras cerca de ${S.city}</div><div class="lbl">Distancia en línea recta. Datos de © OpenStreetMap, sin internet.</div></div></div>
-      ${fuelHere.map(f => `<div class="card"><div class="row"><div class="avatar" style="background:var(--green-tint);color:var(--green)"><span class="ms">local_gas_station</span></div>
+    body = `<div class="row"><div class="grow"><div class="h" role="heading" aria-level="2"><span class="ms" aria-hidden="true">local_gas_station</span>Gasolineras cerca de ${S.city}</div><div class="lbl">Distancia en línea recta. Datos de © OpenStreetMap, sin internet.</div></div></div>
+      ${fuelHere.map(f => `<div class="card"><div class="row"><div class="avatar" style="background:var(--green-tint);color:var(--green)"><span class="ms" aria-hidden="true">local_gas_station</span></div>
         <div class="grow"><div class="b ellip">${f[0]}</div><div class="lbl">${km(f[2])} · ${f[1]}, ${f[3]}</div></div>
-        <button class="ib" aria-label="Ir con guía" onclick="guide('${f[0]}')"><span class="ms">turn_right</span></button><button class="ib" aria-label="Abrir en Google Maps" onclick="toast('Se abriría en Google Maps.')"><span class="ms">map</span></button></div></div>`).join('')}`;
+        <button class="ib" aria-label="Ir con guía" onclick="guide('${f[0]}')"><span class="ms" aria-hidden="true">turn_right</span></button><button class="ib" aria-label="Abrir en Google Maps" onclick="toast('Se abriría en Google Maps.')"><span class="ms" aria-hidden="true">map</span></button></div></div>`).join('')}`;
   } else {
-    body = (list.length ? '' : `<div class="empty"><span class="ms">storefront</span>Todavía no hay comercios aliados en ${S.city}${S.fl === 'all' ? '' : ' con ese filtro'}. Prueba con otra ciudad.</div>`) + list.map(v => {
+    body = (list.length ? '' : `<div class="empty"><span class="ms" aria-hidden="true">storefront</span>Todavía no hay comercios aliados en ${S.city}${S.fl === 'all' ? '' : ' con ese filtro'}. Prueba con otra ciudad.</div>`) + list.map(v => {
       const t = VT[v.type], ok = canOrder(v);
       return `<div class="card" style="padding:0;gap:0">
-        <div class="media" style="background:${t[0]};margin:0"><span class="ms big">${t[1]}</span>
+        <div class="media" style="background:${t[0]};margin:0"><span class="ms big" aria-hidden="true">${t[1]}</span>
           <div class="grow"><div style="display:flex;gap:6px;margin-bottom:4px"><span class="pl" style="background:${t[2]};color:#fff">${v.badge}</span>${v.open ? '' : '<span class="pl rd">Cerrado</span>'}</div>
-          <div class="hd ellip" style="font-size:17px;font-weight:900">${v.n}</div><div class="lbl" style="color:var(--cyan-deep)">${v.kind} · a ${v.km} km</div></div>
+          <div class="hd ellip" role="heading" aria-level="2" style="font-size:calc(17px*var(--fs));font-weight:900">${v.n}</div><div class="lbl" style="color:var(--cyan-deep)">${v.kind} · a ${v.km} km</div></div>
           <div>${v.rv ? `<span class="pl" style="background:#fff;color:var(--amber)">★ ${v.r}</span>` : '<span class="pl cy">Nuevo</span>'}</div></div>
         <div style="padding:12px 14px 14px;display:flex;flex-direction:column;gap:10px">
-          ${v.promo ? `<div class="line" style="color:var(--orange-dark)"><span class="ms">sell</span>${v.promo}</div>` : ''}
-          ${ok ? `<div class="line" style="color:var(--green)"><span class="ms">restaurant_menu</span>${v.open ? 'Pide desde la app y te lo tienen listo al llegar' : 'Recibe pedidos cuando abra'}</div>`
-               : (v.type === 'food' || v.type === 'cafe' ? `<div class="line" style="color:var(--muted);font-weight:400"><span class="ms">info</span>${reason(v)}</div>` : '')}
-          <div class="row">${ok ? `<button class="btn grow" onclick="menuSheet('${v.id}')"><span class="ms">restaurant_menu</span>Menú</button>` : `<button class="btn grow" onclick="venueSheet('${v.id}')">Ver detalles</button>`}
-            <button class="ib" aria-label="Ir con guía" onclick="guide('${v.n}')"><span class="ms">turn_right</span></button>
-            <button class="ib" aria-label="Pedir cupón" ${v.owner ? '' : 'disabled style="opacity:.4"'} onclick="couponSheet('${v.n}')"><span class="ms">sell</span></button></div>
+          ${v.promo ? `<div class="line" style="color:var(--orange-dark)"><span class="ms" aria-hidden="true">sell</span>${v.promo}</div>` : ''}
+          ${ok ? `<div class="line" style="color:var(--green)"><span class="ms" aria-hidden="true">restaurant_menu</span>${v.open ? 'Pide desde la app y te lo tienen listo al llegar' : 'Recibe pedidos cuando abra'}</div>`
+               : (v.type === 'food' || v.type === 'cafe' ? `<div class="line" style="color:var(--muted);font-weight:400"><span class="ms" aria-hidden="true">info</span>${reason(v)}</div>` : '')}
+          <div class="row">${ok ? `<button class="btn grow" onclick="menuSheet('${v.id}')"><span class="ms" aria-hidden="true">restaurant_menu</span>Menú</button>` : `<button class="btn grow" onclick="venueSheet('${v.id}')">Ver detalles</button>`}
+            <button class="ib" aria-label="Ir con guía" onclick="guide('${v.n}')"><span class="ms" aria-hidden="true">turn_right</span></button>
+            <button class="ib" aria-label="Pedir cupón" ${v.owner ? '' : 'disabled style="opacity:.4"'} onclick="couponSheet('${v.n}')"><span class="ms" aria-hidden="true">sell</span></button></div>
         </div></div>`;
     }).join('');
   }
   return `
-  ${active.length ? `<div class="card" style="border:1.5px solid var(--orange-soft)"><div class="line" style="color:var(--orange-dark)"><span class="ms">receipt_long</span>Pedidos activos</div>
-    ${active.map(o => `<div class="row" style="background:var(--surf0);border-radius:12px;padding:10px"><div class="grow"><div class="b">${o.venue}</div><div class="lbl">${o.qty} producto(s) · ${cop(o.total)} · llegas ${o.eta}</div></div><span class="pl ${o.st === 'ready' ? 'gr' : o.st === 'prep' ? 'cy' : 'or'}">${{new:'Enviado',prep:'Preparando',ready:'¡Listo!'}[o.st]}</span></div>`).join('')}</div>` : ''}
+  ${active.length ? `<div class="card" style="border:1.5px solid var(--orange-soft)"><div class="line" style="color:var(--orange-dark)"><span class="ms" aria-hidden="true">receipt_long</span>Pedidos activos</div>
+    ${active.map(o => `<div class="row" style="background:var(--surf0);border-radius:12px;padding:10px"><div class="grow"><div class="b">${o.venue}</div><div class="lbl">${o.qty} producto(s) · ${cop(o.total)} · llegas ${o.eta}</div></div>${stPill(o.st)}</div>`).join('')}</div>` : ''}
   ${cityCard('Comercios en')}
   <div class="chips">
-    <button class="chip ${S.asMap ? 'on ink' : ''}" onclick="S.asMap=!S.asMap;render()"><span class="ms">${S.asMap ? 'view_agenda' : 'map'}</span>${S.asMap ? 'Ver lista' : 'Ver mapa'}</button>
+    <button class="chip ${S.asMap ? 'on ink' : ''}" onclick="S.asMap=!S.asMap;render()"><span class="ms" aria-hidden="true">${S.asMap ? 'view_agenda' : 'map'}</span>${S.asMap ? 'Ver lista' : 'Ver mapa'}</button>
     <button class="chip ${S.fl === 'all' ? 'on cy' : ''}" onclick="S.fl='all';render()">Todos</button>
-    <button class="chip ${fuel ? 'on cy' : ''}" onclick="S.fl='fuel';render()"><span class="ms">local_gas_station</span>Gasolineras</button>
+    <button class="chip ${fuel ? 'on cy' : ''}" onclick="S.fl='fuel';render()"><span class="ms" aria-hidden="true">local_gas_station</span>Gasolineras</button>
     ${CATS.map(([k, l]) => `<button class="chip ${S.fl === k ? 'on cy' : ''}" onclick="S.fl='${k}';render()">${l}</button>`).join('')}
   </div>${body}`;
 }
 function fuelSheet(n) {
   const f = FUEL.find(x => x[0] === n);
-  sheet(`<div class="h"><span class="ms">local_gas_station</span>${f[0]}</div><div class="lbl">${km(f[2])} en línea recta · ${f[1]}, ${f[3]}</div>`,
-    `<button class="btn full" onclick="guide('${f[0]}')"><span class="ms">navigation</span>Guiar en la app</button><button class="btn full ghost" onclick="toast('Se abriría en Google Maps.')"><span class="ms">map</span>Abrir en Google Maps</button>`);
+  sheet(`<div class="h" role="heading" aria-level="2"><span class="ms" aria-hidden="true">local_gas_station</span>${f[0]}</div><div class="lbl">${km(f[2])} en línea recta · ${f[1]}, ${f[3]}</div>`,
+    `<button class="btn full" onclick="guide('${f[0]}')"><span class="ms" aria-hidden="true">navigation</span>Guiar en la app</button><button class="btn full ghost" onclick="toast('Se abriría en Google Maps.')"><span class="ms" aria-hidden="true">map</span>Abrir en Google Maps</button>`);
 }
 function venueSheet(id) {
   const v = VENUES.find(x => x.id === id);
   sheet(`<div style="display:flex;gap:6px"><span class="pl or">${v.badge}</span>${v.open ? '' : '<span class="pl rd">Cerrado</span>'}</div><h2>${v.n}</h2>
     <div class="lbl">${v.rv ? '★ ' + v.r + ' (' + v.rv + ' reseñas) · ' : ''}${v.kind} · a ${v.km} km de ${v.city}</div>
-    ${v.promo ? `<div class="line" style="color:var(--orange-dark)"><span class="ms">sell</span>${v.promo}</div>` : ''}
-    ${canOrder(v) ? '' : (v.type === 'food' || v.type === 'cafe' ? `<div class="line" style="color:var(--muted);font-weight:400"><span class="ms">info</span>${reason(v)}</div>` : '')}
-    <div class="h"><span class="ms">star</span>Reseñas</div>${v.rv ? `<div class="card" style="box-shadow:none;background:var(--surf0)"><div class="b">@vale.moto · ★★★★★</div><div>Llegamos y el pedido estaba listo. Buen parqueo.</div></div>` : '<div class="lbl">Todavía no tiene reseñas.</div>'}`,
-    `<button class="btn full" onclick="guide('${v.n}')"><span class="ms">navigation</span>Guiar en la app</button>${canOrder(v) ? `<button class="btn full ghost" onclick="menuSheet('${v.id}')"><span class="ms">restaurant_menu</span>Ver menú y pedir</button>` : ''}`);
+    ${v.promo ? `<div class="line" style="color:var(--orange-dark)"><span class="ms" aria-hidden="true">sell</span>${v.promo}</div>` : ''}
+    ${canOrder(v) ? '' : (v.type === 'food' || v.type === 'cafe' ? `<div class="line" style="color:var(--muted);font-weight:400"><span class="ms" aria-hidden="true">info</span>${reason(v)}</div>` : '')}
+    <div class="h" role="heading" aria-level="2"><span class="ms" aria-hidden="true">star</span>Reseñas</div>${v.rv ? `<div class="card" style="box-shadow:none;background:var(--surf0)"><div class="b">@vale.moto · ★★★★★</div><div>Llegamos y el pedido estaba listo. Buen parqueo.</div></div>` : '<div class="lbl">Todavía no tiene reseñas.</div>'}`,
+    `<button class="btn full" onclick="guide('${v.n}')"><span class="ms" aria-hidden="true">navigation</span>Guiar en la app</button>${canOrder(v) ? `<button class="btn full ghost" onclick="menuSheet('${v.id}')"><span class="ms" aria-hidden="true">restaurant_menu</span>Ver menú y pedir</button>` : ''}`);
 }
 let CART = {}, ETA = null;
 function menuSheet(id) {
@@ -579,13 +696,13 @@ function menuSheet(id) {
     const total = v.menu.reduce((a, m, i) => a + (CART[i] || 0) * m[2], 0), qty = Object.values(CART).reduce((a, b) => a + b, 0);
     const miss = []; if (!qty) miss.push('agregar al menos un producto'); if (!ETA) miss.push('elegir a qué hora llegas'); if (!v.open) miss.push('que el comercio abra');
     sheet(`<h2>${v.n}</h2><div class="lbl">${v.open ? 'Abierto · recibe pedidos' : 'Cerrado por ahora'}</div>
-      ${cats.map(c => `<div class="h" style="font-size:15px">${c}</div>` + v.menu.map((m, i) => m[1] !== c ? '' : `<div class="row"><div class="grow"><div class="b">${m[0]}</div><div class="lbl">${cop(m[2])}</div></div>
+      ${cats.map(c => `<div class="h" role="heading" aria-level="2" style="font-size:calc(15px*var(--fs))">${c}</div>` + v.menu.map((m, i) => m[1] !== c ? '' : `<div class="row"><div class="grow"><div class="b">${m[0]}</div><div class="lbl">${cop(m[2])}</div></div>
         <div class="qty"><button onclick="CART[${i}]=Math.max(0,(CART[${i}]||0)-1);menuSheet.r()" aria-label="Quitar">−</button><b style="min-width:18px;text-align:center">${CART[i] || 0}</b><button onclick="CART[${i}]=(CART[${i}]||0)+1;menuSheet.r()" aria-label="Agregar">+</button></div></div>`).join('')).join('')}
-      <div class="h" style="font-size:15px"><span class="ms">schedule</span>¿A qué hora llegas?</div>
+      <div class="h" role="heading" aria-level="2" style="font-size:calc(15px*var(--fs))"><span class="ms" aria-hidden="true">schedule</span>¿A qué hora llegas?</div>
       <div class="lbl">Según el guiado llegas a las 10:40 a. m. No se puede pedir para antes.</div>
       <div class="chips">${['Cuando llegue · 10:40','11:00','11:30','12:00'].map(t => `<button class="chip ${ETA === t ? 'on cy' : ''}" onclick="ETA='${t}';menuSheet.r()">${t}</button>`).join('')}</div>`,
       `<div class="row"><div class="grow"><div class="lbl">${qty} producto(s)</div><div class="num">${cop(total)}</div></div>
-        <button class="btn" ${miss.length ? 'disabled' : ''} onclick="placeOrder('${v.n}',${qty},${total})"><span class="ms">send</span>Pedir</button></div>${missing(miss)}`);
+        <button class="btn" ${miss.length ? 'disabled' : ''} onclick="placeOrder('${v.n}',${qty},${total})"><span class="ms" aria-hidden="true">send</span>Pedir</button></div>${missing(miss)}`);
   };
   menuSheet.r = draw; draw();
 }
@@ -597,7 +714,7 @@ function placeOrder(n, qty, total) {
 }
 function couponSheet(n) {
   const code = 'APX-' + Math.random().toString(36).slice(2, 6).toUpperCase();
-  sheet(`<div class="h"><span class="ms">sell</span>Tu cupón</div><div style="background:var(--orange-soft);border:2px solid rgba(217,70,0,.35);border-radius:16px;padding:22px;text-align:center;font:800 32px 'JetBrains Mono';color:var(--orange-dark);letter-spacing:.08em">${code}</div>
+  sheet(`<div class="h" role="heading" aria-level="2"><span class="ms" aria-hidden="true">sell</span>Tu cupón</div><div style="background:var(--orange-soft);border:2px solid rgba(217,70,0,.35);border-radius:16px;padding:22px;text-align:center;font:800 calc(32px*var(--fsh)) 'JetBrains Mono';color:var(--orange-dark);letter-spacing:.08em">${code}</div>
     <div class="lbl">Muéstralo en ${n} para canjear tu beneficio.</div>`, `<button class="btn full" onclick="closeSheet()">Listo</button>`);
 }
 
@@ -605,15 +722,15 @@ function couponSheet(n) {
 function viewGrp() {
   const list = [...RODADAS].sort((a, b) => a.when - b.when);
   return `
-  <div class="two"><button class="btn" onclick="createSheet()"><span class="ms">add</span>Crear rodada</button><button class="btn ghost" onclick="joinSheet()"><span class="ms">key</span>Unirme con código</button></div>
-  <div class="card"><div class="row"><span class="ms" style="color:var(--cyan)">group</span><div class="grow"><div class="b">Amigos</div><div class="lbl">3 en línea · 1 en rodada</div></div>
-    ${['@vale.moto','@nico_ruta','@andres.adv'].map((h, i) => `<div class="avatar" style="background:${AV[i + 1]};width:32px;height:32px;margin-left:-8px;border:2px solid #fff"><span class="ms" style="font-size:17px">two_wheeler</span></div>`).join('')}</div></div>
-  <div class="h"><span class="ms">event</span>Próximas rodadas</div>
-  ${list.map(r => `<div class="card click" onclick="rodadaSheet('${r.id}')">
-    <div class="row"><div class="grow"><div class="hd" style="font-size:17px;font-weight:900">${esc(r.n)}</div><div class="lbl" style="color:var(--cyan-deep)">${whenLabel(r.when)}</div></div>${r.pub ? '<span class="pl gr">Pública</span>' : '<span class="pl">Privada</span>'}</div>
-    <div class="line" style="font-weight:400"><span class="ms" style="color:var(--orange)">location_on</span>${esc(r.meet)}</div>
-    ${r.dest ? `<div class="line" style="font-weight:400"><span class="ms" style="color:var(--cyan)">flag</span>${esc(r.dest)}${r.stops.length ? ' · ' + r.stops.length + ' parada(s)' : ''}</div>` : ''}
-    <div class="row"><div class="grow lbl">${r.members.length}/${r.seats} riders · ${r.style}</div>${r.members.some(m => m[0] === '@tú') ? '<span class="pl or">Vas</span>' : '<button class="btn" style="min-height:38px;padding:8px 14px" onclick="event.stopPropagation();joinR(\'' + r.id + '\')">Unirme</button>'}</div>
+  <div class="two"><button class="btn" onclick="createSheet()"><span class="ms" aria-hidden="true">add</span>Crear rodada</button><button class="btn ghost" onclick="joinSheet()"><span class="ms" aria-hidden="true">key</span>Unirme con código</button></div>
+  <div class="card"><div class="row"><span class="ms" aria-hidden="true" style="color:var(--cyan)">group</span><div class="grow"><div class="b">Amigos</div><div class="lbl">3 en línea · 1 en rodada</div></div>
+    ${['@vale.moto','@nico_ruta','@andres.adv'].map((h, i) => `<div class="avatar" style="background:${AV[i + 1]};width:32px;height:32px;margin-left:-8px;border:2px solid #fff"><span class="ms" aria-hidden="true" style="font-size:17px">two_wheeler</span></div>`).join('')}</div></div>
+  <div class="h" role="heading" aria-level="2"><span class="ms" aria-hidden="true">event</span>Próximas rodadas</div>
+  ${list.map(r => `<div class="card click" role="button" tabindex="0" onclick="rodadaSheet('${r.id}')">
+    <div class="row"><div class="grow"><div class="hd" role="heading" aria-level="2" style="font-size:calc(17px*var(--fs));font-weight:900">${esc(r.n)}</div><div class="lbl" style="color:var(--cyan-deep)">${whenLabel(r.when)}</div></div>${r.pub ? '<span class="pl gr">Pública</span>' : '<span class="pl">Privada</span>'}</div>
+    <div class="line" style="font-weight:400"><span class="ms" aria-hidden="true" style="color:var(--orange)">location_on</span>${esc(r.meet)}</div>
+    ${r.dest ? `<div class="line" style="font-weight:400"><span class="ms" aria-hidden="true" style="color:var(--cyan)">flag</span>${esc(r.dest)}${r.stops.length ? ' · ' + r.stops.length + ' parada(s)' : ''}</div>` : ''}
+    <div class="row"><div class="grow lbl">${r.members.length}/${r.seats} riders · ${r.style}</div>${r.members.some(m => m[0] === '@tú') ? '<span class="pl or">Vas</span>' : '<button class="btn" style="padding:8px 14px" onclick="event.stopPropagation();joinR(\'' + r.id + '\')">Unirme</button>'}</div>
   </div>`).join('')}`;
 }
 function startRide(id) { const r = RODADAS.find(x => x.id === id); r.live = true; rodadaSheet(id); drawBars(); toast('¡Rodada en curso! Arriba aparecen Asistencia y el SOS mientras ruedan.'); }
@@ -622,27 +739,28 @@ function rodadaSheet(id) {
   const r = RODADAS.find(x => x.id === id), lead = r.members.find(m => m[3] === 'lead');
   sheet(`<div style="display:flex;gap:6px">${r.pub ? '<span class="pl gr">Pública</span>' : '<span class="pl">Privada</span>'}<span class="pl cy">${r.style}</span></div>
     <h2>${esc(r.n)}</h2><div class="lbl" style="color:var(--cyan-deep)">${whenLabel(r.when)}</div>
-    <div class="map"><svg class="route" viewBox="0 0 100 100" preserveAspectRatio="none"><path d="M18 80 C 30 65, 45 62, 55 48 S 72 28, 84 20" stroke="#D94600" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-dasharray="${r.dest ? '0' : '3 3'}"/></svg>
-      <div class="pin or" style="left:18%;top:80%"><span class="ms">location_on</span><b>E</b></div>
-      ${r.stops.map((s, i) => `<div class="pin cy" style="left:${40 + i * 15}%;top:${60 - i * 15}%"><span class="ms">location_on</span><b>${i + 1}</b></div>`).join('')}
-      <div class="pin" style="left:84%;top:20%;color:var(--ink)"><span class="ms">flag</span></div>
-      ${r.members.slice(1).map((m, i) => `<div class="avatar" style="position:absolute;left:${22 + i * 9}%;top:${74 - i * 6}%;width:24px;height:24px;background:${AV[m[2]]};border:2px solid #fff;transform:translate(-50%,-50%)"><span class="ms" style="font-size:14px">two_wheeler</span></div>`).join('')}
+    <div class="map" role="img" aria-label="Mapa de la rodada: encuentro en ${esc(r.meet)}${r.stops.length ? ', ' + r.stops.length + ' parada(s)' : ''}${r.dest ? ' y destino ' + esc(r.dest) : ''}."><svg class="route" viewBox="0 0 100 100" preserveAspectRatio="none"><path d="M18 80 C 30 65, 45 62, 55 48 S 72 28, 84 20" stroke="#D94600" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-dasharray="${r.dest ? '0' : '3 3'}"/></svg>
+      <div class="pin or" style="left:18%;top:80%"><span class="ms" aria-hidden="true">location_on</span><b>E</b></div>
+      ${r.stops.map((s, i) => `<div class="pin cy" style="left:${40 + i * 15}%;top:${60 - i * 15}%"><span class="ms" aria-hidden="true">location_on</span><b>${i + 1}</b></div>`).join('')}
+      <div class="pin" style="left:84%;top:20%;color:var(--ink)"><span class="ms" aria-hidden="true">flag</span></div>
+      ${r.members.slice(1).map((m, i) => `<div class="avatar" style="position:absolute;left:${22 + i * 9}%;top:${74 - i * 6}%;width:24px;height:24px;background:${AV[m[2]]};border:2px solid #fff;transform:translate(-50%,-50%)"><span class="ms" aria-hidden="true" style="font-size:14px">two_wheeler</span></div>`).join('')}
       <span class="osm">© OpenStreetMap</span></div>
-    ${r.mine && !r.live ? `<button class="btn full" onclick="startRide('${r.id}')"><span class="ms">play_arrow</span>Iniciar rodada</button>` : ''}
+    ${r.mine && !r.live ? `<button class="btn full" onclick="startRide('${r.id}')"><span class="ms" aria-hidden="true">play_arrow</span>Iniciar rodada</button>` : ''}
     ${r.live ? '<span class="pl gr" style="align-self:flex-start">En curso</span>' : ''}
-    <button class="btn full ghost" onclick="guide('${esc(r.meet.split(' · ')[0])}')"><span class="ms">near_me</span>Llevarme al punto de encuentro</button>
+    <button class="btn full ghost" onclick="guide('${esc(r.meet.split(' · ')[0])}')"><span class="ms" aria-hidden="true">near_me</span>Llevarme al punto de encuentro</button>
     ${r.members.some(m => m[0] === '@tú') ? `<div class="card" id="icCard" data-rid="${r.id}" style="box-shadow:none;border:1px solid var(--surf3)"></div>` : ''}
-    <div class="h"><span class="ms">route</span>Recorrido</div>
-    <div class="row"><div class="avatar" style="background:var(--orange);width:28px;height:28px;font:800 12px 'JetBrains Mono'">E</div><div class="grow"><div class="b">${esc(r.meet)}</div><div class="lbl">Encuentro</div></div></div>
-    ${r.stops.map((s, i) => `<div class="row"><div class="avatar" style="background:var(--cyan);width:28px;height:28px;font:800 12px 'JetBrains Mono'">${i + 1}</div><div class="grow b">${esc(s)}</div></div>`).join('')}
-    ${r.dest ? `<div class="row"><div class="avatar" style="background:var(--ink);width:28px;height:28px"><span class="ms" style="font-size:16px">flag</span></div><div class="grow b">${esc(r.dest)}</div></div>` : ''}
-    <div class="h"><span class="ms">group</span>Riders (${r.members.length}/${r.seats})</div>
-    ${r.members.map((m, i) => `<div class="row"><div class="avatar" style="background:${AV[m[2]]}"><span class="ms">two_wheeler</span></div>
+    ${r.live && r.members.some(m => m[0] === '@tú') ? signalsCard(r) : ''}
+    <div class="h" role="heading" aria-level="2"><span class="ms" aria-hidden="true">route</span>Recorrido</div>
+    <div class="row"><div class="avatar" style="background:var(--orange);width:28px;height:28px;font:800 calc(12px*var(--fs)) 'JetBrains Mono'">E</div><div class="grow"><div class="b">${esc(r.meet)}</div><div class="lbl">Encuentro</div></div></div>
+    ${r.stops.map((s, i) => `<div class="row"><div class="avatar" style="background:var(--cyan);width:28px;height:28px;font:800 calc(12px*var(--fs)) 'JetBrains Mono'">${i + 1}</div><div class="grow b">${esc(s)}</div></div>`).join('')}
+    ${r.dest ? `<div class="row"><div class="avatar" style="background:var(--ink);width:28px;height:28px"><span class="ms" aria-hidden="true" style="font-size:16px">flag</span></div><div class="grow b">${esc(r.dest)}</div></div>` : ''}
+    <div class="h" role="heading" aria-level="2"><span class="ms" aria-hidden="true">group</span>Riders (${r.members.length}/${r.seats})</div>
+    ${r.members.map((m, i) => `<div class="row"><div class="avatar" style="background:${AV[m[2]]}"><span class="ms" aria-hidden="true">two_wheeler</span></div>
       <div class="grow"><div class="b">${m[1]} ${m[3] === 'lead' ? '<span class="pl or">Líder</span>' : m[3] === 'sweep' ? '<span class="pl cy">Cierra</span>' : ''}</div><div class="lbl">${m[0]}</div></div>
-      <button class="round" aria-label="Opciones de ${m[1]}" onclick="memberMenu(event,'${r.id}',${i})"><span class="ms">more_vert</span></button></div>`).join('')}
-    ${r.mine ? `<div class="card soft"><div class="b">Invitar</div><div style="font:800 26px 'JetBrains Mono';color:var(--orange-dark);letter-spacing:.08em">${r.code.slice(0, 4)} ${r.code.slice(4)}</div>
+      <button class="round" aria-label="Opciones de ${m[1]}" onclick="memberMenu(event,'${r.id}',${i})"><span class="ms" aria-hidden="true">more_vert</span></button></div>`).join('')}
+    ${r.mine ? `<div class="card soft"><div class="b">Invitar</div><div style="font:800 calc(26px*var(--fsh)) 'JetBrains Mono';color:var(--orange-dark);letter-spacing:.08em">${r.code.slice(0, 4)} ${r.code.slice(4)}</div>
       <div class="lbl">Comparte el enlace por WhatsApp: con un toque abre la invitación en ApexMoto. También pueden escribir el código en Comunidad → Unirme con código.</div>
-      <button class="btn cy" onclick="toast('Se abriría WhatsApp con: ¡Vamos a rodar! … https://apexmoto-prd.web.app/r/${r.code}')"><span class="ms">share</span>Compartir enlace</button></div>` : ''}`);
+      <button class="btn cy" onclick="toast('Se abriría WhatsApp con: ¡Vamos a rodar! … https://apexmoto-prd.web.app/r/${r.code}')"><span class="ms" aria-hidden="true">share</span>Compartir enlace</button></div>` : ''}`);
   drawIc();
 }
 function memberMenu(ev, rid, i) {
@@ -651,7 +769,7 @@ function memberMenu(ev, rid, i) {
     : [['person','Ver perfil',"toast('Perfil de " + m[1] + ": medallas y rutas completadas.')"], ['person_add','Añadir amigo',"toast('Solicitud enviada a " + m[0] + ".')"]]
       .concat(r.mine ? [['flag','Asignar líder',"toast('" + m[1] + " ahora es el líder.')"],['shield','Cierra el grupo',"toast('" + m[1] + " cierra el grupo.')"],['person_remove','Expulsar',"toast('" + m[1] + " ya no está en la rodada.')", 'rd']] : []);
   const menu = document.createElement('div'); menu.className = 'menu'; menu.id = 'menu';
-  menu.innerHTML = items.map(([ic, l, fn, cls]) => `<button class="${cls || ''}" onclick="closeMenu();${fn}"><span class="ms">${ic}</span>${l}</button>`).join('');
+  menu.innerHTML = items.map(([ic, l, fn, cls]) => `<button class="${cls || ''}" onclick="closeMenu();${fn}"><span class="ms" aria-hidden="true">${ic}</span>${l}</button>`).join('');
   const ph = $('#phone').getBoundingClientRect(), b = ev.currentTarget.getBoundingClientRect();
   menu.style.right = (ph.right - b.right + 8) + 'px'; menu.style.top = Math.min(b.bottom - ph.top, ph.height - 60 - items.length * 42) + 'px';
   $('#phone').appendChild(menu); ev.stopPropagation();
@@ -666,12 +784,12 @@ function createSheet(preset) {
     <div class="field"><label>Nombre</label><input value="${esc(NEW.name)}" placeholder="Ej: Domingo al Lago Calima" oninput="NEW.name=this.value;createSheet.f()"></div>
     <div class="field"><label>Fecha y hora</label><input type="datetime-local" value="${NEW.when}" onchange="NEW.when=this.value;createSheet()"></div>
     <div class="field"><label>Punto de encuentro (de la lista, sin texto libre)</label>
-      <button class="opt" style="width:100%;background:var(--surf0);text-align:left" onclick="meetSheet()"><span class="ic"><span class="ms">${NEW.meet ? 'location_on' : 'search'}</span></span><div class="grow ${NEW.meet ? 'b' : 'lbl'}">${NEW.meet ? esc(NEW.meet) : 'Gasolinera, supermercado, centro comercial, peaje…'}</div></button></div>
+      <button class="opt" style="width:100%;background:var(--surf0);text-align:left" onclick="meetSheet()"><span class="ic"><span class="ms" aria-hidden="true">${NEW.meet ? 'location_on' : 'search'}</span></span><div class="grow ${NEW.meet ? 'b' : 'lbl'}">${NEW.meet ? esc(NEW.meet) : 'Gasolinera, supermercado, centro comercial, peaje…'}</div></button></div>
     <div class="field"><label>Destino y paradas (opcional)</label>
-      <button class="opt" style="width:100%;background:var(--surf0);text-align:left" onclick="NEW.dest=NEW.dest?'':'Lago Calima';createSheet()"><span class="ic"><span class="ms">flag</span></span><div class="grow ${NEW.dest ? 'b' : 'lbl'}">${NEW.dest ? esc(NEW.dest) : 'Agregar destino'}</div></button></div>
+      <button class="opt" style="width:100%;background:var(--surf0);text-align:left" onclick="NEW.dest=NEW.dest?'':'Lago Calima';createSheet()"><span class="ic"><span class="ms" aria-hidden="true">flag</span></span><div class="grow ${NEW.dest ? 'b' : 'lbl'}">${NEW.dest ? esc(NEW.dest) : 'Agregar destino'}</div></button></div>
     <div class="toggle"><button class="${NEW.pub ? 'on' : ''}" onclick="NEW.pub=true;createSheet()"><b>Pública</b><span class="lbl">Aparece en Comunidad y cualquiera se une</span></button>
       <button class="${NEW.pub ? '' : 'on'}" onclick="NEW.pub=false;createSheet()"><b>Privada</b><span class="lbl">Solo con código, enlace o amigos invitados</span></button></div>`,
-    `<button class="btn full" id="cbtn" ${miss.length ? 'disabled' : ''} onclick="saveRodada()"><span class="ms">check</span>Crear rodada</button><div id="cmiss">${missing(miss)}</div>`);
+    `<button class="btn full" id="cbtn" ${miss.length ? 'disabled' : ''} onclick="saveRodada()"><span class="ms" aria-hidden="true">check</span>Crear rodada</button><div id="cmiss">${missing(miss)}</div>`);
   createSheet.f = () => { const m = []; if (!NEW.name.trim()) m.push('el nombre'); if (!NEW.when) m.push('la fecha y hora'); if (!NEW.meet) m.push('el punto de encuentro'); $('#cbtn').disabled = m.length > 0; $('#cmiss').innerHTML = missing(m); };
 }
 function meetSheet() {
@@ -679,8 +797,8 @@ function meetSheet() {
   const lab = {bomba:'Estación de servicio', super:'Supermercado', centro:'Centro comercial', peaje:'Peaje', lugar:'Lugar conocido'};
   sheet(`<h2>Punto de encuentro</h2><div class="lbl">Lugares públicos y con parqueo: 6.927 en todo el país.</div>
     <input id="mq" placeholder="Buscar: Terpel, Unicentro, peaje…" value="${esc(NEW.q || '')}" oninput="NEW.q=this.value;meetSheet();const e=$('#mq');e.focus();e.setSelectionRange(e.value.length,e.value.length)">
-    ${list.map(m => `<div class="opt" onclick="NEW.meet='${m[1]} · ${m[2]}';NEW.q='';createSheet()"><span class="ic"><span class="ms">${m[3]}</span></span><div class="grow"><div class="b">${m[1]}</div><div class="lbl">${lab[m[0]]} · ${m[2]}</div></div></div>`).join('') || '<div class="empty">Nada con ese nombre cerca.</div>'}`,
-    `<button class="btn full ghost" onclick="createSheet()"><span class="ms">arrow_back</span>Volver</button>`);
+    ${list.map(m => `<div class="opt" role="button" tabindex="0" onclick="NEW.meet='${m[1]} · ${m[2]}';NEW.q='';createSheet()"><span class="ic"><span class="ms" aria-hidden="true">${m[3]}</span></span><div class="grow"><div class="b">${m[1]}</div><div class="lbl">${lab[m[0]]} · ${m[2]}</div></div></div>`).join('') || '<div class="empty">Nada con ese nombre cerca.</div>'}`,
+    `<button class="btn full ghost" onclick="createSheet()"><span class="ms" aria-hidden="true">arrow_back</span>Volver</button>`);
 }
 function saveRodada() {
   const code = Array.from({length: 8}, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 32)]).join('');
@@ -689,8 +807,8 @@ function saveRodada() {
 }
 function joinSheet() {
   sheet(`<h2>Unirme con código</h2><div class="lbl">Escribe el código de 8 letras que te compartieron (o abre el enlace y llega aquí solo).</div>
-    <input id="jc" maxlength="9" placeholder="K7QM 2XPA" style="font:800 22px 'JetBrains Mono';letter-spacing:.1em;text-transform:uppercase" oninput="const ok=this.value.replace(/\\W/g,'').length===8;$('#jb').disabled=!ok;$('#jm').innerHTML=ok?'':'<div class=missing>Falta: el código completo (8 caracteres).</div>'">`,
-    `<button class="btn full" id="jb" disabled onclick="const c=$('#jc').value.toUpperCase().replace(/\\W/g,'');const r=RODADAS.find(x=>x.code===c);if(r){closeSheet();rodadaSheet(r.id)}else toast('No hay ninguna rodada con ese código. Prueba con P3WE9TRA.')"><span class="ms">search</span>Buscar rodada</button><div id="jm"></div>`);
+    <input id="jc" maxlength="9" placeholder="K7QM 2XPA" style="font:800 calc(22px*var(--fsh)) 'JetBrains Mono';letter-spacing:.1em;text-transform:uppercase" oninput="const ok=this.value.replace(/\\W/g,'').length===8;$('#jb').disabled=!ok;$('#jm').innerHTML=ok?'':'<div class=missing>Falta: el código completo (8 caracteres).</div>'">`,
+    `<button class="btn full" id="jb" disabled onclick="const c=$('#jc').value.toUpperCase().replace(/\\W/g,'');const r=RODADAS.find(x=>x.code===c);if(r){closeSheet();rodadaSheet(r.id)}else toast('No hay ninguna rodada con ese código. Prueba con P3WE9TRA.')"><span class="ms" aria-hidden="true">search</span>Buscar rodada</button><div id="jm"></div>`);
 }
 
 /* ───────── RENTAR ───────── */
@@ -703,8 +821,8 @@ const BIKES = [
 /* Rentar arranca con la ciudad de Inicio. Cambiarla aquí no cambia Inicio: se puede rentar donde se va a viajar. */
 function rentCitySheet() {
   sheet(`<h2>¿En qué ciudad la recoges?</h2>
-    ${CITIES.map(c => { const n = BIKES.filter(b => b.city === c[0]).length; return `<div class="opt" onclick="S.rentCity='${c[0]}';closeSheet();render()"><span class="ic"><span class="ms">location_city</span></span><div class="grow"><div class="b">${c[0]}</div><div class="lbl">${c[1]} · ${n ? n + ' moto' + (n > 1 ? 's' : '') : 'sin motos todavía'}</div></div></div>`; }).join('')}
-    <div class="opt" onclick="S.rentCity='all';closeSheet();render()"><span class="ic"><span class="ms">public</span></span><div class="grow b">Todas las ciudades</div></div>`);
+    ${CITIES.map(c => { const n = BIKES.filter(b => b.city === c[0]).length; return `<div class="opt" role="button" tabindex="0" onclick="S.rentCity='${c[0]}';closeSheet();render()"><span class="ic"><span class="ms" aria-hidden="true">location_city</span></span><div class="grow"><div class="b">${c[0]}</div><div class="lbl">${c[1]} · ${n ? n + ' moto' + (n > 1 ? 's' : '') : 'sin motos todavía'}</div></div></div>`; }).join('')}
+    <div class="opt" role="button" tabindex="0" onclick="S.rentCity='all';closeSheet();render()"><span class="ic"><span class="ms" aria-hidden="true">public</span></span><div class="grow b">Todas las ciudades</div></div>`);
 }
 function viewRent() {
   const city = S.rentCity || S.city;
@@ -712,14 +830,14 @@ function viewRent() {
   const others = {}; BIKES.filter(b => city !== 'all' && b.city !== city).forEach(b => others[b.city] = (others[b.city] || 0) + 1);
   const oth = Object.entries(others);
   return `<div class="card"><div class="field"><label>¿Dónde la recoges?</label>
-      <button class="opt" style="width:100%;background:var(--surf0);text-align:left" onclick="rentCitySheet()"><span class="ic" style="background:var(--orange-soft);color:var(--orange-dark)"><span class="ms">location_on</span></span><div class="grow b">${city === 'all' ? 'Todas las ciudades' : city}</div><span style="color:var(--cyan-deep);font-weight:700">Cambiar</span></button></div>
+      <button class="opt" style="width:100%;background:var(--surf0);text-align:left" onclick="rentCitySheet()"><span class="ic" style="background:var(--orange-soft);color:var(--orange-dark)"><span class="ms" aria-hidden="true">location_on</span></span><div class="grow b">${city === 'all' ? 'Todas las ciudades' : city}</div><span style="color:var(--cyan-deep);font-weight:700">Cambiar</span></button></div>
     <div class="two"><div class="field"><label>Desde</label><input type="date" value="${iso(2)}"></div><div class="field"><label>Hasta</label><input type="date" value="${iso(4)}"></div></div></div>
-  <div class="card soft"><div class="line"><span class="ms">badge</span>Para rentar necesitas tu perfil de conductor</div><div class="lbl" style="color:var(--ink)">Licencia, categoría y años manejando. Solo lo ve el dueño de la moto que pidas.</div></div>
-  ${list.length ? '' : `<div class="empty"><span class="ms">two_wheeler</span>No hay motos en ${city} por ahora.</div>`}
-  ${oth.length ? `<div class="lbl">${list.length ? 'También hay motos en:' : 'Hay motos en:'}</div><div class="chips">${oth.map(([c, n]) => `<button class="chip" onclick="S.rentCity='${c}';render()"><span class="ms">location_city</span>${c} · ${n}</button>`).join('')}<button class="chip" onclick="S.rentCity='all';render()">Todas</button></div>` : ''}
-  ${list.map(b => { const i = BIKES.indexOf(b); return `<div class="card click" onclick="bikeSheet(${i})">
-    <div class="media" style="background:var(--surf0)"><span class="ms big">two_wheeler</span><div class="grow"><span class="pl cy">${b.cat} · ${b.cc} cc</span><div class="hd" style="font-size:17px;font-weight:900;margin-top:4px">${b.n}</div><div class="lbl">${b.city} · ★ ${b.r} · ${b.tr} viajes</div></div></div>
-    <div class="row"><div class="grow"><span class="num" style="font-size:19px">${cop(b.p)}</span><span class="lbl"> / día</span></div>${b.inst ? '<span class="pl gr"><span class="ms" style="font-size:14px">bolt</span>Reserva inmediata</span>' : '<span class="pl">Con aprobación</span>'}</div>
+  <div class="card soft"><div class="line"><span class="ms" aria-hidden="true">badge</span>Para rentar necesitas tu perfil de conductor</div><div class="lbl" style="color:var(--ink)">Licencia, categoría y años manejando. Solo lo ve el dueño de la moto que pidas.</div></div>
+  ${list.length ? '' : `<div class="empty"><span class="ms" aria-hidden="true">two_wheeler</span>No hay motos en ${city} por ahora.</div>`}
+  ${oth.length ? `<div class="lbl">${list.length ? 'También hay motos en:' : 'Hay motos en:'}</div><div class="chips">${oth.map(([c, n]) => `<button class="chip" onclick="S.rentCity='${c}';render()"><span class="ms" aria-hidden="true">location_city</span>${c} · ${n}</button>`).join('')}<button class="chip" onclick="S.rentCity='all';render()">Todas</button></div>` : ''}
+  ${list.map(b => { const i = BIKES.indexOf(b); return `<div class="card click" role="button" tabindex="0" onclick="bikeSheet(${i})">
+    <div class="media" style="background:var(--surf0)"><span class="ms big" aria-hidden="true">two_wheeler</span><div class="grow"><span class="pl cy">${b.cat} · ${b.cc} cc</span><div class="hd" role="heading" aria-level="2" style="font-size:calc(17px*var(--fs));font-weight:900;margin-top:4px">${b.n}</div><div class="lbl">${b.city} · ★ ${b.r} · ${b.tr} viajes</div></div></div>
+    <div class="row"><div class="grow"><span class="num" style="font-size:calc(19px*var(--fsh))">${cop(b.p)}</span><span class="lbl"> / día</span></div>${b.inst ? '<span class="pl gr"><span class="ms" aria-hidden="true" style="font-size:14px">bolt</span>Reserva inmediata</span>' : '<span class="pl">Con aprobación</span>'}</div>
     <div class="lbl">Mínimo ${b.min} año(s) manejando · Depósito ${cop(b.dep)} · Tope por daños ${cop(b.cap)}</div>
   </div>`; }).join('')}`;
 }
@@ -745,26 +863,26 @@ function viewTal() {
   const s = S.sos;
   if (s) {
     const steps = ['Buscando taller cercano…','MotoTaller La 5 aceptó · llega en 12 min','MotoTaller La 5 va en camino','Llegó el taller'];
-    return `<div class="card" style="border:2px solid var(--orange-soft)"><div class="row"><span class="ms" style="color:var(--orange);font-size:30px">build_circle</span><div class="grow"><div class="b">Asistencia · ${SOSK.find(k => k[0] === s.k)[1]}</div><div class="lbl">${esc(s.ref)}</div></div><span class="pl or">Activa</span></div>
+    return `<div class="card" style="border:2px solid var(--orange-soft)"><div class="row"><span class="ms" aria-hidden="true" style="color:var(--orange);font-size:30px">build_circle</span><div class="grow"><div class="b">Asistencia · ${SOSK.find(k => k[0] === s.k)[1]}</div><div class="lbl">${esc(s.ref)}</div></div><span class="pl or">Activa</span></div>
       <div class="bar"><i style="width:${(s.step + 1) * 25}%"></i></div><div class="b">${steps[s.step]}</div>
-      ${s.step >= 1 ? `<div class="map"><div class="me" style="left:30%;top:65%"></div><div class="pin" style="left:${78 - s.step * 14}%;top:${25 + s.step * 12}%;color:var(--green)"><span class="ms">build_circle</span></div>
+      ${s.step >= 1 ? `<div class="map" role="img" aria-label="Mapa: el taller ${s.step >= 3 ? 'llegó a donde estás' : 'viene hacia ti'}."><div class="me" style="left:30%;top:65%"></div><div class="pin" style="left:${78 - s.step * 14}%;top:${25 + s.step * 12}%;color:var(--green)"><span class="ms" aria-hidden="true">build_circle</span></div>
         <span class="float" style="right:10px">${s.step >= 3 ? 'Llegó' : (3 - s.step) * 2.1 + ' km · ' + (3 - s.step) * 4 + ' min'}</span><span class="osm">© OpenStreetMap</span></div>
         <div class="lbl">Ves al taller solo mientras viene hacia ti. Su ubicación se borra al terminar.</div>` : ''}
-      <div class="two">${s.step >= 1 ? `<button class="btn ghost" onclick="toast('Chat con el taller.')"><span class="ms">chat</span>Chat</button>` : '<span></span>'}
+      <div class="two">${s.step >= 1 ? `<button class="btn ghost" onclick="toast('Chat con el taller.')"><span class="ms" aria-hidden="true">chat</span>Chat</button>` : '<span></span>'}
         ${s.step >= 3 ? `<button class="btn" onclick="rateSheet()">Terminar y calificar</button>` : `<button class="btn ghost" style="color:var(--red)" onclick="S.sos=null;render();toast('Asistencia cancelada.')">Cancelar</button>`}</div></div>`;
   }
-  return `<div class="card" style="align-items:center;text-align:center;padding:22px"><div class="avatar" style="width:64px;height:64px;background:var(--orange)"><span class="ms" style="font-size:32px">build</span></div><div class="hd" style="font-size:22px;font-weight:900">¿Varado en la ruta?</div><div class="lbl">Un taller móvil llega hasta donde estés.</div>
-      <button class="btn full" onclick="sosSheet()"><span class="ms">build</span>Pedir taller móvil</button>
-      <button class="row" style="color:var(--red);font-weight:600;justify-content:center" onclick="emergencySheet()"><span class="ms" style="font-size:18px">sos</span>¿Hay heridos o peligro? Usa el SOS de emergencia</button></div>
-    <div class="h"><span class="ms">build</span>Talleres que atienden en tu zona</div>
-    ${[['MotoTaller La 5','Pinchazo, batería, mecánica · hasta 40 km',4.6],['Grúas y Motos Express','Grúa y sin gasolina · hasta 80 km',4.8]].map(t => `<div class="card"><div class="row"><div class="avatar" style="background:var(--green-tint);color:var(--green)"><span class="ms">build</span></div><div class="grow"><div class="b">${t[0]}</div><div class="lbl">${t[1]}</div></div><span class="pl" style="color:var(--amber)">★ ${t[2]}</span></div></div>`).join('')}`;
+  return `<div class="card" style="align-items:center;text-align:center;padding:22px"><div class="avatar" style="width:64px;height:64px;background:var(--orange)"><span class="ms" aria-hidden="true" style="font-size:32px">build</span></div><div class="hd" role="heading" aria-level="2" style="font-size:calc(22px*var(--fsh));font-weight:900">¿Varado en la ruta?</div><div class="lbl">Un taller móvil llega hasta donde estés.</div>
+      <button class="btn full" onclick="sosSheet()"><span class="ms" aria-hidden="true">build</span>Pedir taller móvil</button>
+      <button class="row" style="color:var(--red);font-weight:600;justify-content:center" onclick="emergencySheet()"><span class="ms" aria-hidden="true" style="font-size:18px">sos</span>¿Hay heridos o peligro? Usa el SOS de emergencia</button></div>
+    <div class="h" role="heading" aria-level="2"><span class="ms" aria-hidden="true">build</span>Talleres que atienden en tu zona</div>
+    ${[['MotoTaller La 5','Pinchazo, batería, mecánica · hasta 40 km',4.6],['Grúas y Motos Express','Grúa y sin gasolina · hasta 80 km',4.8]].map(t => `<div class="card"><div class="row"><div class="avatar" style="background:var(--green-tint);color:var(--green)"><span class="ms" aria-hidden="true">build</span></div><div class="grow"><div class="b">${t[0]}</div><div class="lbl">${t[1]}</div></div><span class="pl" style="color:var(--amber)">★ ${t[2]}</span></div></div>`).join('')}`;
 }
 function sosSheet() {
   const miss = []; if (!SOSD.k) miss.push('qué pasó'); if (!(SOSD.ref || '').trim()) miss.push('decir dónde estás (o usar tu ubicación y escribir una referencia)');
-  sheet(`<h2>¿Qué pasó?</h2>${SOSK.map(([k, l, i]) => `<div class="opt" style="${SOSD.k === k ? 'background:var(--orange-soft)' : ''}" onclick="SOSD.k='${k}';sosSheet()"><span class="ic" style="${SOSD.k === k ? 'background:var(--orange);color:#fff' : ''}"><span class="ms">${i}</span></span><div class="grow b">${l}</div></div>`).join('')}
+  sheet(`<h2>¿Qué pasó?</h2>${SOSK.map(([k, l, i]) => `<div class="opt" style="${SOSD.k === k ? 'background:var(--orange-soft)' : ''}" role="button" tabindex="0" onclick="SOSD.k='${k}';sosSheet()"><span class="ic" style="${SOSD.k === k ? 'background:var(--orange);color:#fff' : ''}"><span class="ms" aria-hidden="true">${i}</span></span><div class="grow b">${l}</div></div>`).join('')}
     <div class="field"><label>¿Dónde estás?</label><input id="sref" value="${esc(SOSD.ref || '')}" placeholder="Ej: Km 12 vía a Dagua, frente al restaurante" oninput="SOSD.ref=this.value;sosSheet.f()"></div>
-    <button class="btn ghost full" onclick="SOSD.ref=(SOSD.ref||'')+' (ubicación del GPS)';sosSheet()"><span class="ms">my_location</span>Usar mi ubicación</button>`,
-    `<button class="btn full" id="sb2" ${miss.length ? 'disabled' : ''} onclick="startSOS()"><span class="ms">build</span>Pedir asistencia</button><div id="smiss">${missing(miss)}</div>`);
+    <button class="btn ghost full" onclick="SOSD.ref=(SOSD.ref||'')+' (ubicación del GPS)';sosSheet()"><span class="ms" aria-hidden="true">my_location</span>Usar mi ubicación</button>`,
+    `<button class="btn full" id="sb2" ${miss.length ? 'disabled' : ''} onclick="startSOS()"><span class="ms" aria-hidden="true">build</span>Pedir asistencia</button><div id="smiss">${missing(miss)}</div>`);
   sosSheet.f = () => { const m = []; if (!SOSD.k) m.push('qué pasó'); if (!(SOSD.ref || '').trim()) m.push('decir dónde estás (o usar tu ubicación y escribir una referencia)'); $('#sb2').disabled = m.length > 0; $('#smiss').innerHTML = missing(m); };
 }
 function startSOS() {
@@ -772,7 +890,7 @@ function startSOS() {
   [3000, 6500, 11000].forEach((t, i) => setTimeout(() => { if (S.sos) { S.sos.step = i + 1; if (S.tab === 'tal') render(); } }, t));
 }
 function rateSheet() {
-  sheet(`<h2>¿Cómo te atendió MotoTaller La 5?</h2><div style="font-size:36px;color:var(--amber);text-align:center;letter-spacing:6px">★★★★★</div><textarea placeholder="Cuéntales a otros riders (opcional)"></textarea>`,
+  sheet(`<h2>¿Cómo te atendió MotoTaller La 5?</h2><div style="font-size:calc(36px*var(--fsh));color:var(--amber);text-align:center;letter-spacing:6px">★★★★★</div><textarea placeholder="Cuéntales a otros riders (opcional)"></textarea>`,
     `<button class="btn full" onclick="S.sos=null;closeSheet();render();toast('Gracias. Tu reseña ayuda a otros riders.')">Enviar calificación</button>`);
 }
 
@@ -783,27 +901,27 @@ const ELINES = [['123','Policía','Robo, riña, peligro. Línea única nacional'
 const CONTACTS = [['Mamá','300 123 4567']];
 function emergencySheet() {
   const ride = RODADAS.find(r => r.live && r.members.some(m => m[0] === '@tú'));
-  sheet(`<div class="row"><div class="avatar" style="background:var(--red)"><span class="ms">sos</span></div><div class="grow"><h2>Emergencia</h2><div class="lbl">Toca a quién llamar: se abre tu teléfono con el número listo.</div></div></div>
-    <button class="btn full red" style="min-height:64px;font-size:19px" onclick="dial('123')"><span class="ms" style="font-size:26px">call</span>Llamar al 123</button>
-    ${ELINES.map(l => `<button class="eline" onclick="dial('${l[0]}')"><span class="ei"><span class="ms">${l[3]}</span></span><span class="grow"><b>${l[1]}</b><span class="lbl" style="display:block">${l[2]}</span></span><span class="en">${l[0]}</span></button>`).join('')}
-    <div class="h"><span class="ms">contact_phone</span>Mis contactos de emergencia</div>
+  sheet(`<div class="row"><div class="avatar" style="background:var(--red)"><span class="ms" aria-hidden="true">sos</span></div><div class="grow"><h2>Emergencia</h2><div class="lbl">Toca a quién llamar: se abre tu teléfono con el número listo.</div></div></div>
+    <button class="btn full red" style="min-height:64px;font-size:calc(19px*var(--fsh))" onclick="dial('123')"><span class="ms" aria-hidden="true" style="font-size:26px">call</span>Llamar al 123</button>
+    ${ELINES.map(l => `<button class="eline" onclick="dial('${l[0]}')"><span class="ei"><span class="ms" aria-hidden="true">${l[3]}</span></span><span class="grow"><b>${l[1]}</b><span class="lbl" style="display:block">${l[2]}</span></span><span class="en">${l[0]}</span></button>`).join('')}
+    <div class="h" role="heading" aria-level="2"><span class="ms" aria-hidden="true">contact_phone</span>Mis contactos de emergencia</div>
     ${CONTACTS.map(c => `<div class="card" style="box-shadow:none;border:1px solid var(--surf3)"><div class="b">${esc(c[0])}</div><div class="lbl">${esc(c[1])}</div>
-      <div class="two"><button class="btn red" onclick="dial('${c[1]}')"><span class="ms">call</span>Llamar</button><button class="btn ghost" onclick="toast('Se abre tu app de mensajes con: Tengo una emergencia en la moto. Estoy aquí: https://maps.google.com/?q=3.6584,-76.6890')"><span class="ms">sms</span>Mensaje</button></div></div>`).join('')}
+      <div class="two"><button class="btn red" onclick="dial('${c[1]}')"><span class="ms" aria-hidden="true">call</span>Llamar</button><button class="btn ghost" onclick="toast('Se abre tu app de mensajes con: Tengo una emergencia en la moto. Estoy aquí: https://maps.google.com/?q=3.6584,-76.6890')"><span class="ms" aria-hidden="true">sms</span>Mensaje</button></div></div>`).join('')}
     <div class="lbl">Se guardan solo en este teléfono, no se suben a ningún lado.</div>
-    <div class="h"><span class="ms">my_location</span>Dónde estás</div>
-    <div class="card" style="box-shadow:none;background:var(--surf0)"><div class="b">Cerca de Dagua</div><div style="font:800 15px 'JetBrains Mono'">3.65841, -76.68902</div><div class="lbl">Dicta estas coordenadas si no sabes la dirección.</div>
-      <button class="btn ghost" onclick="toast('Se abre Compartir para mandar tu ubicación por WhatsApp o mensaje.')"><span class="ms">share</span>Compartir mi ubicación</button></div>
+    <div class="h" role="heading" aria-level="2"><span class="ms" aria-hidden="true">my_location</span>Dónde estás</div>
+    <div class="card" style="box-shadow:none;background:var(--surf0)"><div class="b">Cerca de Dagua</div><div style="font:800 calc(15px*var(--fs)) 'JetBrains Mono'">3.65841, -76.68902</div><div class="lbl">Dicta estas coordenadas si no sabes la dirección.</div>
+      <button class="btn ghost" onclick="toast('Se abre Compartir para mandar tu ubicación por WhatsApp o mensaje.')"><span class="ms" aria-hidden="true">share</span>Compartir mi ubicación</button></div>
     ${ride ? `<div class="card" style="box-shadow:none;background:${S.ec ? 'var(--red-soft)' : '#fff'};border:1px solid var(--surf3)">${S.ec
-      ? `<div class="line" style="color:var(--red)"><span class="ms">campaign</span>Tu rodada ya ve la alerta.</div><button class="btn ghost" onclick="S.ec=false;emergencySheet()"><span class="ms">check_circle</span>Ya estoy bien, quitar la alerta</button>`
-      : `<div class="lbl">Tu rodada te ve en el mapa. Si los avisas, tu punto se pone rojo y les sale una alerta.</div><button class="btn red" onclick="S.ec=true;emergencySheet();toast('Tu rodada verá la alerta en unos segundos.')"><span class="ms">campaign</span>Avisar a mi rodada</button>`}</div>` : ''}
-    <div class="card" style="box-shadow:none;background:var(--surf3)"><div class="line" style="font-weight:400"><span class="ms">health_and_safety</span>Si hay heridos: no les quites el casco ni los muevas, señaliza la vía y espera a la ambulancia.</div></div>
+      ? `<div class="line" style="color:var(--red)"><span class="ms" aria-hidden="true">campaign</span>Tu rodada ya ve la alerta.</div><button class="btn ghost" onclick="S.ec=false;emergencySheet()"><span class="ms" aria-hidden="true">check_circle</span>Ya estoy bien, quitar la alerta</button>`
+      : `<div class="lbl">Tu rodada te ve en el mapa. Si los avisas, tu punto se pone rojo y les sale una alerta.</div><button class="btn red" onclick="S.ec=true;emergencySheet();toast('Tu rodada verá la alerta en unos segundos.')"><span class="ms" aria-hidden="true">campaign</span>Avisar a mi rodada</button>`}</div>` : ''}
+    <div class="card" style="box-shadow:none;background:var(--surf3)"><div class="line" style="font-weight:400"><span class="ms" aria-hidden="true">health_and_safety</span>Si hay heridos: no les quites el casco ni los muevas, señaliza la vía y espera a la ambulancia.</div></div>
     <div class="lbl">¿Pinchazo, batería o sin gasolina? Eso es Asistencia técnica: en ruta, el botón naranja de arriba; fuera de ruta, en Mi perfil.</div>`);
 }
 function dial(n) {
   sheet(`<div class="lbl" style="text-align:center">Así se abre el teléfono: el número ya está escrito y tú tocas Llamar.</div>
-    <div style="text-align:center;font-size:40px;letter-spacing:.03em;padding:18px 0">${esc(n)}</div>
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">${'123456789*0#'.split('').map(d => `<span style="background:var(--surf0);border-radius:999px;text-align:center;padding:10px 0;font-size:20px">${d}</span>`).join('')}</div>`,
-    `<button class="btn full" style="background:#1E8E3E" onclick="toast('En el teléfono real aquí empieza la llamada.')"><span class="ms">call</span>Llamar</button><button class="btn full ghost" onclick="emergencySheet()"><span class="ms">arrow_back</span>Volver a ApexMoto</button>`);
+    <div style="text-align:center;font-size:calc(40px*var(--fsh));letter-spacing:.03em;padding:18px 0">${esc(n)}</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">${'123456789*0#'.split('').map(d => `<span style="background:var(--surf0);border-radius:999px;text-align:center;padding:10px 0;font-size:calc(20px*var(--fsh))">${d}</span>`).join('')}</div>`,
+    `<button class="btn full" style="background:#1E8E3E" onclick="toast('En el teléfono real aquí empieza la llamada.')"><span class="ms" aria-hidden="true">call</span>Llamar</button><button class="btn full ghost" onclick="emergencySheet()"><span class="ms" aria-hidden="true">arrow_back</span>Volver a ApexMoto</button>`);
 }
 
 /* ───────── FRANJAS: EN RUTA E INTERCOM ───────── */
@@ -814,11 +932,11 @@ function drawBars() {
   $('#asTop').hidden = !(rider && (onRoute() || S.sos) && S.tab !== 'tal');
   $('#asTop').classList.toggle('dot', !!S.sos);
   const c = S.call, r = c && RODADAS.find(x => x.id === c.rid);
-  $('#bars').innerHTML = (S.route ? `<div class="rbar" style="background:var(--ink)"><span class="ms" style="color:#FFB27A">navigation</span><div class="grow ellip">Guiando hacia <b>${esc(S.route)}</b></div><button class="chip" style="padding:6px 12px;color:var(--ink)" onclick="guide(S.route)">Ver guiado</button></div>` : '')
-    + (r ? `<div class="rbar" style="background:var(--cyan-deep)"><span class="ms">headset_mic</span><div class="grow"><div class="b ellip">Intercom · ${esc(r.n)}</div><div style="font-size:11px;opacity:.85">${c.talk ? PEERS(r)[c.talk] + ' está hablando' : r.members.length + ' en la llamada'}</div></div>
-      ${c.ptt ? `<button class="rb" style="background:${c.press ? 'var(--green)' : 'var(--orange)'}" onpointerdown="icPress(event,true)" onpointerup="icPress(event,false)" onpointercancel="icPress(event,false)" aria-label="Mantén para hablar"><span class="ms">mic</span></button>`
-              : `<button class="rb" style="background:rgba(255,255,255,.18)" onclick="S.call.muted=!S.call.muted;drawIc()" aria-label="Silenciar"><span class="ms">${c.muted ? 'mic_off' : 'mic'}</span></button>`}
-      <button class="rb" style="background:var(--red)" onclick="icLeave()" aria-label="Salir de la llamada"><span class="ms">call_end</span></button></div>` : '');
+  $('#bars').innerHTML = (S.route ? `<div class="rbar" style="background:var(--ink)"><span class="ms" aria-hidden="true" style="color:#FFB27A">navigation</span><div class="grow ellip">Guiando hacia <b>${esc(S.route)}</b></div><button class="chip" style="padding:6px 12px;color:var(--ink)" onclick="guide(S.route, true)">Ver guiado</button></div>` : '')
+    + (r ? `<div class="rbar" style="background:var(--cyan-deep)"><span class="ms" aria-hidden="true">headset_mic</span><div class="grow"><div class="b ellip">Intercom · ${esc(r.n)}</div><div style="font-size:calc(12px*var(--fs));opacity:.9">${c.talk ? PEERS(r)[c.talk] + ' está hablando' : r.members.length + ' en la llamada'}</div></div>
+      ${c.ptt ? `<button class="rb" style="background:${c.press ? 'var(--green)' : 'var(--orange)'}" onpointerdown="icPress(event,true)" onpointerup="icPress(event,false)" onpointercancel="icPress(event,false)" aria-label="Mantén para hablar"><span class="ms" aria-hidden="true">mic</span></button>`
+              : `<button class="rb" style="background:rgba(255,255,255,.18)" onclick="S.call.muted=!S.call.muted;drawIc()" aria-label="Silenciar"><span class="ms" aria-hidden="true">${c.muted ? 'mic_off' : 'mic'}</span></button>`}
+      <button class="rb" style="background:var(--red)" onclick="icLeave()" aria-label="Salir de la llamada"><span class="ms" aria-hidden="true">call_end</span></button></div>` : '');
 }
 
 /* ───────── INTERCOM DE LA RODADA ───────── */
@@ -839,20 +957,20 @@ function drawIc() {
   const rid = box.dataset.rid, r = RODADAS.find(x => x.id === rid), c = S.call, here = c && c.rid === rid;
   box.style.background = here ? 'var(--cyan-tint)' : '#fff';
   if (!here) {
-    box.innerHTML = `<div class="h"><span class="ms">headset_mic</span>Intercom de la rodada</div>
+    box.innerHTML = `<div class="h" role="heading" aria-level="2"><span class="ms" aria-hidden="true">headset_mic</span>Intercom de la rodada</div>
       <div class="lbl">Hablen por voz mientras ruedan, como un intercomunicador. Funciona con el intercom Bluetooth del casco o audífonos y sigue sonando con la pantalla apagada.</div>
       ${c ? '<div class="lbl" style="color:var(--orange-dark)">Estás en otra llamada. Si entras aquí, sales de esa.</div>' : ''}
-      <button class="btn full" onclick="icJoin('${rid}')"><span class="ms">call</span>${c ? 'Cambiar a esta llamada' : 'Entrar a la llamada'}</button>`;
+      <button class="btn full" onclick="icJoin('${rid}')"><span class="ms" aria-hidden="true">call</span>${c ? 'Cambiar a esta llamada' : 'Entrar a la llamada'}</button>`;
     return;
   }
   const names = PEERS(r);
-  box.innerHTML = `<div class="row"><div class="h grow"><span class="ms">headset_mic</span>Intercom de la rodada</div><span class="pl gr">En llamada</span></div>
-    ${names.map((n, i) => { const t = i === 0 ? (c.ptt && c.press) : c.talk === i; const st = t ? '<span class="lbl" style="color:var(--green)">hablando</span>' : i !== 0 ? '' : !icTx() ? '<span class="ms" style="font-size:18px;color:var(--muted)">mic_off</span>' : '<span class="lbl">micrófono abierto</span>'; return `<div class="row"><span class="dot ${t ? 'on' : ''}"></span><span class="grow ${t ? 'b' : ''}">${i === 0 ? 'Tú' : esc(n)}</span>${st}</div>`; }).join('')}
+  box.innerHTML = `<div class="row"><div class="h grow" role="heading" aria-level="2"><span class="ms" aria-hidden="true">headset_mic</span>Intercom de la rodada</div><span class="pl gr">En llamada</span></div>
+    ${names.map((n, i) => { const t = i === 0 ? (c.ptt && c.press) : c.talk === i; const st = t ? '<span class="lbl" style="color:var(--green)">hablando</span>' : i !== 0 ? '' : !icTx() ? '<span class="ms" aria-hidden="true" style="font-size:18px;color:var(--muted)">mic_off</span><span class="sr">micrófono apagado</span>' : '<span class="lbl">micrófono abierto</span>'; return `<div class="row"><span class="dot ${t ? 'on' : ''}"></span><span class="grow ${t ? 'b' : ''}">${i === 0 ? 'Tú' : esc(n)}</span>${st}</div>`; }).join('')}
     <div class="toggle"><button class="${c.ptt ? '' : 'on'}" onclick="S.call.ptt=false;S.call.press=false;drawIc()"><b>Micrófono abierto</b><span class="lbl">Hablas cuando quieras</span></button>
       <button class="${c.ptt ? 'on' : ''}" onclick="S.call.ptt=true;S.call.press=false;drawIc()"><b>Pulsar para hablar</b><span class="lbl">Como un walkie-talkie</span></button></div>
-    ${c.ptt ? `<button class="ptt ${c.press ? 'on' : ''}" onpointerdown="icPress(event,true)" onpointerup="icPress(event,false)" onpointercancel="icPress(event,false)" onpointerleave="icPress(event,false)" aria-label="Mantén para hablar"><span><span class="ms">mic</span><small>${c.press ? 'Hablando' : 'Mantén<br>para hablar'}</small></span></button>`
-            : `<button class="btn ${c.muted ? '' : 'ghost'} full" onclick="S.call.muted=!S.call.muted;drawIc()"><span class="ms">${c.muted ? 'mic' : 'mic_off'}</span>${c.muted ? 'Activar micrófono' : 'Silenciar'}</button>`}
-    <button class="btn full" style="background:var(--red-soft);color:var(--red)" onclick="icLeave()"><span class="ms">call_end</span>Salir de la llamada</button>
+    ${c.ptt ? `<button class="ptt ${c.press ? 'on' : ''}" onpointerdown="icPress(event,true)" onpointerup="icPress(event,false)" onpointercancel="icPress(event,false)" onpointerleave="icPress(event,false)" aria-label="Mantén para hablar"><span><span class="ms" aria-hidden="true">mic</span><small>${c.press ? 'Hablando' : 'Mantén<br>para hablar'}</small></span></button>`
+            : `<button class="btn ${c.muted ? '' : 'ghost'} full" onclick="S.call.muted=!S.call.muted;drawIc()"><span class="ms" aria-hidden="true">${c.muted ? 'mic' : 'mic_off'}</span>${c.muted ? 'Activar micrófono' : 'Silenciar'}</button>`}
+    <button class="btn full" style="background:var(--red-soft);color:var(--red)" onclick="icLeave()"><span class="ms" aria-hidden="true">call_end</span>Salir de la llamada</button>
     <div class="lbl">La voz pasa por los servidores de Agora y no se graba.</div>`;
 }
 
@@ -862,58 +980,123 @@ function viewPerfil() {
   const n = S.routes, next = MEDALS.find(m => m[0] > n), cur = [...MEDALS].reverse().find(m => m[0] <= n);
   // Una sola tarjeta: primero el perfil y, como complemento, su trayectoria.
   return `<div class="card" style="border:2px solid var(--orange-soft)"><div class="row">
-    <div class="avatar" style="width:60px;height:60px;background:var(--orange)"><span class="ms" style="font-size:34px">two_wheeler</span></div>
-    <div class="grow"><div class="hd" style="font-size:20px;font-weight:900">${NAME} Rueda</div><div class="lbl" style="color:var(--cyan-deep)">@laura.rueda</div>
-      <div style="display:flex;gap:6px;margin-top:4px"><span class="pl or">Rider</span>${cur ? `<span class="pl" style="background:${cur[2]};color:#fff"><span class="ms" style="font-size:14px">${cur[3]}</span>${cur[1]}</span>` : ''}</div></div></div>
+    <div class="avatar" style="width:60px;height:60px;background:var(--orange)"><span class="ms" aria-hidden="true" style="font-size:34px">two_wheeler</span></div>
+    <div class="grow"><div class="hd" role="heading" aria-level="2" style="font-size:calc(20px*var(--fsh));font-weight:900">${NAME} Rueda</div><div class="lbl" style="color:var(--cyan-deep)">@laura.rueda</div>
+      <div style="display:flex;gap:6px;margin-top:4px"><span class="pl or">Rider</span>${cur ? `<span class="pl" style="background:${cur[2]};color:#fff"><span class="ms" aria-hidden="true" style="font-size:14px">${cur[3]}</span>${cur[1]}</span>` : ''}</div></div></div>
     <div style="height:1px;background:var(--surf3);margin:4px 0"></div>
-    <div class="h"><span class="ms">emoji_events</span>Trayectoria</div><div class="row" style="text-align:center">
+    <div class="h" role="heading" aria-level="2"><span class="ms" aria-hidden="true">emoji_events</span>Trayectoria</div><div class="row" style="text-align:center">
       <div class="grow"><div class="num">${n}</div><div class="lbl">rutas</div></div><div class="grow"><div class="num">3</div><div class="lbl">meses</div></div><div class="grow"><div class="num">${MEDALS.filter(m => m[0] <= n).length}</div><div class="lbl">medallas</div></div></div>
     ${next ? `<div><div class="lbl">Te faltan ${next[0] - n} ruta(s) para <b style="color:var(--ink)">${next[1]}</b></div><div class="bar" style="margin-top:6px"><i style="width:${n / next[0] * 100}%"></i></div></div>` : '<div class="b">¡Tienes todas las medallas!</div>'}
-    <div class="row" style="align-items:flex-start">${MEDALS.map(m => `<div class="medal ${m[0] <= n ? '' : 'off'}"><div class="c" style="background:${m[2]}"><span class="ms">${m[3]}</span></div><small>${m[1]}<br>${m[0]} rutas</small></div>`).join('')}</div>
+    <div class="row" style="align-items:flex-start">${MEDALS.map(m => `<div class="medal ${m[0] <= n ? '' : 'off'}"><div class="c" style="background:${m[2]}"><span class="ms" aria-hidden="true">${m[3]}</span></div><small>${m[1]}<br>${m[0]} rutas</small></div>`).join('')}</div>
     <div class="lbl">Cuentan las rutas de 2 km o más que terminas con el guiado de la app.</div>
-    <button class="btn ghost" onclick="S.routes++;render()"><span class="ms">add</span>Terminar una ruta</button></div>
-  ${S.role === 'rider' ? `<div class="card"><div class="h"><span class="ms">health_and_safety</span>Emergencia y asistencia</div>
+    <button class="btn ghost" onclick="S.routes++;render()"><span class="ms" aria-hidden="true">add</span>Terminar una ruta</button></div>
+  <button class="btn full ghost" onclick="go('a11y')"><span class="ms" aria-hidden="true">accessibility_new</span>${a11yCustom() ? 'Accesibilidad · ajustes activos' : 'Accesibilidad: letra, contraste y avisos'}</button>
+  ${S.role === 'rider' ? `<div class="card"><div class="h" role="heading" aria-level="2"><span class="ms" aria-hidden="true">health_and_safety</span>Emergencia y asistencia</div>
     <div class="lbl">En ruta los tienes arriba, en el encabezado. Aquí puedes dejar listos tus contactos de emergencia.</div>
-    <button class="btn full red" onclick="emergencySheet()"><span class="ms">call</span>SOS · emergencia y contactos</button>
-    <button class="btn full ghost" onclick="go('tal')"><span class="ms">handyman</span>Asistencia técnica</button></div>` : ''}
+    <button class="btn full red" onclick="emergencySheet()"><span class="ms" aria-hidden="true">call</span>SOS · emergencia y contactos</button>
+    <button class="btn full ghost" onclick="go('tal')"><span class="ms" aria-hidden="true">handyman</span>Asistencia técnica</button></div>` : ''}
   <div class="card"><div class="b">Ver la app como…</div>
     <div class="toggle"><button class="${S.role === 'rider' ? 'on' : ''}" onclick="S.role='rider';go('rut')"><b>Rider</b><span class="lbl">Rutas, comercios, rodadas</span></button>
       <button class="${S.role === 'shop' ? 'on' : ''}" onclick="S.role='shop';go('cpan')"><b>Comercio</b><span class="lbl">Pedidos, menú, canjes</span></button></div></div>
-  <div class="card"><div class="opt" onclick="toast('Términos, privacidad y aviso de ubicación, con la versión que aceptaste.')"><span class="ic"><span class="ms">gavel</span></span><div class="grow b">Legal y privacidad</div></div>
-    <div class="opt" onclick="toast('Configuración: estilo del mapa y guía por voz.')"><span class="ic"><span class="ms">settings</span></span><div class="grow b">Configuración</div></div>
-    <div class="opt" onclick="toast('Borrar la cuenta elimina tus datos y tu trayectoria.')"><span class="ic" style="color:var(--red)"><span class="ms">delete</span></span><div class="grow b" style="color:var(--red)">Borrar mi cuenta</div></div></div>`;
+  <div class="card"><div class="opt" role="button" tabindex="0" onclick="toast('Términos, privacidad y aviso de ubicación, con la versión que aceptaste.')"><span class="ic"><span class="ms" aria-hidden="true">gavel</span></span><div class="grow b">Legal y privacidad</div></div>
+    <div class="opt" role="button" tabindex="0" onclick="toast('Configuración: estilo del mapa y guía por voz.')"><span class="ic"><span class="ms" aria-hidden="true">settings</span></span><div class="grow b">Configuración</div></div>
+    <div class="opt" role="button" tabindex="0" onclick="toast('Borrar la cuenta elimina tus datos y tu trayectoria.')"><span class="ic" style="color:var(--red)"><span class="ms" aria-hidden="true">delete</span></span><div class="grow b" style="color:var(--red)">Borrar mi cuenta</div></div></div>`;
+}
+
+/* ───────── ACCESIBILIDAD: la pantalla (Mi perfil → Accesibilidad) ───────── */
+/* Interruptor como el de la app: toda la fila se toca y el lector de pantalla dice "activado" o "desactivado". */
+function swRow(k, title, desc) {
+  return `<button class="swrow" role="switch" aria-checked="${!!A[k]}" onclick="setA('${k}',!A.${k})"><span class="grow"><b>${title}</b><span class="lbl" style="display:block">${desc}</span></span>
+    <span class="sw ${A[k] ? 'on' : ''}" aria-hidden="true"><i>${A[k] ? '<span class="ms">check</span>' : ''}</i></span></button>`;
+}
+function viewA11y() {
+  return `
+  <div class="card"><div class="lbl" style="font-family:'JetBrains Mono';letter-spacing:.06em">VISTA PREVIA</div>
+    <div class="row"><div class="grow"><div class="b">Pedido en Parador El Mirador</div><div class="lbl">2 ítems · llegas a eso de las 10:40</div></div>${stPill('ready')}</div>
+    <div class="row" style="gap:8px;flex-wrap:wrap">${stPill('new', 'Pendiente')}${stPill('can')}</div>
+    <button class="btn full" onclick="toast('Así se ve un aviso.')"><span class="ms" aria-hidden="true">navigation</span>Así se ve un botón</button></div>
+  <div class="card"><div class="h" role="heading" aria-level="2"><span class="ms" aria-hidden="true">visibility</span>Ver mejor</div>
+    <div class="b">Tamaño de letra</div>
+    <div class="seg or" role="radiogroup" aria-label="Tamaño de letra">${Object.entries(A11Y_TEXT).map(([k, t]) => `<button role="radio" aria-checked="${A.text === k}" class="${A.text === k ? 'on' : ''}" onclick="setA('text','${k}')">${t[0]}</button>`).join('')}</div>
+    <div class="lbl">Se suma al tamaño de letra de tu celular. La app permite hasta el doble del normal.</div>
+    ${swRow('hc', 'Alto contraste (modo sol)', 'Textos y colores más oscuros, fondo blanco y tarjetas con borde. Para baja visión o pantalla al sol.')}
+    <div class="line" style="color:var(--cyan-deep);font-weight:400"><span class="ms" aria-hidden="true">palette</span>Daltonismo: los estados llevan ícono y palabra, nunca solo color.</div></div>
+  <div class="card"><div class="h" role="heading" aria-level="2"><span class="ms" aria-hidden="true">touch_app</span>Tocar fácil</div>
+    ${swRow('big', 'Botones grandes', 'Para manejar con guantes o si te cuesta atinar: los botones pasan de 48 a 56 dp.')}</div>
+  <div class="card"><div class="h" role="heading" aria-level="2"><span class="ms" aria-hidden="true">vibration</span>Avisos sin sonido</div>
+    ${swRow('vib', 'Vibrar en giros y alertas', 'Dos toques antes de cada giro, uno largo al llegar y tres con las señales de tu rodada.')}
+    ${swRow('voice', 'Guía por voz', 'Lee las indicaciones en voz alta. Si no oyes bien, apágala: el texto grande y la vibración siguen.')}
+    <button class="btn full ghost" onclick="toast(vibrate('turn', true) ? 'Bzz, bzz: así vibra antes de cada giro.' : 'Este navegador no deja vibrar (en iPhone no se puede). En la app sí vibra.')"><span class="ms" aria-hidden="true">vibration</span>Probar vibración</button></div>
+  <div class="card"><div class="h" role="heading" aria-level="2"><span class="ms" aria-hidden="true">animation</span>Movimiento</div>
+    ${swRow('rm', 'Reducir animaciones', 'Quita los movimientos decorativos de tarjetas y botones.')}</div>
+  <div class="card"><div class="h" role="heading" aria-level="2"><span class="ms" aria-hidden="true">record_voice_over</span>Lector de pantalla</div>
+    <div class="lbl">ApexMoto funciona con TalkBack: los botones tienen nombre, los títulos están marcados y los mapas se describen con palabras.</div>
+    <button class="btn full ghost" onclick="toast('En el celular se abre Ajustes → Accesibilidad, para encender TalkBack.')"><span class="ms" aria-hidden="true">open_in_new</span>Abrir accesibilidad del celular</button></div>
+  ${a11yCustom() ? `<button class="btn full ghost" onclick="Object.assign(A,{text:'n',hc:false,big:false,vib:true,rm:false});applyA11y();render();toast('Listo: ajustes de fábrica.')"><span class="ms" aria-hidden="true">restore</span>Volver a los ajustes de fábrica</button>` : ''}
+  <div class="lbl">Estos ajustes se guardan en este teléfono.</div>`;
+}
+
+/* ───────── SEÑALES RÁPIDAS DE LA RODADA (avisar sin hablar) ───────── */
+const SIGNALS = [['stop', 'Paremos', 'pide parar', 'pan_tool'], ['fuel', 'Gasolina', 'necesita gasolina', 'local_gas_station'],
+  ['lost', 'Me quedé', 'se quedó atrás', 'person_pin_circle'], ['danger', 'Peligro', 'avisa peligro en la vía', 'warning'], ['ok', 'Todo bien', 'dice que todo va bien', 'thumb_up']];
+function signalsCard(r) {
+  return `<div class="card" style="box-shadow:none;border:1px solid var(--surf3)"><div class="h" role="heading" aria-level="2"><span class="ms" aria-hidden="true">campaign</span>Señales rápidas</div>
+    <div class="lbl">Le llegan a todo el grupo en pantalla y con vibración: sirven aunque nadie oiga el intercom.</div>
+    <div class="two">${SIGNALS.map(s => `<button class="btn ${s[0] === 'stop' || s[0] === 'danger' ? '' : 'ghost'}" style="min-height:calc(var(--touch) + 8px)" onclick="sendSignal('${r.id}','${s[0]}')"><span class="ms" aria-hidden="true">${s[3]}</span>${s[1]}</button>`).join('')}</div></div>`;
+}
+function sendSignal(rid, k) {
+  const s = SIGNALS.find(x => x[0] === k), r = RODADAS.find(x => x.id === rid);
+  toast('Señal enviada: ' + s[1]);
+  // Simulación: un compañero contesta con otra señal a los pocos segundos (en la app llega a todos los del grupo).
+  const other = r.members.find(m => m[0] !== '@tú');
+  if (other) setTimeout(() => rideAlert(other[1], k === 'ok' ? 'fuel' : 'ok'), 3000);
+}
+/* Aviso grande de una señal: vibra (tres toques), el lector de pantalla lo lee solo y queda hasta tocar "Entendido". */
+function rideAlert(name, k) {
+  const s = SIGNALS.find(x => x[0] === k), urgent = k === 'stop' || k === 'danger';
+  let el = $('#ralert'); if (!el) { el = document.createElement('div'); el.id = 'ralert'; $('#phone').appendChild(el); }
+  el.className = 'ralert' + (urgent ? ' urg' : ''); el.setAttribute('role', 'alert');
+  el.innerHTML = `<span class="ms" aria-hidden="true">${s[3]}</span><div class="grow"><div class="t">${esc(name)} ${s[2]}</div><div class="lbl">Señal de la rodada · ahora</div></div>
+    <button class="btn ghost" onclick="$('#ralert').remove()"><span class="ms" aria-hidden="true">check</span>Entendido</button>`;
+  vibrate('alert');
+  clearTimeout(rideAlert.h); rideAlert.h = setTimeout(() => { const e = $('#ralert'); if (e) e.remove(); }, 60000);
 }
 
 /* ───────── COMERCIO ───────── */
 const SHOP = {n:'Asadero Dapa', open:false, menu:[], placed:false};
 function viewShop() {
   const noMenu = SHOP.menu.length === 0;
-  return `<div class="card"><div class="row"><div class="grow"><div class="hd" style="font-size:20px;font-weight:900">${SHOP.n}</div><div class="lbl" style="color:var(--cyan-deep)">Gastronomía & Descanso · Cali</div></div><span class="pl or">Aliado Apex</span></div>
+  return `<div class="card"><div class="row"><div class="grow"><div class="hd" role="heading" aria-level="2" style="font-size:calc(20px*var(--fsh));font-weight:900">${SHOP.n}</div><div class="lbl" style="color:var(--cyan-deep)">Gastronomía & Descanso · Cali</div></div><span class="pl or">Aliado Apex</span></div>
     <div class="row" style="background:var(--surf0);border-radius:12px;padding:12px"><span style="width:10px;height:10px;border-radius:50%;background:${SHOP.open ? 'var(--green)' : 'var(--red)'}"></span><div class="grow"><div class="b">${SHOP.open ? 'Abierto' : 'Cerrado'}</div><div class="lbl">Los riders ven tu estado en tiempo real</div></div>
       <input type="checkbox" style="width:24px;height:24px" ${SHOP.open ? 'checked' : ''} onchange="SHOP.open=this.checked;render()" aria-label="Abierto"></div></div>
-  ${noMenu || !SHOP.placed || !SHOP.open ? `<div class="card soft"><div class="line" style="color:var(--orange-dark)"><span class="ms">info</span>Para recibir pedidos por la app te falta:</div>
-    ${noMenu ? `<div class="row"><div class="grow">• Subir tu menú (al menos un producto con precio, encendido)</div><button class="btn ghost" style="min-height:38px;padding:8px 12px" onclick="go('cmenu')">Menú</button></div>` : ''}
-    ${!SHOP.placed ? `<div class="row"><div class="grow">• Marcar tu ubicación en el mapa, para que te encuentren con la guía</div><button class="btn ghost" style="min-height:38px;padding:8px 12px" onclick="go('cneg')">Negocio</button></div>` : ''}
+  ${noMenu || !SHOP.placed || !SHOP.open ? `<div class="card soft"><div class="line" style="color:var(--orange-dark)"><span class="ms" aria-hidden="true">info</span>Para recibir pedidos por la app te falta:</div>
+    ${noMenu ? `<div class="row"><div class="grow">• Subir tu menú (al menos un producto con precio, encendido)</div><button class="btn ghost" style="padding:8px 12px" onclick="go('cmenu')">Menú</button></div>` : ''}
+    ${!SHOP.placed ? `<div class="row"><div class="grow">• Marcar tu ubicación en el mapa, para que te encuentren con la guía</div><button class="btn ghost" style="padding:8px 12px" onclick="go('cneg')">Negocio</button></div>` : ''}
     ${!SHOP.open ? '<div>• Ponerte en "Abierto" con el interruptor de arriba</div>' : ''}</div>`
-    : `<div class="card" style="background:var(--green-tint);box-shadow:none"><div class="line" style="color:var(--green)"><span class="ms">check_circle</span>Listo: los riders ya te pueden hacer pedidos.</div></div>`}
+    : `<div class="card" style="background:var(--green-tint);box-shadow:none"><div class="line" style="color:var(--green)"><span class="ms" aria-hidden="true">check_circle</span>Listo: los riders ya te pueden hacer pedidos.</div></div>`}
   <div class="two"><div class="card"><div class="num" style="color:var(--cyan-deep)">0</div><div class="lbl">Pedidos nuevos</div></div><div class="card"><div class="num" style="color:var(--green)">$0</div><div class="lbl">Ventas</div></div></div>`;
 }
 function viewShopMenu() {
-  return `<div class="row"><div class="h grow"><span class="ms">restaurant_menu</span>Tu menú</div><button class="btn" onclick="SHOP.menu.push(['Sancocho de gallina', 28000]);render();toast('Producto agregado y encendido.')"><span class="ms">add</span>Agregar</button></div>
-    ${SHOP.menu.length ? SHOP.menu.map(m => `<div class="card"><div class="row"><div class="grow"><div class="b">${m[0]}</div><div class="lbl">${cop(m[1])}</div></div><span class="pl gr">Encendido</span></div></div>`).join('') : '<div class="empty"><span class="ms">restaurant_menu</span>Agrega tu primer plato o servicio.</div>'}`;
+  return `<div class="row"><div class="h grow" role="heading" aria-level="2"><span class="ms" aria-hidden="true">restaurant_menu</span>Tu menú</div><button class="btn" onclick="SHOP.menu.push(['Sancocho de gallina', 28000]);render();toast('Producto agregado y encendido.')"><span class="ms" aria-hidden="true">add</span>Agregar</button></div>
+    ${SHOP.menu.length ? SHOP.menu.map(m => `<div class="card"><div class="row"><div class="grow"><div class="b">${m[0]}</div><div class="lbl">${cop(m[1])}</div></div><span class="pl gr">Encendido</span></div></div>`).join('') : '<div class="empty"><span class="ms" aria-hidden="true">restaurant_menu</span>Agrega tu primer plato o servicio.</div>'}`;
 }
 function viewShopBiz() {
-  return `<div class="card"><div class="h"><span class="ms">store</span>Ubicación en el mapa</div><div class="lbl">Toca el mapa para fijar el punto. Los riders usarán esta ubicación para la guía.</div>
-    <div class="map" onclick="SHOP.placed=true;render();toast('Ubicación guardada.')">${SHOP.placed ? '<div class="pin or" style="left:55%;top:55%"><span class="ms">location_on</span></div>' : '<span class="float" style="left:10px">Toca para marcar</span>'}<span class="osm">© OpenStreetMap</span></div>
-    <button class="btn ghost full" onclick="SHOP.placed=true;render();toast('Usamos tu ubicación actual.')"><span class="ms">my_location</span>Usar mi ubicación actual</button></div>`;
+  return `<div class="card"><div class="h" role="heading" aria-level="2"><span class="ms" aria-hidden="true">store</span>Ubicación en el mapa</div><div class="lbl">Toca el mapa para fijar el punto. Los riders usarán esta ubicación para la guía.</div>
+    <div class="map" role="button" tabindex="0" onclick="SHOP.placed=true;render();toast('Ubicación guardada.')">${SHOP.placed ? '<div class="pin or" style="left:55%;top:55%"><span class="ms" aria-hidden="true">location_on</span></div>' : '<span class="float" style="left:10px">Toca para marcar</span>'}<span class="osm">© OpenStreetMap</span></div>
+    <button class="btn ghost full" onclick="SHOP.placed=true;render();toast('Usamos tu ubicación actual.')"><span class="ms" aria-hidden="true">my_location</span>Usar mi ubicación actual</button></div>`;
 }
-function viewShopOrders() { return `<div class="empty"><span class="ms">receipt_long</span>Todavía no hay pedidos. Se ordenan por la hora a la que llega cada rider.</div>`; }
+function viewShopOrders() { return `<div class="empty"><span class="ms" aria-hidden="true">receipt_long</span>Todavía no hay pedidos. Se ordenan por la hora a la que llega cada rider.</div>`; }
 function viewShopRedeem() {
-  return `<div class="card"><div class="h"><span class="ms">qr_code_scanner</span>Canjear cupón</div><input placeholder="APX-XXXX" style="font:800 20px 'JetBrains Mono';text-transform:uppercase" oninput="$('#rb').disabled=this.value.length<4">
-    <button class="btn full" id="rb" disabled onclick="toast('Cupón canjeado.')"><span class="ms">check</span>Canjear</button></div>`;
+  return `<div class="card"><div class="h" role="heading" aria-level="2"><span class="ms" aria-hidden="true">qr_code_scanner</span>Canjear cupón</div><input placeholder="APX-XXXX" style="font:800 calc(20px*var(--fsh)) 'JetBrains Mono';text-transform:uppercase" oninput="$('#rb').disabled=this.value.length<4">
+    <button class="btn full" id="rb" disabled onclick="toast('Cupón canjeado.')"><span class="ms" aria-hidden="true">check</span>Canjear</button></div>`;
 }
 
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') closeSheet();
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('[role="button"]:not(button)')) { e.preventDefault(); e.target.click(); }
+});
+document.documentElement.lang = 'es-CO';   // idioma de la página para el lector de pantalla (también en la copia de Artifacts)
+applyA11y();
 render();
 </script>
 

@@ -13,6 +13,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Accesibilidad: vibración en cada giro del guiado y con las señales de la rodada (aviso que no depende de oír). -->
+    <uses-permission android:name="android.permission.VIBRATE" />
 
     <application
         android:name=".ApexApp"

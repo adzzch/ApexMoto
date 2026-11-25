@@ -70,7 +70,7 @@ fun ColumnScope.HomeSection(vm: AppViewModel, nav: NavController, u: AppUser, on
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send), keyboardActions = KeyboardActions(onSend = { ask() }),
                 decorationBox = { inner -> Box { if (q.isEmpty()) Text("Ej: un mirador y almorzar trucha", color = Muted, style = MaterialTheme.typography.bodyLarge); inner() } },
             )
-            Box(Modifier.size(44.dp).clip(CircleShape).background(if (q.isNotBlank()) Orange else Surf4).clickable(enabled = q.isNotBlank() && !busy, onClickLabel = "Armar ruta") { ask() },
+            Box(Modifier.size(TouchMin).clip(CircleShape).background(if (q.isNotBlank()) Orange else Surf4).clickable(enabled = q.isNotBlank() && !busy, onClickLabel = "Armar ruta") { ask() },
                 contentAlignment = Alignment.Center) {
                 if (busy) CircularProgressIndicator(Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
                 else Icon(Icons.AutoMirrored.Filled.Send, "Armar ruta", tint = Color.White, modifier = Modifier.size(20.dp))
@@ -80,7 +80,7 @@ fun ColumnScope.HomeSection(vm: AppViewModel, nav: NavController, u: AppUser, on
             CircularProgressIndicator(Modifier.size(14.dp), color = Orange, strokeWidth = 2.dp); Spacer(Modifier.width(8.dp))
             Text("Armando tu ruta con lugares reales…", color = OrangeDark, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
         } else Text("Escríbelo como se lo dirías a un amigo: la IA te arma la ruta con lugares reales. No escribas datos personales.",
-            color = Muted, fontSize = 11.sp, lineHeight = 15.sp)
+            color = Muted, fontSize = 12.sp, lineHeight = 16.sp)
         HorizontalDivider(color = Surf3)
         // Explorar: la otra forma de elegir, en su propia vista.
         Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable(onClickLabel = "Explorar") { onGo("exp") }.padding(vertical = 6.dp),

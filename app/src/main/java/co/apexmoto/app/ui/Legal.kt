@@ -385,7 +385,7 @@ fun LegalCenterScreen(vm: AppViewModel, u: AppUser) {
                 ctx.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain")
                     .putExtra(Intent.EXTRA_SUBJECT, "Mis datos en ApexMoto").putExtra(Intent.EXTRA_TEXT, text.take(200_000)), "Compartir mis datos"))
             }
-            Text(text, Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Surf0).padding(12.dp), fontFamily = JetBrainsMono, fontSize = 11.sp, lineHeight = 15.sp, color = Ink)
+            Text(text, Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(Surf0).padding(12.dp), fontFamily = JetBrainsMono, fontSize = 12.sp, lineHeight = 16.sp, color = Ink)
         }
     }
 }

@@ -136,6 +136,8 @@ data class RiderStats(@DocumentId var id: String = "", var since: Long = 0, var 
 data class LivePos(
     @DocumentId var id: String = "", var lat: Double = 0.0, var lng: Double = 0.0, var heading: Double = 0.0,
     var name: String = "", var moto: String = "naked", var color: String = "orange", var sos: Boolean = false,
+    /** Última señal rápida que mandó al grupo (ver RIDE_SIGNALS; "" si ninguna) y cuándo, con la hora del servidor. */
+    var signal: String = "", var signalAt: Date? = null,
     @ServerTimestamp var updatedAt: Date? = null,
 )
 
